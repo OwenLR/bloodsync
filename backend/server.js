@@ -5,19 +5,21 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 
 // Routes
 const roleRoutes = require('./app/routes/roleRoutes');
-app.use('/api/roles', roleRoutes);
+const branchRoutes = require('./app/routes/branchRoutes');
+const hospitalRoutes = require('./app/routes/hospitalRoutes'); 
 
-// Base route
+app.use('/api/roles', roleRoutes);
+app.use('/api/branches', branchRoutes);
+app.use('/api/hospitals', hospitalRoutes);
+
 app.get('/', (req, res) => {
     res.json({ message: 'BloodSync API is running' });
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

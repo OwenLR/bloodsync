@@ -25,7 +25,10 @@ const createRole = async (role_name) => {
 
 const updateRole = async (id, role_name) => {
     const result = await pool.query(
-        'UPDATE roles SET role_name = $1 WHERE role_id = $2 RETURNING *',
+        `UPDATE roles 
+         SET role_name = COALESCE($1, role_name)
+         WHERE role_id = $2 
+         RETURNING *`,
         [role_name, id]
     );
     return result.rows[0];
