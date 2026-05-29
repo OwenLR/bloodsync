@@ -1,0 +1,19 @@
+
+29/05/2026
+- creates authentication.
+- "GET" is allowed to the public for 'hospitals' and 'branch' table / but cant "POST", "PATCH", "DELETE", only admin can do that.
+- 'roles' and 'users' tables are accessible/limited to admin only 
+- fixed an error where NEON becames idle and the app crashes(normal for cloud database)
+
+morgan format options(tells to the terminal what is happening/actions made in postman)
+- in the 'server.js'
+app.use(morgan('dev'));      // colored, concise — best for development
+app.use(morgan('tiny'));     // minimal output
+app.use(morgan('combined')); // detailed — best for production
+
+- installed "helmet express-rate-limit hpp validator nodemailer xss"
+
+"slugify" -----------  URL-friendly strings ------------- (NOT YET IMPLEMENTED)
+
+current access to donor is in donor routes
+
