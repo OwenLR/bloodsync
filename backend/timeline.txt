@@ -1,5 +1,5 @@
 
-29/05/2026
+--------------------------------------------------------29/05/2026-------------------------------------------------------------------
 - creates authentication.
 - "GET" is allowed to the public for 'hospitals' and 'branch' table / but cant "POST", "PATCH", "DELETE", only admin can do that.
 - 'roles' and 'users' tables are accessible/limited to admin only 
@@ -15,5 +15,13 @@ app.use(morgan('combined')); // detailed — best for production
 
 "slugify" -----------  URL-friendly strings ------------- (NOT YET IMPLEMENTED)
 
-current access to donor is in donor routes
+- current access to donor is in donor routes
+- added constants/routes.js
 
+
+--------------------------------------------------------30/05/2026-------------------------------------------------------------------
+
+- added donor screening, interviewQuestion/Answer, deferral
+- added donation and blood collection mvc
+- added blood unit(main inventory, safe and tested), the blood collection is the holding inventory for untested unit, came straight from blood extraction
+***NOT YET TESTED IN POSTMAN***
