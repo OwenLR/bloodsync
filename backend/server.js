@@ -56,13 +56,21 @@ const hospitalRoutes = require('./app/routes/hospitalRoutes');
 const userRoutes     = require('./app/routes/userRoutes');
 const authRoutes     = require('./app/routes/authRoutes');
 const donorRoutes    = require('./app/routes/donorRoutes');
+const interviewQuestionRoutes = require('./app/routes/interviewQuestionRoutes');
+const screeningRoutes =         require('./app/routes/screeningRoutes');
+const interviewAnswerRoutes =   require('./app/routes/interviewAnswerRoutes');
+const deferralRoutes =          require('./app/routes/deferralRoutes');
 
-app.use('/api/roles',     roleRoutes);
-app.use('/api/branches',  branchRoutes);
-app.use('/api/hospitals', hospitalRoutes);
-app.use('/api/users',     userRoutes);
-app.use('/api/auth',      authRoutes);
-app.use('/api/donors',    donorRoutes);
+app.use('/api/roles',               roleRoutes);
+app.use('/api/branches',            branchRoutes);
+app.use('/api/hospitals',           hospitalRoutes);
+app.use('/api/users',               userRoutes);
+app.use('/api/auth',                authRoutes);
+app.use('/api/donors',              donorRoutes);
+app.use('/api/interview-questions', interviewQuestionRoutes);
+app.use('/api/screenings',          screeningRoutes);
+app.use('/api/interview-answers',   interviewAnswerRoutes);
+app.use('/api/deferrals',           deferralRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'BloodSync API is running' });

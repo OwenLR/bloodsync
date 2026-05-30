@@ -1,27 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const donorController = require('../controllers/donorController');
+const ROLES = require('../../constants/roles');
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { checkRole } = require('../../middleware/roleMiddleware');
 
-// role_id 1 = Admin, 2 = PRC Staff, 5 = Volunteer, 6 = Phlebotomist
-
-// Search donors
-router.get('/search', verifyToken, checkRole([1, 2, 5, 6]), donorController.searchDonors);
-
-// Get all donors
-router.get('/', verifyToken, checkRole([1, 2, 5, 6]), donorController.getAllDonors);
-
-// Get donor by id
-router.get('/:id', verifyToken, checkRole([1, 2, 5, 6]), donorController.getDonorById);
-
-// Register donor — staff and phlebotomist
-router.post('/', verifyToken, checkRole([1, 2, 5, 6]), donorController.createDonor);
-
-// Update donor
-router.patch('/:id', verifyToken, checkRole([1, 2]), donorController.updateDonor);
-
-// Delete donor — admin only
-router.delete('/:id', verifyToken, checkRole([1]), donorController.deleteDonor);
+router.get('/search', verifyToken, checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]), donorController.searchDonors);
+router.get('/', verifyToken, checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]), donorController.getAllDonors);
+router.get('/:id', verifyToken, checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]), donorController.getDonorById);
+router.post('/', verifyToken, checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]), donorController.createDonor);
+router.patch('/:id', verifyToken, checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]), donorController.updateDonor);
+router.delete('/:id', verifyToken, checkRole([ROLES.ADMIN]), donorController.deleteDonor);
 
 module.exports = router;
