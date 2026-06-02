@@ -1,38 +1,22 @@
 const roleModel = require('../models/roleModel');
+const response = require('../../utils/responseHelper');
 
 const getAllRoles = async (req, res) => {
     try {
         const roles = await roleModel.getAllRoles();
-        res.status(200).json({
-            status: 'success',
-            data: roles
-        });
+        return response.success(res, roles);
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
 const getRoleById = async (req, res) => {
     try {
         const role = await roleModel.getRoleById(req.params.id);
-        if (!role) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Role not found'
-            });
-        }
-        res.status(200).json({
-            status: 'success',
-            data: role
-        });
+        if (!role) return response.notFound(res, 'Role not found');
+        return response.success(res, role);
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
@@ -40,22 +24,12 @@ const createRole = async (req, res) => {
     try {
         const { role_name } = req.body;
         if (!role_name) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'role_name is required'
-            });
+            return response.badRequest(res, 'role_name is required');
         }
         const role = await roleModel.createRole(role_name);
-        res.status(201).json({
-            status: 'success',
-            message: 'Role created successfully',
-            data: role
-        });
+        return response.created(res, role, 'Role created successfully');
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
@@ -63,50 +37,26 @@ const updateRole = async (req, res) => {
     try {
         const { role_name } = req.body;
         if (!role_name) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'role_name is required'
-            });
+            return response.badRequest(res, 'role_name is required');
         }
-        const role = await roleModel.updateRole(req.params.id, role_name);
-        if (!role) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Role not found'
-            });
-        }
-        res.status(200).json({
-            status: 'success',
-            message: 'Role updated successfully',
-            data: role
-        });
+        const role = await roleModel.updateRole(
+            req.params.id,
+            role_name
+        );
+        if (!role) return response.notFound(res, 'Role not found');
+        return response.success(res, role, 'Role updated successfully');
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
 const deleteRole = async (req, res) => {
     try {
         const role = await roleModel.deleteRole(req.params.id);
-        if (!role) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Role not found'
-            });
-        }
-        res.status(200).json({
-            status: 'success',
-            message: 'Role deleted successfully',
-            data: role
-        });
+        if (!role) return response.notFound(res, 'Role not found');
+        return response.success(res, role, 'Role deleted successfully');
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 

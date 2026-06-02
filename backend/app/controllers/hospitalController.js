@@ -1,38 +1,25 @@
 const hospitalModel = require('../models/hospitalModel');
+const response = require('../../utils/responseHelper');
 
 const getAllHospitals = async (req, res) => {
     try {
         const hospitals = await hospitalModel.getAllHospitals();
-        res.status(200).json({
-            status: 'success',
-            data: hospitals
-        });
+        return response.success(res, hospitals);
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
 const getHospitalById = async (req, res) => {
     try {
-        const hospital = await hospitalModel.getHospitalById(req.params.id);
+        const hospital = await hospitalModel
+            .getHospitalById(req.params.id);
         if (!hospital) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Hospital not found'
-            });
+            return response.notFound(res, 'Hospital not found');
         }
-        res.status(200).json({
-            status: 'success',
-            data: hospital
-        });
+        return response.success(res, hospital);
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
@@ -40,22 +27,22 @@ const createHospital = async (req, res) => {
     try {
         const { hospital_name, location } = req.body;
         if (!hospital_name || !location) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'hospital_name and location are required'
-            });
+            return response.badRequest(
+                res,
+                'hospital_name and location are required'
+            );
         }
-        const hospital = await hospitalModel.createHospital(hospital_name, location);
-        res.status(201).json({
-            status: 'success',
-            message: 'Hospital created successfully',
-            data: hospital
-        });
+        const hospital = await hospitalModel.createHospital(
+            hospital_name,
+            location
+        );
+        return response.created(
+            res,
+            hospital,
+            'Hospital created successfully'
+        );
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
@@ -63,10 +50,10 @@ const updateHospital = async (req, res) => {
     try {
         const { hospital_name, location } = req.body;
         if (!hospital_name && !location) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'At least one field required to update'
-            });
+            return response.badRequest(
+                res,
+                'At least one field required to update'
+            );
         }
         const hospital = await hospitalModel.updateHospital(
             req.params.id,
@@ -74,43 +61,32 @@ const updateHospital = async (req, res) => {
             location
         );
         if (!hospital) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Hospital not found'
-            });
+            return response.notFound(res, 'Hospital not found');
         }
-        res.status(200).json({
-            status: 'success',
-            message: 'Hospital updated successfully',
-            data: hospital
-        });
+        return response.success(
+            res,
+            hospital,
+            'Hospital updated successfully'
+        );
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
 const deleteHospital = async (req, res) => {
     try {
-        const hospital = await hospitalModel.deleteHospital(req.params.id);
+        const hospital = await hospitalModel
+            .deleteHospital(req.params.id);
         if (!hospital) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Hospital not found'
-            });
+            return response.notFound(res, 'Hospital not found');
         }
-        res.status(200).json({
-            status: 'success',
-            message: 'Hospital deleted successfully',
-            data: hospital
-        });
+        return response.success(
+            res,
+            hospital,
+            'Hospital deleted successfully'
+        );
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 

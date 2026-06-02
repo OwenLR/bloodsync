@@ -1,49 +1,47 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userModel = require('../models/userModel');
+const response = require('../../utils/responseHelper');
 
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Validate input
         if (!email || !password) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Email and password are required'
-            });
+            return response.badRequest(
+                res,
+                'Email and password are required'
+            );
         }
 
-        // Check if user exists
         const user = await userModel.getUserByEmail(email);
         if (!user) {
-            return res.status(401).json({
-                status: 'error',
-                message: 'Invalid email or password'
-            });
+            return response.unauthorized(
+                res,
+                'Invalid email or password'
+            );
         }
 
-        // Check if user is active
         if (!user.is_active) {
-            return res.status(401).json({
-                status: 'error',
-                message: 'Account is deactivated. Contact administrator.'
-            });
+            return response.unauthorized(
+                res,
+                'Account is deactivated. Contact administrator.'
+            );
         }
 
-        // Check password
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        const isPasswordValid = await bcrypt.compare(
+            password,
+            user.password
+        );
         if (!isPasswordValid) {
-            return res.status(401).json({
-                status: 'error',
-                message: 'Invalid email or password'
-            });
+            return response.unauthorized(
+                res,
+                'Invalid email or password'
+            );
         }
 
-        // Update last login
         await userModel.updateLastLogin(user.user_id);
 
-        // Generate JWT token
         const token = jwt.sign(
             {
                 user_id: user.user_id,
@@ -55,7 +53,7 @@ const login = async (req, res) => {
             { expiresIn: process.env.JWT_EXPIRES_IN }
         );
 
-        res.status(200).json({
+        return res.status(200).json({
             status: 'success',
             message: 'Login successful',
             token,
@@ -69,20 +67,12 @@ const login = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
 const logout = async (req, res) => {
-    // JWT is stateless — logout is handled client side
-    // Client just deletes the token
-    res.status(200).json({
-        status: 'success',
-        message: 'Logged out successfully'
-    });
+    return response.success(res, null, 'Logged out successfully');
 };
 
 module.exports = { login, logout };

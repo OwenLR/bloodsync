@@ -1,38 +1,22 @@
 const branchModel = require('../models/branchModel');
+const response = require('../../utils/responseHelper');
 
 const getAllBranches = async (req, res) => {
     try {
         const branches = await branchModel.getAllBranches();
-        res.status(200).json({
-            status: 'success',
-            data: branches
-        });
+        return response.success(res, branches);
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
 const getBranchById = async (req, res) => {
     try {
         const branch = await branchModel.getBranchById(req.params.id);
-        if (!branch) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Branch not found'
-            });
-        }
-        res.status(200).json({
-            status: 'success',
-            data: branch
-        });
+        if (!branch) return response.notFound(res, 'Branch not found');
+        return response.success(res, branch);
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
@@ -40,22 +24,22 @@ const createBranch = async (req, res) => {
     try {
         const { branch_name, location } = req.body;
         if (!branch_name || !location) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'branch_name and location are required'
-            });
+            return response.badRequest(
+                res,
+                'branch_name and location are required'
+            );
         }
-        const branch = await branchModel.createBranch(branch_name, location);
-        res.status(201).json({
-            status: 'success',
-            message: 'Branch created successfully',
-            data: branch
-        });
+        const branch = await branchModel.createBranch(
+            branch_name,
+            location
+        );
+        return response.created(
+            res,
+            branch,
+            'Branch created successfully'
+        );
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
@@ -63,54 +47,38 @@ const updateBranch = async (req, res) => {
     try {
         const { branch_name, location } = req.body;
         if (!branch_name && !location) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'At least one field required to update'
-            });
+            return response.badRequest(
+                res,
+                'At least one field required to update'
+            );
         }
         const branch = await branchModel.updateBranch(
             req.params.id,
             branch_name,
             location
         );
-        if (!branch) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Branch not found'
-            });
-        }
-        res.status(200).json({
-            status: 'success',
-            message: 'Branch updated successfully',
-            data: branch
-        });
+        if (!branch) return response.notFound(res, 'Branch not found');
+        return response.success(
+            res,
+            branch,
+            'Branch updated successfully'
+        );
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
 const deleteBranch = async (req, res) => {
     try {
         const branch = await branchModel.deleteBranch(req.params.id);
-        if (!branch) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Branch not found'
-            });
-        }
-        res.status(200).json({
-            status: 'success',
-            message: 'Branch deleted successfully',
-            data: branch
-        });
+        if (!branch) return response.notFound(res, 'Branch not found');
+        return response.success(
+            res,
+            branch,
+            'Branch deleted successfully'
+        );
     } catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message
-        });
+        return response.error(res, error.message);
     }
 };
 
