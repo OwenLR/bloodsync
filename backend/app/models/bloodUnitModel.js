@@ -179,6 +179,22 @@ const updateUnitStatus = async (id, status, reason, user_id) => {
     return result.rows[0];
 };
 
+const getAvailableUnitsForAssignment = async (bloodType, component, branchId, limit) => {
+    const result = await pool.query(
+        `SELECT unit_id, blood_type, component, expiration_date, barcode
+         FROM blood_units
+         WHERE blood_type = $1
+         AND component = $2
+         AND branch_id = $3
+         AND status = 'Available'
+         AND expiration_date > NOW()
+         ORDER BY expiration_date ASC
+         LIMIT $4`,
+        [bloodType, component, branchId, limit]
+    );
+    return result.rows;
+};
+
 module.exports = {
     getAllUnits,
     getUnitById,
@@ -186,5 +202,6 @@ module.exports = {
     getInventoryByBloodType,
     getInventoryAvailability,
     createUnit,
-    updateUnitStatus
+    updateUnitStatus,
+    getAvailableUnitsForAssignment
 };

@@ -1,6 +1,6 @@
 const pool = require('../../config/db');
 
-const getAllUsers = async () => {
+const getAllUsers = async (status = null) => {
     const result = await pool.query(
         `SELECT 
             u.user_id,
@@ -12,11 +12,15 @@ const getAllUsers = async () => {
             u.last_login,
             u.created_at,
             r.role_name,
-            b.branch_name
+            r.role_id,
+            b.branch_name,
+            b.branch_id
          FROM users u
          JOIN roles r ON u.role_id = r.role_id
          LEFT JOIN branches b ON u.branch_id = b.branch_id
-         ORDER BY u.user_id ASC`
+         WHERE ($1::VARCHAR IS NULL OR u.status = $1)
+         ORDER BY u.user_id ASC`,
+        [status]
     );
     return result.rows;
 };
@@ -33,7 +37,9 @@ const getUserById = async (id) => {
             u.last_login,
             u.created_at,
             r.role_name,
-            b.branch_name
+            r.role_id,
+            b.branch_name,
+            b.branch_id
          FROM users u
          JOIN roles r ON u.role_id = r.role_id
          LEFT JOIN branches b ON u.branch_id = b.branch_id
@@ -58,6 +64,19 @@ const createUser = async (first_name, last_name, email, password, role_id, branc
          VALUES ($1, $2, $3, $4, $5, $6) 
          RETURNING user_id, first_name, last_name, email, role_id, branch_id, status, created_at`,
         [first_name, last_name, email, password, role_id, branch_id]
+    );
+    return result.rows[0];
+};
+
+// Used by volunteer/phlebotomist self-registration
+// status = Pending, is_active = false by default from DB
+const createPendingUser = async (first_name, last_name, email, password, role_id) => {
+    const result = await pool.query(
+        `INSERT INTO users
+            (first_name, last_name, email, password, role_id, status, is_active)
+         VALUES ($1, $2, $3, $4, $5, 'Pending', false)
+         RETURNING user_id, first_name, last_name, email, role_id, status, is_active, created_at`,
+        [first_name, last_name, email, password, role_id]
     );
     return result.rows[0];
 };
@@ -100,7 +119,8 @@ module.exports = {
     getUserById,
     getUserByEmail,
     createUser,
+    createPendingUser,
     updateUser,
     updateLastLogin,
-    deleteUser
+    deleteUser,
 };

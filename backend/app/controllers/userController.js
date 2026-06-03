@@ -8,7 +8,8 @@ const {
 
 const getAllUsers = async (req, res) => {
     try {
-        const users = await userModel.getAllUsers();
+        const { status } = req.query; // ?status=Pending
+        const users = await userModel.getAllUsers(status || null);
         return response.success(res, users);
     } catch (error) {
         return response.error(res, error.message);

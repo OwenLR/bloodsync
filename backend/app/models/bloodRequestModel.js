@@ -1,0 +1,207 @@
+const pool = require('../../config/db');
+
+const getAllRequests = async () => {
+    const result = await pool.query(
+        `SELECT br.request_id, br.requestor_id,
+                r.first_name, r.last_name,
+                br.hospital_id, h.hospital_name,
+                br.branch_id, b.branch_name,
+                br.patient_name, br.patient_age, br.diagnosis,
+                br.urgency_level, br.request_form_path,
+                br.status, br.denial_reason,
+                br.reviewed_by, br.reviewed_at,
+                br.notes, br.created_at, br.updated_at
+         FROM blood_requests br
+         LEFT JOIN requestors r ON br.requestor_id = r.requestor_id
+         LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
+         LEFT JOIN branches b ON br.branch_id = b.branch_id
+         ORDER BY br.created_at DESC`
+    );
+    return result.rows;
+};
+
+const getRequestById = async (id) => {
+    const result = await pool.query(
+        `SELECT br.request_id, br.requestor_id,
+                r.first_name, r.last_name,
+                br.hospital_id, h.hospital_name,
+                br.branch_id, b.branch_name,
+                br.patient_name, br.patient_age, br.diagnosis,
+                br.urgency_level, br.request_form_path,
+                br.status, br.denial_reason,
+                br.reviewed_by, br.reviewed_at,
+                br.notes, br.created_at, br.updated_at
+         FROM blood_requests br
+         LEFT JOIN requestors r ON br.requestor_id = r.requestor_id
+         LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
+         LEFT JOIN branches b ON br.branch_id = b.branch_id
+         WHERE br.request_id = $1`,
+        [id]
+    );
+    return result.rows[0];
+};
+
+const getRequestsByRequestor = async (requestorId) => {
+    const result = await pool.query(
+        `SELECT br.request_id, br.hospital_id, h.hospital_name,
+                br.branch_id, b.branch_name,
+                br.patient_name, br.urgency_level,
+                br.status, br.created_at
+         FROM blood_requests br
+         LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
+         LEFT JOIN branches b ON br.branch_id = b.branch_id
+         WHERE br.requestor_id = $1
+         ORDER BY br.created_at DESC`,
+        [requestorId]
+    );
+    return result.rows;
+};
+
+const createRequest = async (data) => {
+    const {
+        requestor_id, hospital_id, branch_id,
+        patient_name, patient_age, diagnosis,
+        urgency_level, request_form_path, notes
+    } = data;
+
+    const result = await pool.query(
+        `INSERT INTO blood_requests
+            (requestor_id, hospital_id, branch_id, patient_name,
+             patient_age, diagnosis, urgency_level, request_form_path, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [requestor_id, hospital_id, branch_id, patient_name,
+         patient_age, diagnosis, urgency_level, request_form_path, notes]
+    );
+    return result.rows[0];
+};
+
+const updateRequestStatus = async (id, status, reviewedBy, denialReason = null) => {
+    const result = await pool.query(
+        `UPDATE blood_requests SET
+            status        = $1,
+            reviewed_by   = $2,
+            reviewed_at   = NOW(),
+            denial_reason = COALESCE($3, denial_reason),
+            updated_at    = NOW()
+         WHERE request_id = $4
+         RETURNING *`,
+        [status, reviewedBy, denialReason, id]
+    );
+    return result.rows[0];
+};
+
+// request_items
+const createRequestItems = async (requestId, items) => {
+    const values = items.map((item, i) => {
+        const offset = i * 4;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+    }).join(', ');
+
+    const params = items.flatMap(item => [
+        requestId,
+        item.blood_type,
+        item.component,
+        item.units_requested
+    ]);
+
+    const result = await pool.query(
+        `INSERT INTO request_items
+            (request_id, blood_type, component, units_requested)
+         VALUES ${values}
+         RETURNING *`,
+        params
+    );
+    return result.rows;
+};
+
+const getItemsByRequest = async (requestId) => {
+    const result = await pool.query(
+        `SELECT * FROM request_items WHERE request_id = $1`,
+        [requestId]
+    );
+    return result.rows;
+};
+
+const updateItemFulfilled = async (itemId, unitsFulfilled) => {
+    await pool.query(
+        `UPDATE request_items
+         SET units_fulfilled = $1
+         WHERE item_id = $2`,
+        [unitsFulfilled, itemId]
+    );
+};
+
+// request_status_logs
+const createStatusLog = async (data) => {
+    const { request_id, old_status, new_status, changed_by_type, changed_by_id, notes } = data;
+    await pool.query(
+        `INSERT INTO request_status_logs
+            (request_id, old_status, new_status, changed_by_type, changed_by_id, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [request_id, old_status, new_status, changed_by_type, changed_by_id, notes]
+    );
+};
+
+const getStatusLogsByRequest = async (requestId) => {
+    const result = await pool.query(
+        `SELECT * FROM request_status_logs
+         WHERE request_id = $1
+         ORDER BY created_at ASC`,
+        [requestId]
+    );
+    return result.rows;
+};
+
+// reservations
+const createReservation = async (data) => {
+    const { request_id, item_id, unit_id, reserved_by, notes } = data;
+    const result = await pool.query(
+        `INSERT INTO reservations
+            (request_id, item_id, unit_id, reserved_by, notes)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [request_id, item_id, unit_id, reserved_by, notes]
+    );
+    return result.rows[0];
+};
+
+const getReservationsByRequest = async (requestId) => {
+    const result = await pool.query(
+        `SELECT res.*, bu.blood_type, bu.component,
+                bu.expiration_date, bu.barcode
+         FROM reservations res
+         LEFT JOIN blood_units bu ON res.unit_id = bu.unit_id
+         WHERE res.request_id = $1`,
+        [requestId]
+    );
+    return result.rows;
+};
+
+const updateReservationStatus = async (reservationId, status, releasedAt = null) => {
+    const result = await pool.query(
+        `UPDATE reservations SET
+            status      = $1,
+            released_at = COALESCE($2, released_at)
+         WHERE reservation_id = $3
+         RETURNING *`,
+        [status, releasedAt, reservationId]
+    );
+    return result.rows[0];
+};
+
+module.exports = {
+    getAllRequests,
+    getRequestById,
+    getRequestsByRequestor,
+    createRequest,
+    updateRequestStatus,
+    createRequestItems,
+    getItemsByRequest,
+    updateItemFulfilled,
+    createStatusLog,
+    getStatusLogsByRequest,
+    createReservation,
+    getReservationsByRequest,
+    updateReservationStatus,
+};

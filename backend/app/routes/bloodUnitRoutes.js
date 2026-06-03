@@ -3,13 +3,14 @@ const router = express.Router();
 const bloodUnitController = require('../controllers/bloodUnitController');
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { checkRole } = require('../../middleware/roleMiddleware');
+const { cache } = require('../../middleware/cacheMiddleware');
 const ROLES = require('../../constants/roles');
 
-// Requestor views availability only
-// Available or Not Available
+// Requestor views availability only — cached 60 seconds
 router.get('/availability',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.REQUESTOR]),
+    cache(60, () => 'cache:blood-units:availability'),
     bloodUnitController.getInventoryAvailability
 );
 

@@ -6,16 +6,13 @@ const pool = new Pool({
     ssl: {
         rejectUnauthorized: false
     },
-    // Connection pool settings
-    max: 10,                  // maximum connections
-    idleTimeoutMillis: 30000, // close idle connections after 30s
-    connectionTimeoutMillis: 2000, // timeout if cant connect after 2s
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
 });
 
-// Handle unexpected errors without crashing
 pool.on('error', (err) => {
     console.error('Unexpected database error:', err.message);
-    // Log but do NOT crash
 });
 
 pool.connect()

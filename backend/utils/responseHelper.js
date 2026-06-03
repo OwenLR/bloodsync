@@ -1,3 +1,5 @@
+const Sentry = require('@sentry/node');
+
 const success = (res, data, message = null, statusCode = 200) => {
     const response = { status: 'success' };
     if (message) response.message = message;
@@ -11,6 +13,9 @@ const created = (res, data, message) => {
 };
 
 const error = (res, message, statusCode = 500) => {
+    if (statusCode === 500) {
+        Sentry.captureMessage(message, 'error');
+    }
     return res.status(statusCode).json({
         status: 'error',
         message
