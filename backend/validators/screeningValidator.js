@@ -4,12 +4,12 @@ const { SCREENING_RESULTS, HEMOGLOBIN_STATUSES } = require('../constants/statuse
 const validateCreateScreening = (data) => {
     const errors = [];
     const {
-        donor_id, weight, hemoglobin, pulse_rate,
+        interview_id, weight, hemoglobin, pulse_rate,
         blood_pressure, screening_result,
         blood_type_confirmed, hemoglobin_status
     } = data;
 
-    if (!donor_id) errors.push('donor_id is required');
+    if (!interview_id) errors.push('interview_id is required');
     if (!hemoglobin) errors.push('hemoglobin is required');
     if (!screening_result) errors.push('screening_result is required');
 

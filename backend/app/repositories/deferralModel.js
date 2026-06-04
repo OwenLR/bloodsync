@@ -23,7 +23,7 @@ const getDeferralsByDonor = async (donor_id) => {
     return result.rows;
 };
 
-const getDeferralsByScreening = async (screening_id) => {
+const getDeferralsByInterview = async (interview_id) => {
     const result = await pool.query(
         `SELECT
             d.deferral_id,
@@ -36,29 +36,29 @@ const getDeferralsByScreening = async (screening_id) => {
          FROM donor_deferrals d
          LEFT JOIN donor_interview_questions q
             ON d.question_id = q.question_id
-         WHERE d.screening_id = $1
+         WHERE d.interview_id = $1
          ORDER BY d.created_at DESC`,
-        [screening_id]
+        [interview_id]
     );
     return result.rows;
 };
 
 const createDeferral = async (data) => {
     const {
-        donor_id, screening_id, question_id,
+        donor_id, interview_id, question_id,
         deferral_reason, deferral_type,
         deferral_until, deferred_by
     } = data;
 
     const result = await pool.query(
         `INSERT INTO donor_deferrals (
-            donor_id, screening_id, question_id,
+            donor_id, interview_id, question_id,
             deferral_reason, deferral_type,
             deferral_until, deferred_by
          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
-            donor_id, screening_id, question_id,
+            donor_id, interview_id, question_id,
             deferral_reason, deferral_type,
             deferral_until, deferred_by
         ]
@@ -71,12 +71,12 @@ const createMultipleDeferrals = async (deferrals) => {
     for (const d of deferrals) {
         const result = await pool.query(
             `INSERT INTO donor_deferrals (
-                donor_id, screening_id, question_id,
+                donor_id, interview_id, question_id,
                 deferral_reason, deferral_type, deferred_by
              ) VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING *`,
             [
-                d.donor_id, d.screening_id, d.question_id,
+                d.donor_id, d.interview_id, d.question_id,
                 d.deferral_reason, d.deferral_type, d.deferred_by
             ]
         );
@@ -85,7 +85,6 @@ const createMultipleDeferrals = async (deferrals) => {
     return created;
 };
 
-// Checks if donor has a permanent or still-active temporary deferral
 const checkActiveDeferral = async (donor_id) => {
     const result = await pool.query(
         `SELECT * FROM donor_deferrals
@@ -104,7 +103,6 @@ const checkActiveDeferral = async (donor_id) => {
     return result.rows[0];
 };
 
-// Checks if donor was deferred today — blocks same-day re-attempt
 const checkSameDayDeferral = async (donor_id) => {
     const result = await pool.query(
         `SELECT * FROM donor_deferrals
@@ -119,7 +117,7 @@ const checkSameDayDeferral = async (donor_id) => {
 
 module.exports = {
     getDeferralsByDonor,
-    getDeferralsByScreening,
+    getDeferralsByInterview,
     createDeferral,
     createMultipleDeferrals,
     checkActiveDeferral,

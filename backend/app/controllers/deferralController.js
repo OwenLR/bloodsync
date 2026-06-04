@@ -1,4 +1,4 @@
-const deferralModel = require('../models/deferralModel');
+const deferralModel = require('../repositories/deferralModel');
 const response = require('../../utils/responseHelper');
 
 const getDeferralsByDonor = async (req, res) => {

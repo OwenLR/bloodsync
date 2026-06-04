@@ -1,24 +1,35 @@
-const screeningModel = require('../models/screeningModel');
-const donorModel = require('../models/donorModel');
-const interviewAnswerModel = require('../models/interviewAnswerModel');
+const screeningModel = require('../repositories/screeningModel');
+const donorModel = require('../repositories/donorModel');
+const donorInterviewModel = require('../repositories/donorInterviewModel');
 
 const createScreening = async (data, user_id) => {
-    // Check donor exists
-    const donor = await donorModel.getDonorById(data.donor_id);
-    if (!donor) throw new Error('Donor not found');
+    const { interview_id } = data;
 
-    // Check interview answers submitted for this screening
-    // Screening record must exist first — but answers are submitted
-    // against a screening_id, so screening is created before answers.
-    // What we enforce here: screening result cannot be set to Eligible
-    // unless answers have been submitted.
-    // Note: screening is created first, then answers submitted,
-    // then screening result is updated via updateScreening.
-    // So createScreening just creates the record — result starts null.
+    // Check interview exists
+    const interview = await donorInterviewModel.getInterviewById(interview_id);
+    if (!interview) throw new Error('Interview session not found');
 
+    // Interview must have Passed before screening can be created
+    if (interview.interview_result !== 'Passed') {
+        throw new Error(
+            interview.interview_result === 'Failed'
+                ? 'Cannot create screening — donor did not pass the interview'
+                : 'Cannot create screening — interview answers not yet submitted'
+        );
+    }
+
+    // Check no existing screening for this interview
+    const existing = await screeningModel.getScreeningByInterviewId(interview_id);
+    if (existing) {
+        throw new Error('Screening already exists for this interview session');
+    }
+
+    // Auto-fill donor_id and branch_id from interview record
     const screening = await screeningModel.createScreening({
         ...data,
-        screened_by: user_id
+        donor_id: interview.donor_id,
+        branch_id: interview.branch_id,
+        screened_by: user_id,
     });
 
     return screening;
@@ -28,21 +39,11 @@ const updateScreening = async (id, data) => {
     const screening = await screeningModel.getScreeningById(id);
     if (!screening) throw new Error('Screening not found');
 
-    // If trying to set result to Eligible, verify answers were submitted
-    if (data.screening_result === 'Eligible') {
-        const answers = await interviewAnswerModel.getAnswersByScreening(id);
-        if (answers.length === 0) {
-            throw new Error(
-                'Cannot mark screening as Eligible — interview answers not yet submitted'
-            );
-        }
-    }
-
     const updated = await screeningModel.updateScreening(id, data);
     return updated;
 };
 
 module.exports = {
     createScreening,
-    updateScreening
+    updateScreening,
 };

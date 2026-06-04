@@ -1,4 +1,4 @@
-const interviewQuestionModel = require('../models/interviewQuestionModel');
+const interviewQuestionModel = require('../repositories/interviewQuestionModel');
 const response = require('../../utils/responseHelper');
 
 const getAllQuestions = async (req, res) => {

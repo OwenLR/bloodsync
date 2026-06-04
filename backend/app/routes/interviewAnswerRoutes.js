@@ -5,10 +5,10 @@ const { verifyToken } = require('../../middleware/authMiddleware');
 const { checkRole } = require('../../middleware/roleMiddleware');
 const ROLES = require('../../constants/roles');
 
-router.get('/screening/:screening_id',
+router.get('/interview/:interview_id',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]),
-    interviewAnswerController.getAnswersByScreening
+    interviewAnswerController.getAnswersByInterview
 );
 
 router.post('/',

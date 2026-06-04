@@ -1,6 +1,6 @@
-const bloodCollectionModel = require('../models/bloodCollectionModel');
-const bloodUnitModel = require('../models/bloodUnitModel');
-const donationModel = require('../models/donationModel');
+const bloodCollectionModel = require('../repositories/bloodCollectionModel');
+const bloodUnitModel = require('../repositories/bloodUnitModel');
+const donationModel = require('../repositories/donationModel');
 const { calculateExpiryDate } = require('../../utils/dateHelper');
 const { invalidateCache } = require('../../middleware/cacheMiddleware');
 const { EXTRACTION } = require('../../constants/medicalRules');

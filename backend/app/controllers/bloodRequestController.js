@@ -1,5 +1,5 @@
 const bloodRequestService = require('../services/bloodRequestService');
-const bloodRequestModel = require('../models/bloodRequestModel');
+const bloodRequestModel = require('../repositories/bloodRequestModel');
 const response = require('../../utils/responseHelper');
 const { uploadToCloudinary } = require('../../utils/uploadHelper');
 const {

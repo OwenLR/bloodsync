@@ -1,11 +1,11 @@
-const interviewAnswerModel = require('../models/interviewAnswerModel');
+const interviewAnswerModel = require('../repositories/interviewAnswerModel');
 const interviewService = require('../services/interviewService');
 const response = require('../../utils/responseHelper');
 
-const getAnswersByScreening = async (req, res) => {
+const getAnswersByInterview = async (req, res) => {
     try {
         const answers = await interviewAnswerModel
-            .getAnswersByScreening(req.params.screening_id);
+            .getAnswersByInterview(req.params.interview_id);
         return response.success(res, answers);
     } catch (error) {
         return response.error(res, error.message);
@@ -14,13 +14,13 @@ const getAnswersByScreening = async (req, res) => {
 
 const submitAnswers = async (req, res) => {
     try {
-        const { screening_id, donor_id, answers } = req.body;
+        const { interview_id, donor_id, answers } = req.body;
 
-        if (!screening_id || !donor_id ||
+        if (!interview_id || !donor_id ||
             !answers || !Array.isArray(answers)) {
             return response.badRequest(
                 res,
-                'screening_id, donor_id and answers array are required'
+                'interview_id, donor_id and answers array are required'
             );
         }
 
@@ -31,8 +31,7 @@ const submitAnswers = async (req, res) => {
                     'Each answer must have question_id and answer'
                 );
             }
-            if (!['YES', 'NO']
-                .includes(ans.answer.toUpperCase())) {
+            if (!['YES', 'NO'].includes(ans.answer.toUpperCase())) {
                 return response.badRequest(
                     res,
                     'Each answer must be YES or NO'
@@ -46,7 +45,7 @@ const submitAnswers = async (req, res) => {
         return response.created(
             res,
             result,
-            `Interview completed. Donor is ${result.screening_result}`
+            `Interview completed. Result: ${result.interview_result}`
         );
     } catch (error) {
         return response.error(res, error.message);
@@ -54,6 +53,6 @@ const submitAnswers = async (req, res) => {
 };
 
 module.exports = {
-    getAnswersByScreening,
+    getAnswersByInterview,
     submitAnswers
 };

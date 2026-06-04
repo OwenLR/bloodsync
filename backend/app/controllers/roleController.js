@@ -1,4 +1,4 @@
-const roleModel = require('../models/roleModel');
+const roleModel = require('../repositories/roleModel');
 const response = require('../../utils/responseHelper');
 
 const getAllRoles = async (req, res) => {

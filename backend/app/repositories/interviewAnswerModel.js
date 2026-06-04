@@ -1,6 +1,6 @@
 const pool = require('../../config/db');
 
-const getAnswersByScreening = async (screening_id) => {
+const getAnswersByInterview = async (interview_id) => {
     const result = await pool.query(
         `SELECT
             a.answer_id,
@@ -15,9 +15,9 @@ const getAnswersByScreening = async (screening_id) => {
          FROM donor_interview_answers a
          JOIN donor_interview_questions q
             ON a.question_id = q.question_id
-         WHERE a.screening_id = $1
+         WHERE a.interview_id = $1
          ORDER BY q.sort_order ASC`,
-        [screening_id]
+        [interview_id]
     );
     return result.rows;
 };
@@ -27,10 +27,10 @@ const submitAnswers = async (answers) => {
     for (const ans of answers) {
         const result = await pool.query(
             `INSERT INTO donor_interview_answers
-                (screening_id, donor_id, question_id, answer)
+                (interview_id, donor_id, question_id, answer)
              VALUES ($1, $2, $3, $4)
              RETURNING *`,
-            [ans.screening_id, ans.donor_id,
+            [ans.interview_id, ans.donor_id,
              ans.question_id, ans.answer]
         );
         insertedAnswers.push(result.rows[0]);
@@ -39,6 +39,6 @@ const submitAnswers = async (answers) => {
 };
 
 module.exports = {
-    getAnswersByScreening,
-    submitAnswers
+    getAnswersByInterview,
+    submitAnswers,
 };

@@ -1,4 +1,4 @@
-const donorModel = require('../models/donorModel');
+const donorModel = require('../repositories/donorModel');
 const response = require('../../utils/responseHelper');
 const {
     validateCreateDonor,

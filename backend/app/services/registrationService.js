@@ -1,7 +1,7 @@
 const pool = require('../../config/db');
 const bcrypt = require('bcrypt');
-const userModel = require('../models/userModel');
-const profileModel = require('../models/profileModel');
+const userModel = require('../repositories/userModel');
+const profileModel = require('../repositories/profileModel');
 
 /**
  * Register a volunteer or phlebotomist.

@@ -1,4 +1,4 @@
-const hospitalModel = require('../models/hospitalModel');
+const hospitalModel = require('../repositories/hospitalModel');
 const response = require('../../utils/responseHelper');
 
 const getAllHospitals = async (req, res) => {

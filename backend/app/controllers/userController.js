@@ -1,4 +1,4 @@
-const userModel = require('../models/userModel');
+const userModel = require('../repositories/userModel');
 const bcrypt = require('bcrypt');
 const response = require('../../utils/responseHelper');
 const {

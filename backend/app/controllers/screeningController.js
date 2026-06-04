@@ -1,4 +1,4 @@
-const screeningModel = require('../models/screeningModel');
+const screeningModel = require('../repositories/screeningModel');
 const screeningService = require('../services/screeningService');
 const response = require('../../utils/responseHelper');
 const {

@@ -1,4 +1,4 @@
-const donationModel = require('../models/donationModel');
+const donationModel = require('../repositories/donationModel');
 const donationService = require('../services/donationService');
 const response = require('../../utils/responseHelper');
 

@@ -1,4 +1,4 @@
-const bloodCollectionModel = require('../models/bloodCollectionModel');
+const bloodCollectionModel = require('../repositories/bloodCollectionModel');
 const bloodCollectionService = require('../services/bloodCollectionService');
 const response = require('../../utils/responseHelper');
 const {

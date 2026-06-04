@@ -1,6 +1,6 @@
 const pool = require('../../config/db');
-const bloodRequestModel = require('../models/bloodRequestModel');
-const bloodUnitModel = require('../models/bloodUnitModel');
+const bloodRequestModel = require('../repositories/bloodRequestModel');
+const bloodUnitModel = require('../repositories/bloodUnitModel');
 const { invalidateCache } = require('../../middleware/cacheMiddleware');
 
 const createRequest = async (data, items, userId) => {

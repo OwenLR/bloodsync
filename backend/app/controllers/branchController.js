@@ -1,4 +1,4 @@
-const branchModel = require('../models/branchModel');
+const branchModel = require('../repositories/branchModel');
 const response = require('../../utils/responseHelper');
 
 const getAllBranches = async (req, res) => {

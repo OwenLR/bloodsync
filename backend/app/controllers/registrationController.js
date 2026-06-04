@@ -1,6 +1,6 @@
 const registrationService = require('../services/registrationService');
-const profileModel = require('../models/profileModel');
-const userModel = require('../models/userModel');
+const profileModel = require('../repositories/profileModel');
+const userModel = require('../repositories/userModel');
 const bcrypt = require('bcrypt');
 const { uploadToCloudinary } = require('../../utils/uploadHelper');
 const response = require('../../utils/responseHelper');

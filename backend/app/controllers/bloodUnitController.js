@@ -1,4 +1,4 @@
-const bloodUnitModel = require('../models/bloodUnitModel');
+const bloodUnitModel = require('../repositories/bloodUnitModel');
 const response = require('../../utils/responseHelper');
 const { UNIT_STATUSES } = require('../../constants/statuses');
 
