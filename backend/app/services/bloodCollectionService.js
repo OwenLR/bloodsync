@@ -87,8 +87,20 @@ const markAsRejected = async (collection_id, reason, user_id) => {
     return updated;
 };
 
+const updateStatus = async (collection_id, status, reason, user_id) => {
+    if (status === 'Safe') return markAsSafe(collection_id, user_id);
+    if (status === 'Rejected') return markAsRejected(collection_id, reason, user_id);
+    // For Disposed/Withdrawn — direct model update
+    const updated = await bloodCollectionModel.updateCollectionStatus(
+        collection_id, status, user_id, reason
+    );
+    if (!updated) throw new Error('Blood collection not found');
+    return updated;
+};
+
 module.exports = {
     createCollection,
     markAsSafe,
-    markAsRejected
+    markAsRejected,
+    updateStatus,
 };
