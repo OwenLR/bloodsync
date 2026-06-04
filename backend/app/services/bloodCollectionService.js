@@ -3,6 +3,7 @@ const bloodUnitModel = require('../models/bloodUnitModel');
 const donationModel = require('../models/donationModel');
 const { calculateExpiryDate } = require('../../utils/dateHelper');
 const { invalidateCache } = require('../../middleware/cacheMiddleware');
+const { EXTRACTION } = require('../../constants/medicalRules');
 
 const createCollection = async (data, user_id) => {
     const donation = await donationModel.getDonationById(data.donation_id);
@@ -14,11 +15,27 @@ const createCollection = async (data, user_id) => {
         ? calculateExpiryDate(expiryData.expiry_days)
         : null;
 
+    // Extraction time check — flag as QNS if exceeded
+    const extraction_time = data.extraction_time_minutes
+        ? parseInt(data.extraction_time_minutes)
+        : null;
+
+    const isQnsFromTime = extraction_time !== null
+        && extraction_time > EXTRACTION.MAX_DURATION_MINUTES;
+
     const collection = await bloodCollectionModel.createCollection({
         ...data,
         collected_by: user_id,
         expiration_date,
-        donor_id: donation.donor_id
+        donor_id: donation.donor_id,
+        extraction_time_minutes: extraction_time,
+        // If already marked QNS by caller, keep it; otherwise check time
+        is_qns: data.is_qns || isQnsFromTime,
+        qns_reason: data.is_qns
+            ? data.qns_reason
+            : isQnsFromTime
+                ? `Extraction time exceeded maximum allowed duration of ${EXTRACTION.MAX_DURATION_MINUTES} minutes`
+                : data.qns_reason || null,
     });
 
     return collection;
@@ -27,6 +44,14 @@ const createCollection = async (data, user_id) => {
 const markAsSafe = async (collection_id, user_id) => {
     const collection = await bloodCollectionModel.getCollectionById(collection_id);
     if (!collection) throw new Error('Blood collection not found');
+
+    // QNS collections cannot be marked as Safe
+    if (collection.is_qns) {
+        throw new Error(
+            'Cannot mark as Safe — this collection is flagged as QNS (Quantity Not Sufficient). ' +
+            `Reason: ${collection.qns_reason}`
+        );
+    }
 
     const updated = await bloodCollectionModel.updateCollectionStatus(
         collection_id, 'Safe', user_id, null
@@ -46,7 +71,6 @@ const markAsSafe = async (collection_id, user_id) => {
         processed_by: user_id
     });
 
-    // Invalidate availability cache — new unit is now in inventory
     await invalidateCache('cache:blood-units:availability');
 
     return { updated, blood_unit };

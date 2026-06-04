@@ -85,16 +85,31 @@ const createMultipleDeferrals = async (deferrals) => {
     return created;
 };
 
+// Checks if donor has a permanent or still-active temporary deferral
 const checkActiveDeferral = async (donor_id) => {
     const result = await pool.query(
         `SELECT * FROM donor_deferrals
          WHERE donor_id = $1
-         AND deferral_type = 'permanent'
-         OR (
-            donor_id = $1
-            AND deferral_type = 'temporary'
-            AND deferral_until > NOW()
+         AND (
+             deferral_type = 'permanent'
+             OR (
+                 deferral_type = 'temporary'
+                 AND deferral_until > NOW()
+             )
          )
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [donor_id]
+    );
+    return result.rows[0];
+};
+
+// Checks if donor was deferred today — blocks same-day re-attempt
+const checkSameDayDeferral = async (donor_id) => {
+    const result = await pool.query(
+        `SELECT * FROM donor_deferrals
+         WHERE donor_id = $1
+         AND DATE(created_at) = CURRENT_DATE
          ORDER BY created_at DESC
          LIMIT 1`,
         [donor_id]
@@ -107,5 +122,6 @@ module.exports = {
     getDeferralsByScreening,
     createDeferral,
     createMultipleDeferrals,
-    checkActiveDeferral
+    checkActiveDeferral,
+    checkSameDayDeferral,
 };

@@ -44,16 +44,28 @@ const createDonor = async (req, res) => {
             return response.badRequest(res, errors[0]);
         }
 
+        // Duplicate check via national ID
+        if (req.body.national_id_type && req.body.national_id_number) {
+            const existing = await donorModel.getDonorByNationalId(
+                req.body.national_id_type,
+                req.body.national_id_number
+            );
+            if (existing) {
+                // Option B — return existing donor instead of hard reject
+                return response.success(
+                    res,
+                    existing,
+                    'Donor already registered with this ID. Returning existing record.'
+                );
+            }
+        }
+
         const donor = await donorModel.createDonor({
             ...req.body,
             registered_by: req.user.user_id
         });
 
-        return response.created(
-            res,
-            donor,
-            'Donor registered successfully'
-        );
+        return response.created(res, donor, 'Donor registered successfully');
     } catch (error) {
         return response.error(res, error.message);
     }

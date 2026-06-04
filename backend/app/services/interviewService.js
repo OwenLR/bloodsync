@@ -7,20 +7,29 @@ const donorModel = require('../models/donorModel');
 const submitAnswers = async (data, user_id) => {
     const { screening_id, donor_id, answers } = data;
 
-    // Bug 2.1 fix — check screening exists
+    // Check screening exists
     const screening = await screeningModel.getScreeningById(screening_id);
     if (!screening) throw new Error('Screening not found');
 
-    // Bug 2.1 fix — check donor exists
+    // Check donor exists
     const donor = await donorModel.getDonorById(donor_id);
     if (!donor) throw new Error('Donor not found');
 
-    // Bug 2.1 fix — check screening belongs to this donor
+    // Check screening belongs to this donor
     if (screening.donor_id !== donor_id) {
         throw new Error('Screening does not belong to this donor');
     }
 
-    // Bug 2.2 fix — check if answers already submitted for this screening
+    // Check donor was not deferred today
+    const sameDayDeferral = await deferralModel.checkSameDayDeferral(donor_id);
+    if (sameDayDeferral) {
+        throw new Error(
+            `Donor was deferred today and cannot attempt again until the next donation event. ` +
+            `Deferral recorded at: ${new Date(sameDayDeferral.created_at).toLocaleString()}`
+        );
+    }
+
+    // Check answers not already submitted for this screening
     const existing = await interviewAnswerModel.getAnswersByScreening(screening_id);
     if (existing.length > 0) {
         throw new Error('Interview answers already submitted for this screening');
@@ -42,7 +51,6 @@ const submitAnswers = async (data, user_id) => {
 
     for (const ans of submitted) {
         const question = await interviewQuestionModel.getQuestionById(ans.question_id);
-
         if (question && ans.answer === question.defer_if) {
             const deferral = await deferralModel.createDeferral({
                 donor_id,
@@ -56,7 +64,7 @@ const submitAnswers = async (data, user_id) => {
         }
     }
 
-    // If any deferrals found, update screening result to Deferred
+    // If any deferrals, update screening result to Deferred
     if (deferrals.length > 0) {
         await screeningModel.updateScreening(screening_id, {
             screening_result: 'Deferred'

@@ -215,9 +215,23 @@ const deleteDonor = async (id) => {
     return result.rows[0];
 };
 
+const getDonorByNationalId = async (national_id_type, national_id_number) => {
+    const result = await pool.query(
+        `SELECT donor_id, first_name, middle_name, last_name,
+                birthdate, sex, blood_type, contact,
+                national_id_type, national_id_number, status
+         FROM donors
+         WHERE LOWER(national_id_type) = LOWER($1)
+         AND LOWER(national_id_number) = LOWER($2)`,
+        [national_id_type, national_id_number]
+    );
+    return result.rows[0];
+};
+
 module.exports = {
     getAllDonors,
     getDonorById,
+    getDonorByNationalId,
     searchDonors,
     createDonor,
     updateDonor,
