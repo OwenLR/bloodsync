@@ -1,7 +1,7 @@
 const pool = require('../../config/db');
 const bcrypt = require('bcrypt');
 const userModel = require('../models/userModel');
-const volunteerProfileModel = require('../models/volunteerProfileModel');
+const profileModel = require('../models/profileModel');
 
 /**
  * Register a volunteer or phlebotomist.
@@ -28,7 +28,7 @@ const register = async (data, role_id) => {
                 throw new Error('Email is already registered');
             }
             // Declined — delete old profile and user, allow re-registration
-            await volunteerProfileModel.deleteProfileByUserId(existing.user_id);
+            await profileModel.deleteProfileByUserId(existing.user_id);
             await userModel.deleteUser(existing.user_id);
         }
 
@@ -38,7 +38,7 @@ const register = async (data, role_id) => {
             first_name, last_name, email, hashedPassword, role_id
         );
 
-        const profile = await volunteerProfileModel.createProfile(
+        const profile = await profileModel.createProfile(
             user.user_id, profileData
         );
 

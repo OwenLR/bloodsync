@@ -2,8 +2,8 @@ const pool = require('../../config/db');
 
 const getAllRequests = async () => {
     const result = await pool.query(
-        `SELECT br.request_id, br.requestor_id,
-                r.first_name, r.last_name,
+        `SELECT br.request_id, br.user_id,
+                u.first_name, u.last_name,
                 br.hospital_id, h.hospital_name,
                 br.branch_id, b.branch_name,
                 br.patient_name, br.patient_age, br.diagnosis,
@@ -12,7 +12,7 @@ const getAllRequests = async () => {
                 br.reviewed_by, br.reviewed_at,
                 br.notes, br.created_at, br.updated_at
          FROM blood_requests br
-         LEFT JOIN requestors r ON br.requestor_id = r.requestor_id
+         LEFT JOIN users u ON br.user_id = u.user_id
          LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
          LEFT JOIN branches b ON br.branch_id = b.branch_id
          ORDER BY br.created_at DESC`
@@ -22,8 +22,8 @@ const getAllRequests = async () => {
 
 const getRequestById = async (id) => {
     const result = await pool.query(
-        `SELECT br.request_id, br.requestor_id,
-                r.first_name, r.last_name,
+        `SELECT br.request_id, br.user_id,
+                u.first_name, u.last_name,
                 br.hospital_id, h.hospital_name,
                 br.branch_id, b.branch_name,
                 br.patient_name, br.patient_age, br.diagnosis,
@@ -32,7 +32,7 @@ const getRequestById = async (id) => {
                 br.reviewed_by, br.reviewed_at,
                 br.notes, br.created_at, br.updated_at
          FROM blood_requests br
-         LEFT JOIN requestors r ON br.requestor_id = r.requestor_id
+         LEFT JOIN users u ON br.user_id = u.user_id
          LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
          LEFT JOIN branches b ON br.branch_id = b.branch_id
          WHERE br.request_id = $1`,
@@ -41,7 +41,7 @@ const getRequestById = async (id) => {
     return result.rows[0];
 };
 
-const getRequestsByRequestor = async (requestorId) => {
+const getRequestsByUser = async (userId) => {
     const result = await pool.query(
         `SELECT br.request_id, br.hospital_id, h.hospital_name,
                 br.branch_id, b.branch_name,
@@ -50,27 +50,27 @@ const getRequestsByRequestor = async (requestorId) => {
          FROM blood_requests br
          LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
          LEFT JOIN branches b ON br.branch_id = b.branch_id
-         WHERE br.requestor_id = $1
+         WHERE br.user_id = $1
          ORDER BY br.created_at DESC`,
-        [requestorId]
+        [userId]
     );
     return result.rows;
 };
 
 const createRequest = async (data) => {
     const {
-        requestor_id, hospital_id, branch_id,
+        user_id, hospital_id, branch_id,
         patient_name, patient_age, diagnosis,
         urgency_level, request_form_path, notes
     } = data;
 
     const result = await pool.query(
         `INSERT INTO blood_requests
-            (requestor_id, hospital_id, branch_id, patient_name,
+            (user_id, hospital_id, branch_id, patient_name,
              patient_age, diagnosis, urgency_level, request_form_path, notes)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
-        [requestor_id, hospital_id, branch_id, patient_name,
+        [user_id, hospital_id, branch_id, patient_name,
          patient_age, diagnosis, urgency_level, request_form_path, notes]
     );
     return result.rows[0];
@@ -91,7 +91,6 @@ const updateRequestStatus = async (id, status, reviewedBy, denialReason = null) 
     return result.rows[0];
 };
 
-// request_items
 const createRequestItems = async (requestId, items) => {
     const values = items.map((item, i) => {
         const offset = i * 4;
@@ -132,7 +131,6 @@ const updateItemFulfilled = async (itemId, unitsFulfilled) => {
     );
 };
 
-// request_status_logs
 const createStatusLog = async (data) => {
     const { request_id, old_status, new_status, changed_by_type, changed_by_id, notes } = data;
     await pool.query(
@@ -153,7 +151,6 @@ const getStatusLogsByRequest = async (requestId) => {
     return result.rows;
 };
 
-// reservations
 const createReservation = async (data) => {
     const { request_id, item_id, unit_id, reserved_by, notes } = data;
     const result = await pool.query(
@@ -193,7 +190,7 @@ const updateReservationStatus = async (reservationId, status, releasedAt = null)
 module.exports = {
     getAllRequests,
     getRequestById,
-    getRequestsByRequestor,
+    getRequestsByUser,
     createRequest,
     updateRequestStatus,
     createRequestItems,

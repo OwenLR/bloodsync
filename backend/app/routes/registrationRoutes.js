@@ -1,45 +1,51 @@
 const express = require('express');
 const router = express.Router();
-const volunteerAuthController = require('../controllers/volunteerAuthController');
+const registrationController = require('../controllers/registrationController');
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { checkRole } = require('../../middleware/roleMiddleware');
 const upload = require('../../middleware/uploadMiddleware');
 const ROLES = require('../../constants/roles');
 
-// Public — self registration
+// Requestor self-registration — immediately Active
+router.post('/requestors/register',
+    registrationController.registerRequestor
+);
+
+// Volunteer self-registration — Pending until Admin approves
 router.post('/volunteers/register',
     upload.single('profile_img'),
-    volunteerAuthController.registerVolunteer
+    registrationController.registerVolunteer
 );
 
+// Phlebotomist self-registration — Pending until Admin approves
 router.post('/phlebotomists/register',
     upload.single('profile_img'),
-    volunteerAuthController.registerPhlebotomist
+    registrationController.registerPhlebotomist
 );
 
-// Admin only — manage registrations
+// Admin only — manage volunteer/phlebotomist registrations
 router.get('/volunteers/pending',
     verifyToken,
     checkRole([ROLES.ADMIN]),
-    volunteerAuthController.getPendingRegistrations
+    registrationController.getPendingRegistrations
 );
 
 router.get('/volunteers/:id/profile',
     verifyToken,
     checkRole([ROLES.ADMIN]),
-    volunteerAuthController.getVolunteerProfile
+    registrationController.getVolunteerProfile
 );
 
 router.patch('/volunteers/:id/approve',
     verifyToken,
     checkRole([ROLES.ADMIN]),
-    volunteerAuthController.approveRegistration
+    registrationController.approveRegistration
 );
 
 router.patch('/volunteers/:id/decline',
     verifyToken,
     checkRole([ROLES.ADMIN]),
-    volunteerAuthController.declineRegistration
+    registrationController.declineRegistration
 );
 
 module.exports = router;

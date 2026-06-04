@@ -66,42 +66,7 @@ const validateUpdateRequestStatus = (data) => {
     return errors;
 };
 
-const validateCreateRequestor = (data) => {
-    const errors = [];
-    const { first_name, last_name, email, password, hospital_id } = data;
-
-    if (!first_name || first_name.trim() === '') errors.push('first_name is required');
-    if (!last_name || last_name.trim() === '') errors.push('last_name is required');
-    if (!hospital_id) errors.push('hospital_id is required');
-
-    if (!email || email.trim() === '') {
-        errors.push('email is required');
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        errors.push('email is invalid');
-    }
-
-    if (!password || password.trim() === '') {
-        errors.push('password is required');
-    } else if (password.length < 8) {
-        errors.push('password must be at least 8 characters');
-    }
-
-    return errors;
-};
-
-const validateLoginRequestor = (data) => {
-    const errors = [];
-    const { email, password } = data;
-
-    if (!email || email.trim() === '') errors.push('email is required');
-    if (!password || password.trim() === '') errors.push('password is required');
-
-    return errors;
-};
-
 module.exports = {
     validateCreateRequest,
     validateUpdateRequestStatus,
-    validateCreateRequestor,
-    validateLoginRequestor,
 };

@@ -3,10 +3,10 @@ const bloodRequestModel = require('../models/bloodRequestModel');
 const bloodUnitModel = require('../models/bloodUnitModel');
 const { invalidateCache } = require('../../middleware/cacheMiddleware');
 
-const createRequest = async (data, items, requestorId) => {
+const createRequest = async (data, items, userId) => {
     const request = await bloodRequestModel.createRequest({
         ...data,
-        requestor_id: requestorId,
+        user_id: userId,
     });
 
     const createdItems = await bloodRequestModel.createRequestItems(request.request_id, items);
@@ -16,7 +16,7 @@ const createRequest = async (data, items, requestorId) => {
         old_status: null,
         new_status: 'Pending',
         changed_by_type: 'requestor',
-        changed_by_id: requestorId,
+        changed_by_id: userId,
         notes: 'Request submitted',
     });
 

@@ -33,8 +33,8 @@ const getRequestById = async (req, res) => {
 
 const getMyRequests = async (req, res) => {
     try {
-        const requests = await bloodRequestModel.getRequestsByRequestor(
-            req.requestor.requestor_id
+        const requests = await bloodRequestModel.getRequestsByUser(
+            req.user.user_id
         );
         return response.success(res, requests);
     } catch (error) {
@@ -45,8 +45,6 @@ const getMyRequests = async (req, res) => {
 const createRequest = async (req, res) => {
     try {
         const { items, ...requestData } = req.body;
-
-        // items comes as JSON string when using multipart/form-data
         const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
 
         const errors = validateCreateRequest({ ...requestData, items: parsedItems });
@@ -60,7 +58,7 @@ const createRequest = async (req, res) => {
         const result = await bloodRequestService.createRequest(
             { ...requestData, request_form_path },
             parsedItems,
-            req.requestor.requestor_id
+            req.user.user_id
         );
 
         return response.created(res, result, 'Blood request submitted successfully');

@@ -6,7 +6,6 @@ const { checkRole } = require('../../middleware/roleMiddleware');
 const { cache } = require('../../middleware/cacheMiddleware');
 const ROLES = require('../../constants/roles');
 
-// Requestor views availability only — cached 60 seconds
 router.get('/availability',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.REQUESTOR]),
