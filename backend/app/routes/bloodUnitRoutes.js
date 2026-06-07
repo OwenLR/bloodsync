@@ -3,7 +3,7 @@ const router = express.Router();
 const bloodUnitController = require('../controllers/bloodUnitController');
 const { verifyToken } = require('../../middleware/authMiddleware');
 const { checkRole } = require('../../middleware/roleMiddleware');
-const { cache } = require('../../middleware/cacheMiddleware');
+const { cache } = require('../cache/cacheService');
 const ROLES = require('../../constants/roles');
 
 router.get('/availability',

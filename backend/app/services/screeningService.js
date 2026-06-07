@@ -1,35 +1,71 @@
-const screeningModel = require('../repositories/screeningModel');
-const donorModel = require('../repositories/donorModel');
-const donorInterviewModel = require('../repositories/donorInterviewModel');
+/**
+ * screeningService.js — Screening creation business logic.
+ *
+ * Enforces:
+ * - Interview must have Passed before screening is allowed
+ * - No duplicate screening per interview
+ * - Cross-drive ownership: Volunteers/Phlebotomists can only screen
+ *   donors from their own assigned blood drive
+ *
+ * Auto-fills donor_id, branch_id, drive_id from interview record.
+ */
 
-const createScreening = async (data, user_id) => {
+const screeningModel      = require('../repositories/screeningModel');
+const donorInterviewModel = require('../repositories/donorInterviewModel');
+const BusinessError       = require('../../utils/businessError');
+const ROLES               = require('../../constants/roles');
+
+const FIELD_ROLES = [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST];
+
+/**
+ * Create a screening record.
+ *
+ * @param {object} data    - Validated screening fields (interview_id required)
+ * @param {number} user_id - From JWT (screened_by)
+ * @param {object} reqUser - Full { user_id, role_id, branch_id } from JWT
+ * @param {number|null} reqDriveId - Active drive_id from bloodDriveMiddleware
+ */
+const createScreening = async (data, user_id, reqUser, reqDriveId) => {
     const { interview_id } = data;
 
-    // Check interview exists
     const interview = await donorInterviewModel.getInterviewById(interview_id);
-    if (!interview) throw new Error('Interview session not found');
+    if (!interview) throw new BusinessError('Interview session not found', 404);
 
-    // Interview must have Passed before screening can be created
     if (interview.interview_result !== 'Passed') {
-        throw new Error(
+        throw new BusinessError(
             interview.interview_result === 'Failed'
                 ? 'Cannot create screening — donor did not pass the interview'
-                : 'Cannot create screening — interview answers not yet submitted'
+                : 'Cannot create screening — interview answers not yet submitted',
+            400
         );
     }
 
-    // Check no existing screening for this interview
-    const existing = await screeningModel.getScreeningByInterviewId(interview_id);
-    if (existing) {
-        throw new Error('Screening already exists for this interview session');
+    // Cross-drive ownership check:
+    // Volunteers and Phlebotomists can only act on interviews from their drive.
+    // Admin and PRC Staff are exempt — they operate independently.
+    if (FIELD_ROLES.includes(reqUser.role_id)) {
+        if (interview.drive_id !== reqDriveId) {
+            throw new BusinessError(
+                'You can only screen donors from your assigned blood drive',
+                403
+            );
+        }
     }
 
-    // Auto-fill donor_id and branch_id from interview record
+    const existing = await screeningModel.getScreeningByInterviewId(interview_id);
+    if (existing) {
+        throw new BusinessError(
+            'Screening already exists for this interview session',
+            400
+        );
+    }
+
     const screening = await screeningModel.createScreening({
         ...data,
-        donor_id: interview.donor_id,
-        branch_id: interview.branch_id,
+        donor_id:    interview.donor_id,
+        branch_id:   interview.branch_id,
         screened_by: user_id,
+        drive_id:    interview.drive_id || null,
     });
 
     return screening;
@@ -37,10 +73,9 @@ const createScreening = async (data, user_id) => {
 
 const updateScreening = async (id, data) => {
     const screening = await screeningModel.getScreeningById(id);
-    if (!screening) throw new Error('Screening not found');
+    if (!screening) throw new BusinessError('Screening not found', 404);
 
-    const updated = await screeningModel.updateScreening(id, data);
-    return updated;
+    return screeningModel.updateScreening(id, data);
 };
 
 module.exports = {

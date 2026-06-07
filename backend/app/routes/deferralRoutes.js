@@ -17,10 +17,10 @@ router.get('/donor/:donor_id',
     deferralController.getDeferralsByDonor
 );
 
-router.get('/screening/:screening_id',
+router.get('/interview/:interview_id',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]),
-    deferralController.getDeferralsByScreening
+    deferralController.getDeferralsByInterview
 );
 
 module.exports = router;

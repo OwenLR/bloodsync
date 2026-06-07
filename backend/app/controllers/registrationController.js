@@ -1,42 +1,29 @@
 const registrationService = require('../services/registrationService');
 const profileModel = require('../repositories/profileModel');
-const userModel = require('../repositories/userModel');
-const bcrypt = require('bcrypt');
-const { uploadToCloudinary } = require('../../utils/uploadHelper');
 const response = require('../../utils/responseHelper');
-const { validateRegistration } = require('../../validators/registrationValidator');
+const {
+    validateRequestorRegistration,
+    validateRegistration,
+} = require('../../validators/registrationValidator');
+const { uploadToCloudinary } = require('../../utils/uploadHelper');
 const ROLES = require('../../constants/roles');
 
 const registerRequestor = async (req, res) => {
     try {
-        const { first_name, last_name, email, password } = req.body;
+        const errors = validateRequestorRegistration(req.body);
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
 
-        if (!first_name || first_name.trim() === '') return response.badRequest(res, 'first_name is required');
-        if (!last_name || last_name.trim() === '') return response.badRequest(res, 'last_name is required');
-        if (!email || email.trim() === '') return response.badRequest(res, 'email is required');
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return response.badRequest(res, 'email is invalid');
-        if (!password || password.length < 8) return response.badRequest(res, 'password must be at least 8 characters');
-
-        const existing = await userModel.getUserByEmail(email);
-        if (existing) return response.badRequest(res, 'Email is already registered');
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const user = await userModel.createUser(
-            first_name, last_name, email,
-            hashedPassword, ROLES.REQUESTOR, null
-        );
-
+        const user = await registrationService.registerRequestor(req.body);
         return response.created(res, {
-            user_id: user.user_id,
+            user_id:    user.user_id,
             first_name: user.first_name,
-            last_name: user.last_name,
-            email: user.email,
-            role_id: user.role_id,
-            status: user.status,
+            last_name:  user.last_name,
+            email:      user.email,
+            role_id:    user.role_id,
+            status:     user.status,
         }, 'Requestor registered successfully');
     } catch (error) {
-        return response.error(res, error.message);
+        return response.badRequest(res, error.message);
     }
 };
 
@@ -45,19 +32,21 @@ const registerVolunteer = async (req, res) => {
         const errors = validateRegistration(req.body);
         if (errors.length > 0) return response.badRequest(res, errors[0]);
 
-        let profile_img = null;
-        if (req.file) {
-            profile_img = await uploadToCloudinary(req.file.buffer, 'profile_images');
-        }
+        const profile_img = req.file
+            ? await uploadToCloudinary(req.file.buffer, 'profile_images')
+            : null;
 
         const result = await registrationService.register(
             { ...req.body, profile_img },
             ROLES.VOLUNTEER
         );
-
-        return response.created(res, result, 'Volunteer registration submitted. Pending admin approval.');
+        return response.created(
+            res,
+            result,
+            'Volunteer registration submitted. Pending admin approval.'
+        );
     } catch (error) {
-        return response.error(res, error.message);
+        return response.badRequest(res, error.message);
     }
 };
 
@@ -66,19 +55,21 @@ const registerPhlebotomist = async (req, res) => {
         const errors = validateRegistration(req.body);
         if (errors.length > 0) return response.badRequest(res, errors[0]);
 
-        let profile_img = null;
-        if (req.file) {
-            profile_img = await uploadToCloudinary(req.file.buffer, 'profile_images');
-        }
+        const profile_img = req.file
+            ? await uploadToCloudinary(req.file.buffer, 'profile_images')
+            : null;
 
         const result = await registrationService.register(
             { ...req.body, profile_img },
             ROLES.PHLEBOTOMIST
         );
-
-        return response.created(res, result, 'Phlebotomist registration submitted. Pending admin approval.');
+        return response.created(
+            res,
+            result,
+            'Phlebotomist registration submitted. Pending admin approval.'
+        );
     } catch (error) {
-        return response.error(res, error.message);
+        return response.badRequest(res, error.message);
     }
 };
 
@@ -100,8 +91,7 @@ const declineRegistration = async (req, res) => {
     }
 };
 
-// GET /api/volunteers/pending — Admin only
-// Calls profileModel directly — simple read, no business logic needed
+// Simple read — no business logic, direct repository call is correct here
 const getPendingRegistrations = async (req, res) => {
     try {
         const profiles = await profileModel.getAllProfiles('Pending');

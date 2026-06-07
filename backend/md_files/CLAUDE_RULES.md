@@ -1,4 +1,4 @@
-# Claude Rules For BloodSync Project
+# AI Rules For BloodSync Project
 
 ## Critical Rules
 
@@ -16,22 +16,24 @@
 ### 3. Never Modify Database Schema Without Approval
 - Never add, remove, or rename columns without asking first
 - Never change table relationships without asking first
-- Never change data types without asking first
 - Always present proposed schema changes and wait for confirmation
 
-### 4. Verify Before Replacing
+### 4. Read Before Writing
 - Before providing a replacement file, read the existing file first
-- Ask "do you want me to update X file?" before rewriting it
+- Ask what the developer wants to update before rewriting
 - Never assume what the current file contains
 
 ### 5. Preserve Architecture
-- Models contain ONLY SQL queries
-- Controllers contain ONLY request/response handling
-- Services contain ONLY business logic
-- Routes contain ONLY endpoint definitions + middleware
-- Validators contain ONLY input validation
-- Utils contain ONLY reusable helper functions
-- Constants contain ONLY fixed values
+- Repositories (app/repositories/): SQL queries ONLY
+- Controllers: ONLY 4 steps — extract, validate, call service, return response
+- Services: ONLY orchestration — call domain + call repositories + coordinate
+- Domain (app/domain/): ONLY pure business rules — no DB, no HTTP, no framework
+- Routes: ONLY endpoint definitions + middleware
+- Validators: ONLY technical input validation (format, required, type)
+- Domain: business validation (eligibility, rules, policies)
+- Utils: ONLY reusable helper functions
+- Constants: ONLY fixed values
+- Cache (app/cache/): ONLY cache logic
 
 ### 6. Follow Naming Conventions
 - Files: camelCase (roleModel.js, bloodCollectionService.js)
@@ -39,27 +41,29 @@
 - Database columns: snake_case (branch_id, first_name, is_active)
 - JavaScript variables: camelCase (getAllDonors, screeningResult)
 - Constants: UPPER_SNAKE_CASE (VALID_BLOOD_TYPES, COLLECTION_STATUSES)
-- Routes: kebab-case URLs (/api/blood-collections, /api/interview-questions)
+- Routes: kebab-case URLs (/api/blood-collections, /api/donor-interviews)
 
 ### 7. Always Use responseHelper
 - Never write res.status().json() directly in controllers
 - Always use response.success(), response.created(), response.error() etc.
-- Import from utils/responseHelper.js
 
 ### 8. Always Use ROLES Constants
 - Never use magic numbers for roles in route files
 - Always use ROLES.ADMIN, ROLES.PRC_STAFF etc.
-- Import from constants/roles.js
 
-### 9. Always Use Status Constants
-- Never hardcode status strings in validators or controllers
-- Use COLLECTION_STATUSES, UNIT_STATUSES etc.
-- Import from constants/statuses.js
+### 9. Services Only For Complex Operations
+- Only create a service when operation involves business logic or multiple repositories
+- Simple reads: controller can call repository directly
+- Complex logic: controller calls service, service calls domain + repositories
 
-### 10. Services Only For Complex Operations
-- Only create a service when operation touches multiple models
-- Simple CRUD: controller calls model directly
-- Complex logic: controller calls service, service calls models
+### 10. Domain Layer Rules
+- Domain functions are pure JavaScript — no require('express'), no pool.query()
+- Take plain data as input, return results or throw Error
+- Can be tested without any framework or database
+
+### 11. Repository Path Convention
+- All repository requires use: require('../repositories/...') or require('../../repositories/...')
+- The folder was renamed from models/ to repositories/ — never use models/ path
 
 ## Code Style Rules
 - Use async/await consistently (no .then().catch())
@@ -69,12 +73,19 @@
 - Never expose password field in responses
 - Always get user identity from req.user.user_id (JWT token), never from request body
 
+## Architecture Conversion Rules (ACTIVE)
+The system is mid-conversion from MVC+Service to Layered Architecture.
+- New domain files go in app/domain/
+- Cache logic goes in app/cache/ (moving from middleware/)
+- New services being created: authService, userService, donorService, bloodUnitService
+- New validators being created: branchValidator, hospitalValidator, interviewQuestionValidator, bloodUnitValidator
+- Controllers being slimmed to 4 steps only
+
 ## Communication Rules
 - Ask clarifying questions before implementing complex features
 - Present options when multiple approaches exist
 - Give brutally honest assessments when asked
 - Flag potential problems before they happen
-- Suggest improvements but never implement without approval
 - Always explain what changed and why when providing updated files
 
 ## What To Do When Starting A New Chat
@@ -95,3 +106,10 @@
 - Never use xss-clean package (deprecated)
 - Never create separate blood_type table (over-normalization)
 - Never use unique_code on donors table (removed intentionally)
+- Never create a separate requestors table (merged into users table)
+- Never use req.requestor — only req.user exists now
+- Never reference models/ folder path — it is now repositories/
+- Never put business rules in validators (validators = technical validation only)
+- Never put business rules in controllers (controllers = 4 steps only)
+- Never put database queries in services (services call repositories)
+- Never put database queries in domain (domain is pure functions)

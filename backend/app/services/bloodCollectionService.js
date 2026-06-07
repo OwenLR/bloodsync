@@ -1,13 +1,46 @@
-const bloodCollectionModel = require('../repositories/bloodCollectionModel');
-const bloodUnitModel = require('../repositories/bloodUnitModel');
-const donationModel = require('../repositories/donationModel');
-const { calculateExpiryDate } = require('../../utils/dateHelper');
-const { invalidateCache } = require('../../middleware/cacheMiddleware');
-const { EXTRACTION } = require('../../constants/medicalRules');
+/**
+ * bloodCollectionService.js — Blood collection lifecycle orchestration.
+ *
+ * Enforces:
+ * - Cross-drive ownership: Volunteers/Phlebotomists can only record
+ *   collections for donations from their own assigned blood drive
+ *
+ * markAsSafe auto-creates a blood unit — never create blood units manually.
+ * drive_id auto-filled from donation record.
+ */
 
-const createCollection = async (data, user_id) => {
+const bloodCollectionModel = require('../repositories/bloodCollectionModel');
+const bloodUnitModel       = require('../repositories/bloodUnitModel');
+const donationModel        = require('../repositories/donationModel');
+const BusinessError        = require('../../utils/businessError');
+const { calculateExpiryDate } = require('../../utils/dateHelper');
+const { invalidateCache }     = require('../cache/cacheService');
+const { evaluateExtractionTime, assertNotQns } = require('../domain/donationRules');
+const ROLES = require('../../constants/roles');
+
+const FIELD_ROLES = [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST];
+
+/**
+ * Record a new blood collection.
+ *
+ * @param {object} data      - Collection fields from controller
+ * @param {number} user_id   - From JWT (collected_by)
+ * @param {object} reqUser   - Full { user_id, role_id, branch_id } from JWT
+ * @param {number|null} reqDriveId - Active drive_id from bloodDriveMiddleware
+ */
+const createCollection = async (data, user_id, reqUser, reqDriveId) => {
     const donation = await donationModel.getDonationById(data.donation_id);
-    if (!donation) throw new Error('Donation not found');
+    if (!donation) throw new BusinessError('Donation not found', 404);
+
+    // Cross-drive ownership check
+    if (FIELD_ROLES.includes(reqUser.role_id)) {
+        if (donation.drive_id !== reqDriveId) {
+            throw new BusinessError(
+                'You can only record collections for donations from your assigned blood drive',
+                403
+            );
+        }
+    }
 
     const bloodComponent = data.component || 'Whole Blood';
     const expiryData = await bloodCollectionModel.getExpiryDays(bloodComponent);
@@ -15,27 +48,29 @@ const createCollection = async (data, user_id) => {
         ? calculateExpiryDate(expiryData.expiry_days)
         : null;
 
-    // Extraction time check — flag as QNS if exceeded
     const extraction_time = data.extraction_time_minutes
         ? parseInt(data.extraction_time_minutes)
         : null;
 
-    const isQnsFromTime = extraction_time !== null
-        && extraction_time > EXTRACTION.MAX_DURATION_MINUTES;
+    const { is_qns: timeExceeded, qns_reason: timeReason } =
+        evaluateExtractionTime(extraction_time);
+
+    const is_qns = data.is_qns || timeExceeded;
+    const qns_reason = data.is_qns
+        ? data.qns_reason
+        : timeExceeded
+            ? timeReason
+            : data.qns_reason || null;
 
     const collection = await bloodCollectionModel.createCollection({
         ...data,
-        collected_by: user_id,
+        collected_by:            user_id,
         expiration_date,
-        donor_id: donation.donor_id,
+        donor_id:                donation.donor_id,
         extraction_time_minutes: extraction_time,
-        // If already marked QNS by caller, keep it; otherwise check time
-        is_qns: data.is_qns || isQnsFromTime,
-        qns_reason: data.is_qns
-            ? data.qns_reason
-            : isQnsFromTime
-                ? `Extraction time exceeded maximum allowed duration of ${EXTRACTION.MAX_DURATION_MINUTES} minutes`
-                : data.qns_reason || null,
+        is_qns,
+        qns_reason,
+        drive_id:                donation.drive_id || null,
     });
 
     return collection;
@@ -43,14 +78,13 @@ const createCollection = async (data, user_id) => {
 
 const markAsSafe = async (collection_id, user_id) => {
     const collection = await bloodCollectionModel.getCollectionById(collection_id);
-    if (!collection) throw new Error('Blood collection not found');
+    if (!collection) throw new BusinessError('Blood collection not found', 404);
 
-    // QNS collections cannot be marked as Safe
-    if (collection.is_qns) {
-        throw new Error(
-            'Cannot mark as Safe — this collection is flagged as QNS (Quantity Not Sufficient). ' +
-            `Reason: ${collection.qns_reason}`
-        );
+    // Domain rule — wrap as BusinessError
+    try {
+        assertNotQns(collection);
+    } catch (err) {
+        throw new BusinessError(err.message, 400);
     }
 
     const updated = await bloodCollectionModel.updateCollectionStatus(
@@ -58,17 +92,18 @@ const markAsSafe = async (collection_id, user_id) => {
     );
 
     const blood_unit = await bloodUnitModel.createUnit({
-        collection_id: collection.collection_id,
-        donation_id: collection.donation_id,
-        donor_id: collection.donor_id,
-        branch_id: collection.branch_id,
-        blood_type: collection.blood_type,
-        component: collection.component,
-        volume_ml: collection.volume_ml,
-        barcode: collection.barcode,
+        collection_id:   collection.collection_id,
+        donation_id:     collection.donation_id,
+        donor_id:        collection.donor_id,
+        branch_id:       collection.branch_id,
+        blood_type:      collection.blood_type,
+        component:       collection.component,
+        volume_ml:       collection.volume_ml,
+        barcode:         collection.barcode,
         collection_date: collection.collection_date,
         expiration_date: collection.expiration_date,
-        processed_by: user_id
+        processed_by:    user_id,
+        drive_id:        collection.drive_id || null,
     });
 
     await invalidateCache('cache:blood-units:availability');
@@ -78,23 +113,21 @@ const markAsSafe = async (collection_id, user_id) => {
 
 const markAsRejected = async (collection_id, reason, user_id) => {
     const collection = await bloodCollectionModel.getCollectionById(collection_id);
-    if (!collection) throw new Error('Blood collection not found');
+    if (!collection) throw new BusinessError('Blood collection not found', 404);
 
-    const updated = await bloodCollectionModel.updateCollectionStatus(
+    return bloodCollectionModel.updateCollectionStatus(
         collection_id, 'Rejected', user_id, reason
     );
-
-    return updated;
 };
 
 const updateStatus = async (collection_id, status, reason, user_id) => {
-    if (status === 'Safe') return markAsSafe(collection_id, user_id);
+    if (status === 'Safe')     return markAsSafe(collection_id, user_id);
     if (status === 'Rejected') return markAsRejected(collection_id, reason, user_id);
-    // For Disposed/Withdrawn — direct model update
+
     const updated = await bloodCollectionModel.updateCollectionStatus(
         collection_id, status, user_id, reason
     );
-    if (!updated) throw new Error('Blood collection not found');
+    if (!updated) throw new BusinessError('Blood collection not found', 404);
     return updated;
 };
 

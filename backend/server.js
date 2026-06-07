@@ -55,6 +55,8 @@ const bloodUnitRoutes = require("./app/routes/bloodUnitRoutes");
 const bloodRequestRoutes = require('./app/routes/bloodRequestRoutes');
 const registrationRoutes = require('./app/routes/registrationRoutes');
 const donorInterviewRoutes = require('./app/routes/donorInterviewRoutes');
+const bloodDriveRoutes = require('./app/routes/bloodDriveRoutes');
+const volunteerProfileRoutes  = require('./app/routes/volunteerProfileRoutes');
 
 app.use("/api/roles", roleRoutes);
 app.use("/api/branches", branchRoutes);
@@ -72,6 +74,8 @@ app.use("/api/blood-units", bloodUnitRoutes);
 app.use('/api/blood-requests', bloodRequestRoutes);
 app.use('/api', registrationRoutes);
 app.use('/api/donor-interviews', donorInterviewRoutes);
+app.use('/api/blood-drives', bloodDriveRoutes);
+app.use('/api/volunteers/me', volunteerProfileRoutes); 
 
 app.get("/", (req, res) => {
     res.json({ message: "BloodSync API is running" });

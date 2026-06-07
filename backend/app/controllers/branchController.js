@@ -1,5 +1,9 @@
 const branchModel = require('../repositories/branchModel');
 const response = require('../../utils/responseHelper');
+const {
+    validateCreateBranch,
+    validateUpdateBranch,
+} = require('../../validators/branchValidator');
 
 const getAllBranches = async (req, res) => {
     try {
@@ -22,22 +26,14 @@ const getBranchById = async (req, res) => {
 
 const createBranch = async (req, res) => {
     try {
-        const { branch_name, location } = req.body;
-        if (!branch_name || !location) {
-            return response.badRequest(
-                res,
-                'branch_name and location are required'
-            );
-        }
+        const errors = validateCreateBranch(req.body);
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
+
         const branch = await branchModel.createBranch(
-            branch_name,
-            location
+            req.body.branch_name,
+            req.body.location
         );
-        return response.created(
-            res,
-            branch,
-            'Branch created successfully'
-        );
+        return response.created(res, branch, 'Branch created successfully');
     } catch (error) {
         return response.error(res, error.message);
     }
@@ -45,24 +41,16 @@ const createBranch = async (req, res) => {
 
 const updateBranch = async (req, res) => {
     try {
-        const { branch_name, location } = req.body;
-        if (!branch_name && !location) {
-            return response.badRequest(
-                res,
-                'At least one field required to update'
-            );
-        }
+        const errors = validateUpdateBranch(req.body);
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
+
         const branch = await branchModel.updateBranch(
             req.params.id,
-            branch_name,
-            location
+            req.body.branch_name,
+            req.body.location
         );
         if (!branch) return response.notFound(res, 'Branch not found');
-        return response.success(
-            res,
-            branch,
-            'Branch updated successfully'
-        );
+        return response.success(res, branch, 'Branch updated successfully');
     } catch (error) {
         return response.error(res, error.message);
     }
@@ -72,11 +60,7 @@ const deleteBranch = async (req, res) => {
     try {
         const branch = await branchModel.deleteBranch(req.params.id);
         if (!branch) return response.notFound(res, 'Branch not found');
-        return response.success(
-            res,
-            branch,
-            'Branch deleted successfully'
-        );
+        return response.success(res, branch, 'Branch deleted successfully');
     } catch (error) {
         return response.error(res, error.message);
     }
@@ -87,5 +71,5 @@ module.exports = {
     getBranchById,
     createBranch,
     updateBranch,
-    deleteBranch
+    deleteBranch,
 };

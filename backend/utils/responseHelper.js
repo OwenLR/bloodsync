@@ -1,4 +1,15 @@
-const Sentry = require('@sentry/node');
+/**
+ * responseHelper.js — Standardized API response formatting.
+ *
+ * All controllers use these helpers — never write res.status().json() directly.
+ * error() captures to GlitchTip only on 500s.
+ *
+ * handleError() is the unified catch handler for controllers.
+ * It distinguishes BusinessError (known, expected) from plain Error (unexpected 500).
+ */
+
+const Sentry      = require('@sentry/node');
+const BusinessError = require('./businessError');
 
 const success = (res, data, message = null, statusCode = 200) => {
     const response = { status: 'success' };
@@ -18,7 +29,7 @@ const error = (res, message, statusCode = 500) => {
     }
     return res.status(statusCode).json({
         status: 'error',
-        message
+        message,
     });
 };
 
@@ -38,6 +49,27 @@ const forbidden = (res, message = 'Access denied') => {
     return error(res, message, 403);
 };
 
+/**
+ * Unified catch block handler for controllers.
+ *
+ * BusinessError  → respond with error.statusCode (400/401/403/404)
+ * plain Error    → respond with 500, captured by GlitchTip
+ *
+ * Usage:
+ *   } catch (err) {
+ *       return response.handleError(res, err);
+ *   }
+ */
+const handleError = (res, err) => {
+    if (err instanceof BusinessError) {
+        return res.status(err.statusCode).json({
+            status:  'error',
+            message: err.message,
+        });
+    }
+    return error(res, err.message);
+};
+
 module.exports = {
     success,
     created,
@@ -45,5 +77,6 @@ module.exports = {
     notFound,
     badRequest,
     unauthorized,
-    forbidden
+    forbidden,
+    handleError,
 };
