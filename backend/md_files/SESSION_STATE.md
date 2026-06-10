@@ -1,148 +1,160 @@
 # BloodSync Session State
 
-## Current Objective
-Architecture conversion — transitioning from MVC+Service to Layered Architecture with Domain layer.
+## Current Development Goal
+Reports feature — next major backend feature before frontend and deployment.
 
-## Current Progress
+## Pending Features
+- Reports
+- Frontend (HTML + CSS + Vanilla JS)
+- Railway deployment
 
-### Completed
-Phase 1 — Foundation ✅
-Phase 2 — Donor + Screening ✅ (with major architectural fix)
-Phase 3 — Blood Collection ✅
-Phase 4 — Blood Request Flow ✅
-Architecture Cleanup Round 1 ✅ (responseHelper, dateHelper, constants, validators, services)
-Infrastructure Setup ✅ (GlitchTip, Cloudinary, Upstash Redis/Rate Limiting)
-Donor Interview Separation ✅ (interview → answers → screening flow — Option B)
-Registration System ✅ (Requestor/Volunteer/Phlebotomist unified in users table)
-Requestor Merge ✅ (requestors merged into users table, role_id=4)
-Security Fixes ✅ (trust proxy, SELECT FOR UPDATE race condition, deferralModel bug fix)
-Validator Audit ✅ (all validators updated with proper validation)
-Medical Rules ✅ (hemoglobin thresholds, extraction time, QNS logic)
-Flow Enforcement ✅ (interview → screening → donation → collection chain enforced)
-Duplicate Donor Detection ✅ (national ID check, returns existing record)
+## Known Issues
+- None confirmed. Server starts clean.
 
-### In Progress — Architecture Conversion
-⬜ Step 1: Rename app/models/ → app/repositories/ (global find-replace in VS Code)
-⬜ Step 2: Create app/domain/ folder
-⬜ Step 3: Create app/cache/ folder
-⬜ Step 4: Create domain files (donorEligibility.js, donationRules.js, bloodRequestRules.js, bloodUnitRules.js)
-⬜ Step 5: Create new services (authService.js, userService.js, donorService.js, bloodUnitService.js)
-⬜ Step 6: Update existing services to use domain
-⬜ Step 7: Create new validators (branchValidator, hospitalValidator, interviewQuestionValidator, bloodUnitValidator)
-⬜ Step 8: Slim all controllers to 4 steps
-⬜ Step 9: Move cacheMiddleware.js → app/cache/cacheService.js
-⬜ Step 10: Update all require paths
+---
 
-### Pending Features (Required for Thesis 2)
-⬜ Blood drive management
-⬜ Real-time notifications (Socket.io)
-⬜ Reports
-⬜ Frontend (HTML + CSS + Vanilla JS)
-⬜ Railway deployment
+## Completed This Session (Full History)
 
-## Current Working State
-- Server starts clean
-- All core flows tested in Postman and working
-- Architecture conversion started but NOT complete
-- developer confirmed app/models/ → app/repositories/ rename
-- developer confirmed app/domain/ and app/cache/ folders to be created
+### Architecture & Foundation
+- Full architecture conversion (MVC+Service → Layered Architecture with Domain)
+- businessError.js (camelCase) — typed error class
+- responseHelper.handleError() — unified catch handler
+- All services updated to throw BusinessError
+- All controllers updated to use handleError
+- bloodDriveMiddleware.js — moved to correct backend/middleware/ location
+- cross-drive isolation in screeningService, donationService, bloodCollectionService
+- volunteerProfileValidator.js — extracted from bloodDriveValidator
+- volunteerProfileRoutes.js — extracted from registrationRoutes
+- statuses.js — updated with BLOOD_DRIVE_STATUSES, VENUE_TYPES, PARTICIPANT_STATUSES
+- donorValidator.js — email NOW required (was optional)
+- interviewAnswerValidator.js — fixed screening_id → interview_id
 
-## Controllers Audit Results
-Clean (only require path updates needed):
-- bloodCollectionController.js
-- bloodRequestController.js
-- screeningController.js
-- deferralController.js
-- donorInterviewController.js
-- interviewAnswerController.js
-- roleController.js
+### Notifications Feature — COMPLETE
+- notifications table migrated on Neon
+- constants/inventoryRulesConstant.js — fixed threshold values
+- app/domain/inventoryRulesDomain.js — isLowStock(), isNearExpiry()
+- app/email/emailService.js — sendEmail() only
+- app/email/emailTemplates.js — HTML builders only
+- app/socket/socketHandler.js — initSocket(), emitToRoom(), getIO()
+- app/repositories/staffModel.js — getStaffByBranch(), getAllAdmins()
+- app/repositories/notificationModel.js — notifications table CRUD
+- app/services/notificationService.js — orchestrates DB + email + socket
+- app/services/inventoryCheckService.js — evaluation + triggers notificationService
+- app/controllers/notificationController.js — 4 steps only
+- app/routes/notificationRoutes.js — /api/notifications endpoints
+- app/scheduler/inventoryScheduler.js — daily cron at 0AM UTC (8AM PHT)
+- server.js updated — http server, initSocket, startScheduler, notificationRoutes
+- bloodRequestService.js — notifyNewBloodRequest() hooked up after createRequest
+- bloodDriveService.js — notifyBloodDriveAssigned() hooked up after addParticipant
 
-Need slimming (business logic to extract):
-- authController.js → password compare, token generation → authService.js
-- userController.js → bcrypt.hash, email check → userService.js
-- registrationController.js → bcrypt.hash, inline validation → registrationService.js
-- donorController.js → national ID check calls model directly → donorService.js
-- bloodUnitController.js → status validation, transition check → bloodUnitService.js
-- branchController.js → inline validation → branchValidator.js
-- hospitalController.js → inline validation → hospitalValidator.js
-- interviewQuestionController.js → sex validation inline → interviewQuestionValidator.js
-- donationController.js → wrong validation (checks donor_id which is now auto-filled)
+### Auth Overhaul — COMPLETE
+- refresh_tokens table migrated on Neon
+- httpOnly cookies — access_token + refresh_token set via res.cookie()
+- Refresh token system — rotation on every refresh, deleted on logout
+- Refresh tokens stored hashed (SHA-256) in DB — raw token never stored
+- authService.js — login(), refresh(), logout() implemented
+- authController.js — sets/clears cookies, no token in response body
+- authMiddleware.js — reads req.cookies.access_token instead of Authorization header
+- authRoutes.js — POST /refresh added
+- server.js — cookie-parser added
+- JWT access token expiry changed: 8h → 15m
+- New env vars: JWT_REFRESH_SECRET, REFRESH_TOKEN_EXPIRES_IN=7d
 
-## Next Recommended Steps (New Chat)
-1. Confirm models/ → repositories/ rename done + global find-replace done
-2. Confirm app/domain/ and app/cache/ folders created
-3. Start writing domain files
-4. Write new services
-5. Slim controllers
-6. Move cache
-7. Test server starts clean
-8. Then: Blood drive management feature
-9. Then: Notifications
-10. Then: Reports
-11. Then: Frontend
-12. Then: Railway deployment
+### Drive Assignment Confirmation — COMPLETE
+- confirmation_token column added to blood_drive_participants (migration done)
+- bloodDriveModel.js — setConfirmationToken(), getParticipantByToken(),
+  clearConfirmationToken() added
+- bloodDriveModel.js — cancelDrive() double-cancellation guard added
+- bloodDriveModel.js — updateDrive() || null → ?? null (nullish coalescing fix)
+- bloodDriveService.js — generates crypto token on addParticipant, passes to
+  notificationService
+- bloodDriveService.js — confirmParticipation() added (service layer, not controller)
+- notificationService.js — notifyBloodDriveAssigned() updated to accept
+  confirmation_token, builds confirmUrl + declineUrl
+- emailTemplates.js — bloodDriveAssignmentEmail() updated with confirm/decline
+  buttons and tokenized links
+- bloodDriveController.js — confirmParticipation() added; uses esc() for XSS
+  safety; returns HTML not JSON; delegates to service layer
+- bloodDriveRoutes.js — GET /confirm added as public route (no auth middleware),
+  registered BEFORE /:id to avoid Express route shadowing
+- APP_URL added to .env (used to build tokenized confirmation links)
 
-## Server Configuration
-- Local: http://localhost:3000
-- Environment: .env with all required vars
-- Run command: npm run dev (nodemon)
-- Node version: v24.11.1
-- OS: Windows
+### Security Documentation
+- CURRENT_SECURITY.md created — covers all security features and architectural
+  security decisions
 
-## Environment Variables Required
-DATABASE_URL=
-JWT_SECRET=
-JWT_EXPIRES_IN=8h
-PORT=3000
-NODE_ENV=development
-GLITCHTIP_DSN=
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
+---
 
-## Installed Packages
-```json
-{
-  "@sentry/node": "installed",
-  "@sentry/profiling-node": "installed",
-  "@upstash/redis": "installed",
-  "@upstash/ratelimit": "installed",
-  "bcrypt": "installed",
-  "cloudinary": "installed",
-  "dotenv": "installed",
-  "express": "installed",
-  "helmet": "installed",
-  "hpp": "installed",
-  "jsonwebtoken": "installed",
-  "morgan": "installed",
-  "multer": "installed",
-  "nodemailer": "installed",
-  "nodemon": "installed (dev)",
-  "pg": "installed",
-  "validator": "installed",
-  "xss": "installed"
-}
+## Notification Types and Channels (reference)
+| Type | Trigger | Channel | Recipients |
+|---|---|---|---|
+| blood_request_new | Requestor submits request | Socket.io + DB | Branch staff only |
+| blood_drive_assigned | Staff adds participant | Email + DB | Assigned volunteer/phlebotomist |
+| donor_post_extraction | Donation created | Email only | The donor |
+| inventory_low | Daily cron | Email + DB | Branch staff + all admins |
+| inventory_expiring | Daily cron | Email + DB | Branch staff + all admins |
+
+## Inventory Thresholds (confirmed)
+- LOW_STOCK_THRESHOLD = 5 units
+- NEAR_EXPIRY_DAYS: Whole Blood 7d, PRBC 7d, Platelets 2d, FFP 30d
+
+## Socket.io Room Strategy
+- Staff/Admin → join room: branch_${branch_id}
+- Admin → also joins: admin_global
+- Requestors: no socket room
+
+## Email Provider
+- Development: Mailtrap (any EMAIL_FROM value works)
+- Production: Resend (host: smtp.resend.com, port: 465, user: resend, pass: API key)
+- Both via nodemailer SMTP — only .env values change between environments
+
+## Scheduler
+- Daily cron: '0 0 * * *' UTC = 8AM PHT
+- Railway free tier caveat: service may sleep — scheduler won't fire if sleeping
+
+## Donor Email
+- Email REQUIRED at donor registration (donorValidator.js)
+- donationService checks donor.email before creating donation
+- BusinessError if no email: "Donor has no email on record. Please update
+  the donor's profile before recording a donation."
+
+## File Responsibility Contract (do not violate)
+- constants/inventoryRulesConstant.js → fixed values only
+- app/domain/inventoryRulesDomain.js → isLowStock(), isNearExpiry() only
+- app/email/emailService.js → sendEmail() only
+- app/email/emailTemplates.js → HTML builders only
+- app/socket/socketHandler.js → initSocket(), emitToRoom(), getIO() only
+- app/scheduler/inventoryScheduler.js → startScheduler() + cron registration only
+- app/repositories/staffModel.js → getStaffByBranch(), getAllAdmins() only
+- app/repositories/notificationModel.js → notifications table SQL only
+- app/services/notificationService.js → orchestrates DB + email + socket
+- app/services/inventoryCheckService.js → evaluation + triggers notificationService
+- app/controllers/notificationController.js → 4 steps only
+- app/routes/notificationRoutes.js → endpoints only
+
+## Packages Added This Session
+```bash
+npm install nodemailer node-cron socket.io cookie-parser
 ```
 
-## Known Issues / Technical Debt
-- interviewAnswerValidator uses object method style (interviewAnswerValidator.validateSubmit()) — inconsistent with other validators but functional
-- SSL rejectUnauthorized: false in db.js — acceptable for dev, review for production
-- express-rate-limit still installed but replaced by Upstash — can be uninstalled
-- @logtail/node still installed (Better Stack abandoned) — should be uninstalled
+## Environment Variables Added This Session
+```
+JWT_EXPIRES_IN=15m                  # changed from 8h
+JWT_REFRESH_SECRET=                 # new — separate secret for refresh tokens
+REFRESH_TOKEN_EXPIRES_IN=7d         # new
+APP_URL=http://localhost:3000        # new — used for confirmation email links
+EMAIL_HOST=                         # new
+EMAIL_PORT=                         # new
+EMAIL_USER=                         # new
+EMAIL_PASS=                         # new
+EMAIL_FROM=                         # new (any value works for Mailtrap)
+```
 
-## THINGS THAT LOOK WRONG BUT ARE INTENTIONAL
-1. app/repositories/ files named *Model.js — historical naming, not changing file names, only folder
-2. profileModel.js covers both volunteers AND phlebotomists — intentional shared table
-3. No separate requestors table — merged into users table intentionally
-4. No unique_code on donors — donor_id serves as identifier
-5. No Cryoprecipitate in component_expiry_days — removed intentionally
-6. No total_donations column on donors — computed from donations table
-7. No last_donation_date column on donors — queried from donations table
-8. interviewAnswerValidator object method style — not a bug
-9. changed_by_id in request_status_logs has no FK constraint — intentional (references either users or requestors by type)
-10. donor_id and branch_id not sent by frontend for donations — auto-filled from screening by service
-11. interview_id in donor_interview_answers and donor_deferrals (NOT screening_id) — architectural fix, intentional
-12. screening references interview_id — flow enforcement, intentional
-13. Cache invalidation called after COMMIT in approveRequest — intentional (only invalidate on success)
+## Post-Defense Improvements (do not prioritize now)
+- Model-layer error normalization
+- Pagination on getAllDrives
+- getDrivesByBranch existence check for non-existent branch
+- Mobile app (React Native)
+- Donor login and self-service
+- SMS notifications
+- Refresh token family detection (reuse detection)

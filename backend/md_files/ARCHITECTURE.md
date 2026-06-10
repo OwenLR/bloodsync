@@ -1,127 +1,465 @@
 # BloodSync Architecture
 
-## System Architecture
-Web Frontend (HTML/CSS/JS) ──────┐
-↓
-Mobile App (React Native) ──→  Node.js API (Railway)
-↓
-Admin Panel ────────────────→  Neon PostgreSQL
+## Pattern
+Full Layered Architecture with Domain layer.
+(Converted from MVC+Service — conversion complete as of this session)
 
-## Current Architecture Pattern
-Hybrid Layered Architecture — transitioning from MVC+Service to full Layered Architecture with Domain layer.
-
-### Actual Layer Structure (Current State — Mid-Conversion)
-Request
+## Request Flow
+Client Request
 ↓
-Route (defines endpoint + middleware)
+Route (endpoint definition + middleware chain)
 ↓
-Middleware (verifyToken + checkRole)
+authMiddleware (verifyToken — JWT verification)
 ↓
-Controller (validates input + calls service + returns response)
+roleMiddleware (checkRole — role_id from JWT)
 ↓
-Service (orchestrates workflow + calls domain + calls repositories)
+bloodDriveMiddleware (requireBloodDrive — field role gate, optional)
 ↓
-Domain (pure business rules — NEW, being added)
+Controller (4 steps ONLY: extract → validate → call service → return response)
 ↓
-Repository/Model (database queries ONLY)
+Validator (technical input validation — format, required, type)
+↓
+Service (orchestration — calls domain + repositories + email/socket)
+↓
+Domain (pure business rules — no DB, no framework, no HTTP)
+↓
+Repository/Model (SQL queries ONLY)
 ↓
 Database (Neon PostgreSQL)
 
-## Folder Structure (Post-Conversion — In Progress)
+## Complete Folder Structure
 backend/
-├── app/
-│   ├── repositories/        ← renamed from models/ — SQL queries ONLY
-│   ├── controllers/         ← request/response ONLY — 4 steps max
-│   ├── routes/              ← endpoints ONLY
-│   ├── services/            ← orchestration ONLY — delegates to domain
-│   ├── domain/              ← NEW — pure business rules, no framework deps
-│   └── cache/               ← moved from middleware/ — cache logic
+├── instrument.js                    ← GlitchTip init — MUST be first require in server.js
+├── server.js                        ← Entry point, HTTP server, Socket.io init, scheduler start
 ├── config/
-│   ├── db.js                ← PostgreSQL connection pool
-│   ├── cloudinary.js        ← Cloudinary configuration
-│   └── redis.js             ← Upstash Redis configuration
+│   ├── db.js                        ← PostgreSQL pool
+│   ├── cloudinary.js                ← Cloudinary SDK config
+│   └── redis.js                     ← Upstash Redis client
 ├── constants/
-│   ├── roles.js             ← role ID constants
-│   ├── bloodTypes.js        ← valid blood type values
-│   ├── statuses.js          ← valid status values
-│   └── medicalRules.js      ← hemoglobin thresholds, extraction limits
+│   ├── roles.js                     ← ROLES object (1=Admin...6=Phlebotomist)
+│   ├── bloodTypes.js                ← Valid blood type array
+│   ├── statuses.js                  ← All valid status arrays + NOTIFICATION_TYPES (pending)
+│   ├── medicalRules.js              ← HEMOGLOBIN thresholds, EXTRACTION max duration
+│   └── inventoryRules.js            ← LOW_STOCK_THRESHOLD, NEAR_EXPIRY_DAYS (pending)
 ├── middleware/
-│   ├── authMiddleware.js    ← JWT token verification (staff)
-│   ├── roleMiddleware.js    ← role-based access control
-│   └── uploadMiddleware.js  ← multer memory storage
+│   ├── authMiddleware.js            ← JWT verification → req.user
+│   ├── roleMiddleware.js            ← Role-based access control
+│   ├── uploadMiddleware.js          ← Multer memory storage
+│   ├── bloodDriveMiddleware.js      ← Blood drive assignment gate → req.drive_id
+│   └── upstashRateLimiter.js        ← Upstash sliding window rate limiter
 ├── utils/
-│   ├── responseHelper.js    ← standardized API responses + GlitchTip capture
-│   ├── dateHelper.js        ← date calculation utilities
-│   └── uploadHelper.js      ← Cloudinary upload/delete functions
-├── validators/              ← technical input validation ONLY
-├── instrument.js            ← GlitchTip/Sentry init (must be first require)
-└── server.js
-
-## IMPORTANT: models/ vs repositories/
-The folder was named `models/` originally but the files inside are functionally repositories — they contain only SQL queries, no business logic, no entity behavior. As part of the architecture conversion, this folder is being renamed to `repositories/`. All require paths are being updated accordingly.
+│   ├── responseHelper.js            ← Standardized responses + handleError()
+│   ├── dateHelper.js                ← Date calculation utilities
+│   ├── uploadHelper.js              ← Cloudinary upload/delete
+│   └── businessError.js            ← Custom error class (statusCode aware)
+├── validators/
+│   ├── userValidator.js
+│   ├── donorValidator.js            ← email NOW REQUIRED (changed this session)
+│   ├── registrationValidator.js     ← validateRequestorRegistration + validateRegistration
+│   ├── donorInterviewValidator.js
+│   ├── screeningValidator.js
+│   ├── bloodCollectionValidator.js
+│   ├── bloodRequestValidator.js
+│   ├── bloodDriveValidator.js       ← drive + participant validation only
+│   ├── bloodUnitValidator.js
+│   ├── interviewAnswerValidator.js  ← object method style (intentional)
+│   ├── interviewQuestionValidator.js
+│   ├── branchValidator.js
+│   ├── hospitalValidator.js
+│   └── volunteerProfileValidator.js ← identity fields locked server-side
+└── app/
+    ├── cache/
+    │   └── cacheService.js          ← cache(), getCache(), setCache(), invalidateCache()
+    ├── domain/
+    │   ├── donorEligibility.js      ← checkHemoglobinEligibility()
+    │   ├── donationRules.js         ← evaluateExtractionTime(), assertNotQns()
+    │   ├── bloodRequestRules.js     ← assertValidTransition()
+    │   ├── bloodUnitRules.js        ← assertNotTerminal(), assertReasonProvided()
+    │   ├── bloodDriveRules.js       ← computeDriveStatus(), getNowPHT(), assertNotTerminal()
+    │   │                               assertCancellable(), assertValidDateRange(),
+    │   │                               assertStartNotInPast(), isDriveActiveNow()
+    │   └── inventoryRules.js        ← isLowStock(), isNearExpiry() [PENDING]
+    ├── email/                        ← [PENDING — new folder this session]
+    │   ├── emailService.js          ← nodemailer send wrapper only
+    │   └── emailTemplates.js        ← HTML string builders only
+    ├── scheduler/                    ← [PENDING]
+    │   └── inventoryScheduler.js    ← node-cron daily job, calls inventoryCheckService
+    ├── socket/                       ← [PENDING]
+    │   └── socketHandler.js         ← Socket.io init, room management, emitToRoom(), getIO()
+    ├── repositories/                 ← renamed from models/ — SQL queries ONLY
+    │   ├── roleModel.js
+    │   ├── branchModel.js
+    │   ├── hospitalModel.js
+    │   ├── userModel.js
+    │   ├── profileModel.js          ← volunteer_profiles (volunteers + phlebotomists)
+    │   ├── donorModel.js
+    │   ├── donorInterviewModel.js   ← includes drive_id in all queries
+    │   ├── interviewQuestionModel.js
+    │   ├── interviewAnswerModel.js
+    │   ├── deferralModel.js
+    │   ├── screeningModel.js
+    │   ├── donationModel.js
+    │   ├── bloodCollectionModel.js
+    │   ├── bloodUnitModel.js
+    │   ├── bloodRequestModel.js
+    │   ├── bloodDriveModel.js       ← includes getActiveDriveForUser() for middleware
+    │   ├── staffModel.js            ← getStaffByBranch(), getAllAdmins() [PENDING]
+    │   └── notificationModel.js     ← notifications table CRUD [PENDING]
+    ├── services/
+    │   ├── authService.js
+    │   ├── userService.js
+    │   ├── donorService.js
+    │   ├── registrationService.js
+    │   ├── bloodUnitService.js
+    │   ├── interviewService.js
+    │   ├── screeningService.js      ← cross-drive check added
+    │   ├── donationService.js       ← cross-drive check + donor email check added
+    │   ├── bloodCollectionService.js ← cross-drive check added
+    │   ├── bloodRequestService.js   ← will call notificationService after createRequest
+    │   ├── bloodDriveService.js     ← will call notificationService in addParticipant
+    │   ├── notificationService.js   ← orchestrates DB + email + socket [PENDING]
+    │   └── inventoryCheckService.js ← runDailyCheck() [PENDING]
+    ├── controllers/
+    │   ├── authController.js
+    │   ├── userController.js
+    │   ├── registrationController.js
+    │   ├── donorController.js
+    │   ├── donorInterviewController.js ← passes req.drive_id to model
+    │   ├── bloodUnitController.js
+    │   ├── branchController.js
+    │   ├── hospitalController.js
+    │   ├── interviewQuestionController.js
+    │   ├── interviewAnswerController.js
+    │   ├── deferralController.js
+    │   ├── screeningController.js   ← passes req.user + req.drive_id to service
+    │   ├── donationController.js    ← passes req.user + req.drive_id to service
+    │   ├── bloodCollectionController.js ← passes req.user + req.drive_id to service
+    │   ├── bloodRequestController.js
+    │   ├── bloodDriveController.js
+    │   ├── roleController.js
+    │   ├── volunteerProfileController.js
+    │   └── notificationController.js ← [PENDING]
+    └── routes/
+        ├── authRoutes.js
+        ├── userRoutes.js
+        ├── registrationRoutes.js    ← registration + admin approval only
+        ├── volunteerProfileRoutes.js ← GET/PATCH /api/volunteers/me/profile
+        ├── donorRoutes.js           ← requireBloodDrive on POST
+        ├── donorInterviewRoutes.js  ← requireBloodDrive on POST
+        ├── interviewAnswerRoutes.js ← requireBloodDrive on POST
+        ├── screeningRoutes.js       ← requireBloodDrive on POST
+        ├── donationRoutes.js        ← requireBloodDrive on POST
+        ├── bloodCollectionRoutes.js ← requireBloodDrive on POST
+        ├── bloodUnitRoutes.js
+        ├── bloodRequestRoutes.js
+        ├── bloodDriveRoutes.js
+        ├── deferralRoutes.js
+        ├── interviewQuestionRoutes.js
+        ├── branchRoutes.js
+        ├── hospitalRoutes.js
+        ├── roleRoutes.js
+        └── notificationRoutes.js    ← [PENDING]
 
 ## Layer Responsibilities
 
-### Controller (4 steps only)
-1. Extract request data
-2. Call validator
-3. Call service (or repository for simple reads)
-4. Return response
+### Route
+- Purpose: Endpoint definition + middleware chain only
+- Responsibilities: Define URL, attach verifyToken + checkRole + requireBloodDrive, call controller
+- Should NOT: Contain any logic, validation, or business rules
+- Dependencies: authMiddleware, roleMiddleware, bloodDriveMiddleware, controller
+
+### Middleware
+- Purpose: Cross-cutting request concerns
+- Responsibilities: Token verification, role checking, file upload, drive access gating
+- Should NOT: Contain business logic or DB queries beyond what's needed for the gate
+- Note: bloodDriveMiddleware sets req.drive_id — downstream services use this
+
+### Controller
+- Purpose: HTTP request/response boundary — exactly 4 steps
+- Steps: 1. Extract request data, 2. Call validator, 3. Call service, 4. Return response
+- Should NOT: Contain bcrypt, jwt, business logic, direct DB queries
+- Error handling: always use response.handleError(res, error)
+
+### Validator
+- Purpose: Technical input validation only
+- Responsibilities: Required fields, format, type, allowed values
+- Should NOT: Contain business rules, DB queries, or domain logic
+- Note: interviewAnswerValidator uses object method style — intentional, do not change
 
 ### Service
-- Orchestrates workflows
-- Calls domain functions for business decisions
-- Calls repositories for data access
-- Manages transactions when needed
+- Purpose: Business orchestration
+- Responsibilities: Calls domain for rules, calls repositories for data, coordinates workflow
+- Should NOT: Contain SQL, res/req objects, direct nodemailer or socket calls
+- Throws: BusinessError for known violations, plain Error for unexpected failures
 
-### Domain (NEW — being added)
-- Pure business rules
-- No framework dependencies
-- No database access
-- Functions that take data, return results or throw errors
-- Examples: hemoglobin eligibility check, deferral rules, status transition rules
+### Domain
+- Purpose: Pure business rules
+- Responsibilities: Takes plain data, returns result or throws Error
+- Should NOT: require() any framework, DB pool, or HTTP module
+- Testable: without Express or PostgreSQL
 
-### Repository (app/repositories/)
-- SQL queries only
-- No business logic
-- No validation
-- Returns raw data to services
+### Repository (app/repositories/ — files named *Model.js)
+- Purpose: Database queries only
+- Responsibilities: SQL queries, parameter binding, return raw rows
+- Should NOT: Contain business logic, validation, or error classification
+- Note: Folder is repositories/ but files are *Model.js — intentional, do not rename files
+
+### Email (app/email/)
+- emailService.js: nodemailer config + sendEmail() only
+- emailTemplates.js: HTML string builders only — no sending, no DB
+
+### Socket (app/socket/)
+- socketHandler.js: Socket.io setup + room management + emitToRoom() + getIO()
+- Should NOT: Contain business logic or DB queries
+
+### Scheduler (app/scheduler/)
+- inventoryScheduler.js: node-cron registration only — calls inventoryCheckService
+- Should NOT: Contain inventory logic
+
+## Business Rules
+
+### Technical Validation (validators/)
+- Required fields, email format, phone format (7-15 digits numbers only)
+- Blood type must be in VALID_BLOOD_TYPES
+- Component must be in VALID_COMPONENTS
+- Dates: valid format, not in future (for birthdates)
+- Volunteer profile: first_name, last_name, birthdate, sex are LOCKED — rejected if sent
+
+### Business Validation (domain/ + services/)
+- Hemoglobin: Male min 13.0, Female min 12.5, both max 20.0 g/dL
+- Extraction time > 15 min → is_qns = true (collection still created for history)
+- QNS collection cannot be marked Safe
+- Interview must Pass before screening
+- Screening must be Eligible before donation
+- Donor email required at donation time (donor must have email on record)
+- Active deferral blocks donation
+- Same-day deferral blocks re-attempt
+- Blood request transitions: Pending→Approved, Pending→Rejected, Approved→Released, Approved→Rejected
+- Blood unit terminal states: Released, Disposed, Withdrawn — no further updates
+- Blood drive: Volunteers/Phlebotomists blocked outside active time window (PHT)
+- Blood drive: cross-drive isolation — field roles can only act on records from their assigned drive
+- PRC Staff branch restriction: can only create/manage drives for own branch
+- Blood drive terminal states: Ended, Cancelled — no updates, no participant changes
+- FEFO: nearest expiry blood units assigned first on request approval
+- Race condition: SELECT FOR UPDATE on blood request approval
+
+## Database Summary
+
+### Key Tables
+- users — ALL user types (Admin, PRC Staff, Requestor, Volunteer, Phlebotomist)
+- volunteer_profiles — profile data for role_id 5 and 6 only
+- donors — separate from users, not login-capable
+- donor_interviews — drive_id FK added
+- donor_interview_answers — references interview_id (NOT screening_id)
+- donor_deferrals — references interview_id (NOT screening_id)
+- screening — references interview_id, drive_id FK added
+- donations — drive_id FK added
+- blood_collections — temporary holding, drive_id FK added
+- blood_units — main inventory, auto-created when collection marked Safe, drive_id FK added
+- blood_requests — user_id references users (requestors are role_id=4)
+- request_items — line items per blood request
+- reservations — blood units reserved against a request
+- request_status_logs — audit trail for request status changes
+- blood_drives — NEW: name, branch_id, start_datetime, end_datetime (TIMESTAMPTZ), status
+- blood_drive_participants — NEW: drive_id, user_id, assigned_by, assignment_status
+- component_expiry_days — Whole Blood(35), PRBC(35), FFP(365), Platelets(5) — NO cryoprecipitate
+- notifications — NEW (pending): user_id, type, title, message, reference_id, reference_type, is_read
+
+### Critical FK Notes
+- donor_interview_answers.interview_id → donor_interviews (NOT screening)
+- donor_deferrals.interview_id → donor_interviews (NOT screening)
+- request_status_logs.changed_by_id → no FK constraint (intentional — type field disambiguates)
+- blood_drives uses TIMESTAMPTZ for timezone-safe PHT comparisons
+
+### drive_id propagation chain
+donor_interviews → screening → donations → blood_collections → blood_units
+Set once at interview, auto-filled downstream. NULL = walk-in (Admin/Staff outside drive).
 
 ## Authentication
-- JWT tokens (jsonwebtoken)
-- Password hashing (bcrypt)
-- Token expires in 8 hours (JWT_EXPIRES_IN=8h)
-- Staff token payload: { user_id, email, role_id, branch_id }
-- NO separate requestor token — requestors are in users table with role_id = 4
-- Token stored client-side (localStorage web, AsyncStorage mobile)
+- JWT, 8h expiry
+- Payload: { user_id, email, role_id, branch_id }
+- No separate requestor token — unified users table
+- req.user set by authMiddleware
+- req.drive_id set by bloodDriveMiddleware (null for Admin/Staff)
 
-## Role Based Access Control
-- All roles in users table — no separate requestor table
-- role_id embedded in JWT token
-- checkRole middleware reads role_id from token
-- Role IDs: 1=Admin, 2=PRC Staff, 3=Donor, 4=Requestor, 5=Volunteer, 6=Phlebotomist
+## Important Decisions
 
-## Error Tracking
-- GlitchTip (Sentry-compatible, self-hostable)
-- instrument.js loaded as first require in server.js
-- responseHelper.error() automatically captures 500 errors via Sentry.captureMessage()
-- setupExpressErrorHandler registered after all routes
+### Accepted
+- Requestors merged into users table (role_id=4) — eliminates dual auth flow
+- Folder named repositories/ but files named *Model.js — folder renamed, files kept as-is
+- Lazy status resolution for blood drives — status stored, corrected on read via computeDriveStatus()
+- BusinessError class — services throw typed errors, controllers use handleError()
+- cross-drive isolation in services not middleware — business rule belongs in service layer
+- Volunteer profile identity fields locked in validator (not just frontend)
+- app/email/ folder — emailService and emailTemplates together, not in utils/
 
-## Caching (3 Layers)
-- Layer 1: Browser caching via Cache-Control headers (hospitals, branches — 300s)
-- Layer 2: Application caching via Upstash Redis (blood availability — 60s)
-- Layer 3: CDN caching — planned post-deployment
-- Cache invalidated when blood unit status changes (markAsSafe, approveRequest, releaseRequest, rejectRequest)
+### Rejected
+- Separate requestors table — caused dual token structures
+- cryoprecipitate in component_expiry_days — removed intentionally
+- RLS on Neon — PgBouncer transaction mode breaks SET session variables
+- app/middleware/ subfolder — does not exist, middleware is at backend/middleware/
+- notificationRules.js name for both domain and constants — renamed to inventoryRules.js
 
-## Rate Limiting
-- Upstash Redis sliding window (replaces express-rate-limit)
-- General API: 100 requests per 15 minutes per IP
-- Login endpoints: 5 requests per 15 minutes per IP
-- app.set('trust proxy', 1) set for Railway proxy
-- Requestor account lockout: 5 failed attempts = locked 15 minutes
+## Things That Look Wrong But Are Intentional
+1. app/repositories/ files named *Model.js — folder renamed, not files
+2. profileModel.js covers both volunteers AND phlebotomists — shared table
+3. No separate requestors table — merged into users
+4. No unique_code on donors — donor_id serves as identifier
+5. No cryoprecipitate in component_expiry_days
+6. No total_donations column on donors — computed from donations table
+7. interviewAnswerValidator uses object method style — do not change
+8. changed_by_id in request_status_logs has no FK — intentional
+9. donor_id and branch_id not sent by frontend for donations — auto-filled
+10. interview_id in answers and deferrals (NOT screening_id) — architectural fix
+11. drive_id NULL on records = walk-in operation — intentional, not a bug
+12. bloodDriveMiddleware sets req.drive_id = null for Admin/Staff — intentional
 
-## File Storage
-- Cloudinary for all file uploads
-- Multer memory storage (files never touch disk)
-- Folders: profile_images/, request_forms/
-- URLs stored in database columns (profile_img, request_form_path)
+
+# ARCHITECTURE.MD — Updated Sections Only
+# Replace the corresponding sections in your existing ARCHITECTURE.MD file.
+# Everything not listed here stays unchanged.
+
+---
+
+## REPLACE: folder structure entries for domain and constants (lines ~41-44)
+Old:
+│   ├── inventoryRules.js            ← LOW_STOCK_THRESHOLD, NEAR_EXPIRY_DAYS (pending)
+
+New:
+│   ├── inventoryRulesConstant.js    ← LOW_STOCK_THRESHOLD, NEAR_EXPIRY_DAYS
+
+Old:
+│   └── inventoryRules.js        ← isLowStock(), isNearExpiry() [PENDING]
+
+New:
+│   └── inventoryRulesDomain.js  ← isLowStock(), isNearExpiry()
+
+---
+
+## REPLACE: email, socket, scheduler folder lines (remove [PENDING] tags)
+Old:
+    ├── email/                        ← [PENDING — new folder this session]
+    │   ├── emailService.js          ← nodemailer send wrapper only
+    │   └── emailTemplates.js        ← HTML string builders only
+    ├── scheduler/                    ← [PENDING]
+    │   └── inventoryScheduler.js    ← node-cron daily job, calls inventoryCheckService
+    ├── socket/                       ← [PENDING]
+    │   └── socketHandler.js         ← Socket.io init, room management, emitToRoom(), getIO()
+
+New:
+    ├── email/
+    │   ├── emailService.js          ← nodemailer send wrapper only
+    │   └── emailTemplates.js        ← HTML string builders only (includes confirm/decline buttons)
+    ├── scheduler/
+    │   └── inventoryScheduler.js    ← node-cron daily job, calls inventoryCheckService
+    ├── socket/
+    │   └── socketHandler.js         ← Socket.io init, room management, emitToRoom(), getIO()
+
+---
+
+## REPLACE: repositories section (remove [PENDING] tags, update bloodDriveModel note)
+Old:
+    │   ├── staffModel.js            ← getStaffByBranch(), getAllAdmins() [PENDING]
+    │   └── notificationModel.js     ← notifications table CRUD [PENDING]
+
+New:
+    │   ├── staffModel.js            ← getStaffByBranch(), getAllAdmins()
+    │   └── notificationModel.js     ← notifications table CRUD
+
+---
+
+## REPLACE: services section (remove [PENDING] tags, update hookup notes)
+Old:
+    │   ├── bloodRequestService.js   ← will call notificationService after createRequest
+    │   ├── bloodDriveService.js     ← will call notificationService in addParticipant
+    │   ├── notificationService.js   ← orchestrates DB + email + socket [PENDING]
+    │   └── inventoryCheckService.js ← runDailyCheck() [PENDING]
+
+New:
+    │   ├── bloodRequestService.js   ← calls notifyNewBloodRequest() after createRequest
+    │   ├── bloodDriveService.js     ← calls notifyBloodDriveAssigned() after addParticipant
+    │   │                               confirmParticipation() — token validation + status update
+    │   ├── notificationService.js   ← orchestrates DB + email + socket
+    │   └── inventoryCheckService.js ← runDailyCheck()
+
+---
+
+## REPLACE: controllers section (add notificationController)
+Old:
+    │   └── notificationController.js ← [PENDING]
+
+New:
+    │   └── notificationController.js ← getMyNotifications, getUnreadCount, markAsRead, markAllAsRead
+
+---
+
+## REPLACE: routes section (add notificationRoutes, update bloodDriveRoutes)
+Old:
+    │   └── notificationRoutes.js    ← [PENDING]
+
+New:
+    │   └── notificationRoutes.js    ← /api/notifications endpoints
+
+Add note to bloodDriveRoutes line:
+    │   ├── bloodDriveRoutes.js      ← GET /confirm public route registered BEFORE /:id
+
+---
+
+## REPLACE: Database Summary → Key Tables section
+Old:
+- blood_drive_participants — NEW: drive_id, user_id, assigned_by, assignment_status
+- component_expiry_days — Whole Blood(35), PRBC(35), FFP(365), Platelets(5) — NO cryoprecipitate
+- notifications — NEW (pending): user_id, type, title, message, reference_id, reference_type, is_read
+
+New:
+- blood_drive_participants — drive_id, user_id, assigned_by, assignment_status,
+                             confirmation_token (single-use, cleared after use)
+- component_expiry_days — Whole Blood(35), PRBC(35), FFP(365), Platelets(5) — NO cryoprecipitate
+- notifications — user_id, type, title, message, reference_id, reference_type, is_read
+- refresh_tokens — user_id, token_hash (SHA-256), expires_at — refresh token storage
+
+---
+
+## REPLACE: Authentication section
+Old:
+## Authentication
+- JWT, 8h expiry
+- Payload: { user_id, email, role_id, branch_id }
+- No separate requestor token — unified users table
+- req.user set by authMiddleware
+- req.drive_id set by bloodDriveMiddleware (null for Admin/Staff)
+
+New:
+## Authentication
+- JWT access token, 15min expiry, delivered via httpOnly cookie
+- Refresh token, 7 days expiry, delivered via httpOnly cookie, stored hashed in DB
+- Token rotation on every refresh — old token deleted, new one issued
+- Logout deletes refresh token from DB immediately — no grace period
+- Payload: { user_id, email, role_id, branch_id }
+- No separate requestor token — unified users table
+- req.user set by authMiddleware (reads req.cookies.access_token)
+- req.drive_id set by bloodDriveMiddleware (null for Admin/Staff)
+- Separate JWT_SECRET and JWT_REFRESH_SECRET in .env
+
+---
+
+## REPLACE: Important Decisions → Accepted section (add new entries)
+Add to Accepted:
+- httpOnly cookies for tokens — XSS-immune token delivery
+- Refresh token rotation — stolen tokens invalidated after single use
+- Tokenized email confirmation for blood drive assignments — single-use,
+  no login required, token cleared after use
+- inventoryRules split into inventoryRulesConstant.js + inventoryRulesDomain.js
+  — avoids two files with identical names in different folders
+
+---
+
+## REPLACE: Things That Look Wrong But Are Intentional (add new entries)
+Add:
+13. confirmParticipation returns HTML not JSON — browser-facing endpoint, not API
+14. GET /confirm has no auth middleware — confirmation token IS the authentication
+15. inventoryCheckService uses pool directly — cross-branch aggregate query has
+    no single repository owner; known exception to the no-SQL-in-services rule
+16. refresh token stored as plaintext in DB but access token stored as JWT —
+    refresh token is random bytes (not JWT), hashed before storage; access token
+    is short-lived JWT verified by signature, not DB lookup

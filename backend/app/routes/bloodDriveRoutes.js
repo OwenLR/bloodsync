@@ -11,6 +11,11 @@ const ALL_STAFF_AND_FIELD = [
     ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST,
 ];
 
+// ── Public — no auth ──────────────────────────────────────────
+router.get('/confirm',
+    bloodDriveController.confirmParticipation
+);
+
 // ── Blood Drive CRUD ──────────────────────────────────────────
 
 // All staff can view all drives

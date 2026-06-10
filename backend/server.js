@@ -1,16 +1,19 @@
 require("./instrument");
 
 const express = require("express");
+const http = require("http");
 const dotenv = require("dotenv");
 const morgan = require("morgan");
 const helmet = require("helmet");
 const hpp = require("hpp");
 const xss = require("xss");
 const Sentry = require("@sentry/node");
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
 
 app.set('trust proxy', 1);
 
@@ -30,6 +33,7 @@ app.use((req, res, next) => {
 
 // General middleware
 app.use(express.json());
+app.use(cookieParser());
 app.use(morgan('dev'));
 
 // Rate limiting via Upstash
@@ -56,7 +60,8 @@ const bloodRequestRoutes = require('./app/routes/bloodRequestRoutes');
 const registrationRoutes = require('./app/routes/registrationRoutes');
 const donorInterviewRoutes = require('./app/routes/donorInterviewRoutes');
 const bloodDriveRoutes = require('./app/routes/bloodDriveRoutes');
-const volunteerProfileRoutes  = require('./app/routes/volunteerProfileRoutes');
+const volunteerProfileRoutes = require('./app/routes/volunteerProfileRoutes');
+const notificationRoutes = require('./app/routes/notificationRoutes');
 
 app.use("/api/roles", roleRoutes);
 app.use("/api/branches", branchRoutes);
@@ -75,7 +80,8 @@ app.use('/api/blood-requests', bloodRequestRoutes);
 app.use('/api', registrationRoutes);
 app.use('/api/donor-interviews', donorInterviewRoutes);
 app.use('/api/blood-drives', bloodDriveRoutes);
-app.use('/api/volunteers/me', volunteerProfileRoutes); 
+app.use('/api/volunteers/me', volunteerProfileRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get("/", (req, res) => {
     res.json({ message: "BloodSync API is running" });
@@ -92,7 +98,14 @@ process.on("uncaughtException", (err) => {
     console.error("Uncaught Exception:", err.message);
 });
 
+// Socket.io + Scheduler
+const { initSocket } = require('./app/socket/socketHandler');
+const { startScheduler } = require('./app/scheduler/inventoryScheduler');
+
+initSocket(server);
+startScheduler();
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

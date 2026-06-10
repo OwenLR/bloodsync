@@ -1,222 +1,246 @@
 # BloodSync File Index
 
-## server.js
-Purpose: Application entry point
-Responsibilities: Import instrument.js first, configure middleware, register routes, start server, GlitchTip error handler
-Should NOT contain: Business logic, database queries, route handler functions
+## utils/businessError.js
+Purpose: Custom typed error class for known business rule violations
+Why: Eliminates string-matching in controllers, gives services a clean way to signal
+     400/401/403/404 errors vs unexpected 500s
+Responsibilities: Extend Error with statusCode property
+Used By: All services, responseHelper.handleError()
+Should NOT contain: Business logic, DB queries
 
-## instrument.js
-Purpose: GlitchTip (Sentry-compatible) error tracking initialization
-Why it exists: Must be required before ALL other modules to auto-instrument Express
-Responsibilities: Sentry.init() with GlitchTip DSN, autoSessionTracking: false
-Should NOT contain: Any application logic
+## utils/responseHelper.js
+Purpose: Standardized API response formatting
+Responsibilities: success(), created(), error(), notFound(), badRequest(),
+                  unauthorized(), forbidden(), handleError()
+handleError(): if BusinessError → use error.statusCode; if plain Error → 500 + GlitchTip
+Should NOT contain: Business logic
 
-## config/db.js
-Purpose: PostgreSQL connection pool
-Responsibilities: Create pg Pool, SSL config, pool error handling
-Should NOT contain: Query logic, business logic
+## utils/dateHelper.js
+Purpose: Date calculation utilities
+Responsibilities: calculateExpiryDate(), isExpired(), formatDate(), daysBetween()
 
-## config/cloudinary.js
-Purpose: Cloudinary SDK configuration
-Responsibilities: Configure cloudinary.v2 with env vars
-Should NOT contain: Upload logic (that is in utils/uploadHelper.js)
-
-## config/redis.js
-Purpose: Upstash Redis client
-Responsibilities: Create Redis instance with REST URL and token
-Should NOT contain: Cache logic (that is in app/cache/)
-
-## constants/roles.js
-Purpose: Role ID constants
-Responsibilities: Export ROLES object mapping role names to IDs
-
-## constants/bloodTypes.js
-Purpose: Valid blood type values array
-
-## constants/statuses.js
-Purpose: All valid status arrays for all entities
-Exports: COLLECTION_STATUSES, UNIT_STATUSES, SCREENING_RESULTS, HEMOGLOBIN_STATUSES, DONOR_STATUSES, REQUEST_STATUSES, RESERVATION_STATUSES, URGENCY_LEVELS, CHANGED_BY_TYPES, USER_STATUSES
-
-## constants/medicalRules.js
-Purpose: Medical business rule thresholds
-Responsibilities: HEMOGLOBIN (Male/Female min/max), EXTRACTION max duration
-Why it exists: Clinical thresholds should be in one place, readable by any developer
-Should NOT contain: Validation logic or functions
+## utils/uploadHelper.js
+Purpose: Cloudinary file operations
+Responsibilities: uploadToCloudinary(buffer, folder), deleteFromCloudinary(publicId)
 
 ## middleware/authMiddleware.js
-Purpose: JWT token verification for staff
-Responsibilities: Extract Bearer token, verify JWT, attach decoded to req.user
-Should NOT contain: Role checking, business logic
+Purpose: JWT verification
+Responsibilities: Read access_token from req.cookies.access_token, verify JWT,
+                  attach decoded payload to req.user
+Note: Reads httpOnly cookie — NOT Authorization header (changed this session)
 
 ## middleware/roleMiddleware.js
 Purpose: Role-based access control
 Responsibilities: Read role_id from req.user, check against allowed roles array
 
+## middleware/bloodDriveMiddleware.js
+Purpose: Blood drive field operation gate
+Responsibilities: Admin/PRC Staff → pass through (req.drive_id = null)
+                  Volunteer/Phlebotomist → verify active drive assignment → set req.drive_id
+Note: Lives at backend/middleware/ NOT app/middleware/ (app/middleware/ does not exist)
+
 ## middleware/uploadMiddleware.js
-Purpose: Multer file upload handling
-Responsibilities: Memory storage, file type filter (JPEG/PNG/PDF), 5MB size limit
+Purpose: Multer memory storage for file uploads
+Allowed types: image/jpeg, image/png, image/jpg, application/pdf
+File size limit: 5MB
 
-## utils/responseHelper.js
-Purpose: Standardized API response formatting
-Responsibilities: success, created, error (captures to GlitchTip on 500), notFound, badRequest, unauthorized, forbidden
-Note: error() only sends to GlitchTip when statusCode === 500
+## middleware/upstashRateLimiter.js
+Purpose: Upstash Redis sliding window rate limiting
+Exports: apiRateLimiter (100 req/15min), loginRateLimiter (5 req/15min)
 
-## utils/dateHelper.js
-Purpose: Date calculation utilities
-Responsibilities: calculateExpiryDate, isExpired, formatDate, daysBetween
+## app/cache/cacheService.js
+Purpose: All application caching logic
+Exports: cache() middleware, getCache(), setCache(), invalidateCache()
+Note: Old cacheMiddleware.js deleted — this is the replacement
 
-## utils/uploadHelper.js
-Purpose: Cloudinary upload/delete operations
-Responsibilities: uploadToCloudinary(buffer, folder), deleteFromCloudinary(publicId)
-Folders used: 'profile_images', 'request_forms'
+## app/domain/donorEligibility.js
+Exports: checkHemoglobinEligibility(hemoglobin, sex)
+Throws: plain Error — wrapped as BusinessError in donationService
 
-## app/cache/ (NEW — being created)
-Purpose: Application caching logic
-Will contain: cacheService.js (moved from middleware/cacheMiddleware.js)
-Should NOT contain: Business logic
+## app/domain/donationRules.js
+Exports: evaluateExtractionTime(minutes) → {is_qns, qns_reason}
+         assertNotQns(collection) — throws plain Error
 
-## app/domain/ (NEW — being created)
-Purpose: Pure business rules independent of framework
-Will contain:
-- donorEligibility.js — hemoglobin check, deferral rules, age check, same-day deferral
-- donationRules.js — extraction time, QNS rules
-- bloodRequestRules.js — status transition rules
-- bloodUnitRules.js — unit status transition rules
-Should NOT contain: Database access, HTTP handling, framework dependencies
+## app/domain/bloodRequestRules.js
+Exports: assertValidTransition(currentStatus, newStatus), VALID_TRANSITIONS
 
-## app/repositories/ (renamed from app/models/)
-Purpose: Database queries ONLY
-Note: Although named repositories/, these files are the renamed models/ folder.
-All files contain only SQL queries — they fulfill repository responsibilities.
+## app/domain/bloodUnitRules.js
+Exports: assertNotTerminal(unit), assertReasonProvided(status, reason)
+         TERMINAL_STATUSES, REASON_REQUIRED_STATUSES
 
-### app/repositories/roleModel.js
-Responsibilities: getAllRoles, getRoleById, createRole, updateRole, deleteRole
+## app/domain/bloodDriveRules.js
+Exports: getNowPHT(), computeDriveStatus(drive), assertNotTerminal(drive),
+         assertCancellable(drive), assertValidDateRange(start, end),
+         assertStartNotInPast(start), isDriveActiveNow(drive), TERMINAL_STATUSES
+Note: getNowPHT() uses 'Asia/Manila' explicitly — Railway runs UTC
 
-### app/repositories/branchModel.js
-Responsibilities: getAllBranches, getBranchById, createBranch, updateBranch, deleteBranch
+## app/domain/inventoryRulesDomain.js
+Exports: isLowStock(count) → boolean
+         isNearExpiry(expirationDate, component) → boolean
+Uses: constants/inventoryRulesConstant.js for thresholds
+Should NOT contain: DB queries, email, socket
+Note: Previously planned as inventoryRules.js — renamed to avoid confusion with
+      constants file of similar name
 
-### app/repositories/hospitalModel.js
-Responsibilities: getAllHospitals, getHospitalById, createHospital, updateHospital, deleteHospital
+## app/email/emailService.js
+Purpose: nodemailer configuration + send function only
+Exports: sendEmail({ to, subject, html })
+Should NOT contain: Templates, business logic, DB queries
 
-### app/repositories/userModel.js
-Responsibilities: getAllUsers(status?), getUserById, getUserByEmail, createUser, createPendingUser, updateUser, updateLastLogin, deleteUser
+## app/email/emailTemplates.js
+Purpose: HTML email content builders only
+Exports: bloodDriveAssignmentEmail(data), donorPostExtractionEmail(data),
+         inventoryLowEmail(data), inventoryExpiringEmail(data)
+Note: bloodDriveAssignmentEmail includes confirmUrl + declineUrl buttons
+Should NOT contain: Sending logic, nodemailer, DB queries
 
-### app/repositories/profileModel.js
-Purpose: SQL queries for volunteer_profiles table
-Used for both Volunteers (role_id=5) and Phlebotomists (role_id=6)
-Responsibilities: getProfileByUserId, getAllProfiles(status?), createProfile, updateProfile, deleteProfileByUserId
-Note: File was renamed from staffProfileModel.js → volunteerProfileModel.js → profileModel.js by developer preference
+## app/socket/socketHandler.js
+Purpose: Socket.io server setup and room management
+Exports: initSocket(server), emitToRoom(room, event, data), getIO()
+Room strategy: branch_${branch_id} per branch, admin_global for admins
+Should NOT contain: Business logic, DB queries, email
 
-### app/repositories/donorModel.js
-Responsibilities: getAllDonors, getDonorById, getDonorByNationalId, searchDonors, createDonor, updateDonor, deleteDonor
+## app/scheduler/inventoryScheduler.js
+Purpose: node-cron daily job registration
+Exports: startScheduler()
+Calls: inventoryCheckService.runDailyCheck()
+Schedule: '0 0 * * *' UTC = 8AM PHT daily
+Should NOT contain: Inventory logic, notification logic
 
-### app/repositories/donorInterviewModel.js
-Responsibilities: getAllInterviews, getInterviewById, getInterviewsByDonor, createInterview, updateInterviewResult
+## app/repositories/bloodDriveModel.js
+Key functions:
+- getActiveDriveForUser(user_id) — used by bloodDriveMiddleware, PHT comparison
+- setConfirmationToken(drive_id, user_id, token) — stores confirmation token
+- getParticipantByToken(token) — looks up participant by confirmation token
+- clearConfirmationToken(drive_id, user_id) — clears token after use (single-use)
+- cancelDrive() — guards against double-cancellation (AND status != 'Cancelled')
+- updateDrive() — uses ?? null (nullish coalescing) not || null
 
-### app/repositories/interviewQuestionModel.js
-Responsibilities: getAllQuestions, getQuestionsByGender, getQuestionById, updateQuestion
+## app/repositories/staffModel.js
+Purpose: SQL to fetch staff users for notification targeting
+Exports: getStaffByBranch(branch_id) → Active Admin + PRC Staff at branch
+         getAllAdmins() → All active admins
+Uses: status = 'active' (not is_active — users table uses status column)
+Should NOT contain: Notification logic
 
-### app/repositories/interviewAnswerModel.js
-Responsibilities: getAnswersByInterview(interview_id), submitAnswers
-Note: Uses interview_id NOT screening_id — changed from original design
+## app/repositories/notificationModel.js
+Purpose: SQL for notifications table
+Exports: createNotification(data), getNotificationsByUser(user_id),
+         markAsRead(notification_id, user_id), markAllAsRead(user_id),
+         getUnreadCount(user_id)
+Note: markAsRead scopes by both notification_id AND user_id — prevents
+      users from marking other users' notifications as read
 
-### app/repositories/deferralModel.js
-Responsibilities: getDeferralsByDonor, getDeferralsByInterview, createDeferral, createMultipleDeferrals, checkActiveDeferral, checkSameDayDeferral
-Note: Uses interview_id NOT screening_id
+## app/services/authService.js
+Exports: login(), refresh(), logout()
+login(): issues access token (JWT, 15min) + refresh token (random 64-char hex, 7d)
+         stores refresh token HASHED (SHA-256) in refresh_tokens table
+refresh(): validates token hash against DB, rotates token (delete old, issue new),
+           re-checks user is_active on every refresh
+logout(): deletes refresh token from DB immediately — token is truly dead
+Should NOT contain: Cookie logic (that is in authController)
 
-### app/repositories/screeningModel.js
-Responsibilities: getAllScreenings, getScreeningById, getScreeningsByDonor, getScreeningByInterviewId, createScreening, updateScreening
-Note: Now includes interview_id in all queries and createScreening
+## app/services/notificationService.js
+Purpose: Orchestrates all notification delivery
+Exports: notifyNewBloodRequest(request) → DB + socket emit to branch room
+         notifyBloodDriveAssigned(user, drive) → DB + email with confirm/decline links
+         notifyDonorPostExtraction(donor, donation) → email only
+         notifyInventoryLow(branch_id, branch_name, items) → DB + email + socket
+         notifyInventoryExpiring(branch_id, branch_name, items) → DB + email + socket
+Calls: notificationModel, emailService, emailTemplates, socketHandler, staffModel
+Should NOT contain: SQL, HTML templates, nodemailer directly
 
-### app/repositories/donationModel.js
-Responsibilities: getAllDonations, getDonationById, getDonationsByDonor, createDonation, updateDonation
+## app/services/inventoryCheckService.js
+Purpose: Daily inventory evaluation logic
+Exports: checkLowStock(), checkNearExpiry(), runDailyCheck()
+Calls: pool directly (cross-branch aggregate query), inventoryRulesDomain,
+       notificationService
+Note: Direct pool usage is a known exception — cross-branch aggregate has no
+      single repository owner
+Should NOT contain: Email sending, socket emission, cron setup
 
-### app/repositories/bloodCollectionModel.js
-Responsibilities: getAllCollections, getCollectionById, getCollectionsByBranch, createCollection, updateCollectionStatus, getExpiryDays
+## app/services/bloodDriveService.js
+assertBranchOwnership(): PRC Staff branch restriction enforced here
+getDriveWithCurrentStatus(): lazy status resolution helper
+confirmParticipation(token, action): validates token, updates status, clears token
+addParticipant(): generates confirmation_token via crypto.randomBytes(32),
+                  calls notificationService.notifyBloodDriveAssigned() (fire and forget)
 
-### app/repositories/bloodUnitModel.js
-Responsibilities: getAllUnits, getUnitById, getUnitsByBranch, getInventoryByBloodType, getInventoryAvailability, createUnit, updateUnitStatus, getAvailableUnitsForAssignment
+## app/services/bloodRequestService.js
+createRequest(): calls notificationService.notifyNewBloodRequest() after creation
+                 (fire and forget — notification failure does not break request)
 
-### app/repositories/bloodRequestModel.js
-Responsibilities: getAllRequests, getRequestById, getRequestsByUser, createRequest, updateRequestStatus, createRequestItems, getItemsByRequest, updateItemFulfilled, createStatusLog, getStatusLogsByRequest, createReservation, getReservationsByRequest, updateReservationStatus
+## app/services/screeningService.js
+Cross-drive check: FIELD_ROLES check interview.drive_id !== reqDriveId → 403
+Signature: createScreening(data, user_id, reqUser, reqDriveId)
 
-## app/services/
-### app/services/authService.js (TO BE CREATED)
-Purpose: Login business logic
-Will handle: password comparison, is_active check, token generation, updateLastLogin
+## app/services/donationService.js
+Cross-drive check: FIELD_ROLES check screening.drive_id !== reqDriveId → 403
+Donor email check: if !donor.email → BusinessError before creating donation
+Signature: createDonation(data, user_id, reqUser, reqDriveId)
 
-### app/services/userService.js (TO BE CREATED)
-Purpose: User creation business logic
-Will handle: email duplicate check, password hashing, createUser
+## app/services/bloodCollectionService.js
+Cross-drive check: FIELD_ROLES check donation.drive_id !== reqDriveId → 403
+Signature: createCollection(data, user_id, reqUser, reqDriveId)
 
-### app/services/donorService.js (TO BE CREATED)
-Purpose: Donor creation business logic
-Will handle: national ID duplicate check, createDonor
+## app/controllers/notificationController.js
+Purpose: Notification endpoints — 4 steps only
+Responsibilities: getMyNotifications, getUnreadCount, markAsRead, markAllAsRead
+Used By: notificationRoutes.js
 
-### app/services/bloodUnitService.js (TO BE CREATED)
-Purpose: Blood unit status management
-Will handle: status validation, transition rules, existence check
+## app/controllers/bloodDriveController.js
+confirmParticipation(): public endpoint, returns HTML not JSON, uses esc() for
+                        XSS safety, delegates logic to bloodDriveService
+esc(): escapes &, <, >, ", ' — safe for both element content and attribute context
 
-### app/services/registrationService.js
-Purpose: Volunteer/Phlebotomist registration with transaction
-Responsibilities: register (create user + profile atomically), approveRegistration, declineRegistration
-Note: Handles re-registration for Declined users
+## app/routes/notificationRoutes.js
+Base path: /api/notifications
+GET /               → getMyNotifications (all authenticated roles)
+GET /unread-count   → getUnreadCount (all authenticated roles)
+PATCH /:id/read     → markAsRead (all authenticated roles)
+PATCH /read-all     → markAllAsRead (all authenticated roles)
 
-### app/services/interviewService.js
-Purpose: Interview answer submission with auto-deferral
-Responsibilities: submitAnswers (checks same-day deferral, submits answers, auto-creates deferrals, sets interview_result)
+## app/routes/bloodDriveRoutes.js
+GET /confirm → confirmParticipation — PUBLIC, no auth middleware
+CRITICAL: Must be registered BEFORE /:id route to avoid Express route shadowing
 
-### app/services/screeningService.js
-Purpose: Screening creation with interview pass check
-Responsibilities: createScreening (verifies interview Passed, auto-fills donor_id/branch_id), updateScreening
+## app/routes/registrationRoutes.js
+Contains: Self-registration routes + Admin approval routes ONLY
+Does NOT contain: Volunteer self-profile routes (those are in volunteerProfileRoutes.js)
 
-### app/services/donationService.js
-Purpose: Donation creation with full eligibility chain
-Responsibilities: createDonation (verifies screening Eligible, hemoglobin check, deferral check, auto-fills from screening)
+## app/routes/volunteerProfileRoutes.js
+Base path: /api/volunteers/me
+Contains: GET /profile, PATCH /profile for Volunteer and Phlebotomist roles only
 
-### app/services/bloodCollectionService.js
-Purpose: Blood collection lifecycle
-Responsibilities: createCollection (extraction time QNS check), markAsSafe (auto-creates blood_unit, blocks QNS), markAsRejected, updateStatus
+## app/routes/authRoutes.js
+POST /login   → login (public)
+POST /refresh → refresh (public — refresh token cookie is the auth)
+POST /logout  → logout (public — clears cookies + deletes refresh token from DB)
 
-### app/services/bloodRequestService.js
-Purpose: Blood request lifecycle with auto-assignment
-Responsibilities: createRequest, approveRequest (SELECT FOR UPDATE race condition fix, FEFO auto-assign), releaseRequest, rejectRequest, updateStatus
+## validators/interviewAnswerValidator.js
+Uses object method style: interviewAnswerValidator.validateSubmit()
+References interview_id (NOT screening_id) — was fixed previously
+Do NOT change to function export style
 
-## validators/
-### validators/userValidator.js
-Exports: validateCreateUser, validateUpdateUser
-Note: validateCreateUser restricts role_id to [1,2] — Admin/PRC Staff only
+## validators/registrationValidator.js
+Exports: validateRequestorRegistration (name + email + password + optional contact only)
+         validateRegistration (full volunteer/phlebotomist profile fields)
+These are SEPARATE — requestors use the lighter validator
 
-### validators/donorValidator.js
-Exports: validateCreateDonor, validateUpdateDonor
-Validates: sex (Male/Female), birthdate format/future, email format, blood type, contact (numbers only 7-15 digits)
+## validators/donorValidator.js
+email is NOW REQUIRED (was optional before)
 
-### validators/registrationValidator.js
-Exports: validateRegistration
-Validates: required fields, email format, password min 8, sex, contact, birthdate, zip_code, id_number, emergency_contact_phone
+## validators/volunteerProfileValidator.js
+LOCKED_FIELDS = ['first_name', 'last_name', 'birthdate', 'sex']
+These fields are rejected server-side if sent — not just frontend restriction
 
-### validators/donorInterviewValidator.js
-Exports: validateCreateInterview
-Validates: donor_id required/positive integer, branch_id required/positive integer
-
-### validators/screeningValidator.js
-Exports: validateCreateScreening, validateUpdateScreening
-Note: interview_id required in createScreening
-Validates: weight/hemoglobin positive numbers, pulse_rate positive integer, blood_pressure format (120/80)
-
-### validators/bloodCollectionValidator.js
-Exports: validateCreateCollection, validateUpdateCollectionStatus
-Validates: blood_type, component against valid list, volume_ml positive integer
-
-### validators/bloodRequestValidator.js
-Exports: validateCreateRequest, validateUpdateRequestStatus
-Note: validateCreateRequestor and validateLoginRequestor REMOVED (dead code — requestors now in users table)
-
-### validators/interviewAnswerValidator.js
-Exports: interviewAnswerValidator.validateSubmit (object method style)
-Note: Uses object method style — called as interviewAnswerValidator.validateSubmit() in controller
-
-### validators/branchValidator.js (TO BE CREATED)
-### validators/hospitalValidator.js (TO BE CREATED)
-### validators/interviewQuestionValidator.js (TO BE CREATED)
-### validators/bloodUnitValidator.js (TO BE CREATED)
+## constants/inventoryRulesConstant.js
+LOW_STOCK_THRESHOLD = 5
+NEAR_EXPIRY_DAYS = {
+  'Whole Blood': 7,
+  'Packed Red Blood Cells': 7,
+  'Platelets': 2,
+  'Fresh Frozen Plasma': 30
+}
+Should NOT contain: Functions or logic
+Note: Previously planned as inventoryRules.js — renamed to avoid confusion

@@ -6,6 +6,7 @@ const bloodDriveModel = require('../repositories/bloodDriveModel');
 const userModel       = require('../repositories/userModel');
 const BusinessError   = require('../../utils/businessError');
 const ROLES           = require('../../constants/roles');
+const crypto          = require('crypto');
 const {
     computeDriveStatus,
     assertNotTerminal,
@@ -13,6 +14,7 @@ const {
     assertValidDateRange,
     assertStartNotInPast,
 } = require('../domain/bloodDriveRules');
+const notificationService = require('./notificationService');
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -180,12 +182,35 @@ const addParticipant = async (drive_id, user_id, reqUser, role_notes) => {
         );
     }
 
-    return bloodDriveModel.addParticipant(
+    const participant = await bloodDriveModel.addParticipant(
         drive_id,
         user_id,
         reqUser.user_id,
         role_notes || null
     );
+
+    // Generate confirmation token and store it
+    const confirmationToken = crypto.randomBytes(32).toString('hex');
+    await bloodDriveModel.setConfirmationToken(drive_id, user_id, confirmationToken);
+
+    // Fire and forget — notification failure must not break assignment
+    notificationService.notifyBloodDriveAssigned(
+        {
+            user_id:    user.user_id,
+            first_name: user.first_name,
+            email:      user.email,
+        },
+        {
+            drive_id:           drive.drive_id,
+            name:               drive.name,
+            start_datetime:     drive.start_datetime,
+            venue_name:         drive.venue_name,
+            role:               role_notes || null,
+            confirmation_token: confirmationToken,
+        }
+    ).catch((err) => console.error('notifyBloodDriveAssigned failed:', err));
+
+    return participant;
 };
 
 const removeParticipant = async (drive_id, user_id, reqUser) => {
@@ -224,6 +249,34 @@ const updateParticipantStatus = async (drive_id, user_id, assignment_status, req
     return bloodDriveModel.updateParticipantStatus(drive_id, user_id, assignment_status);
 };
 
+const confirmParticipation = async (token, action) => {
+    const participant = await bloodDriveModel.getParticipantByToken(token);
+    if (!participant) return { status: 'invalid' };
+
+    if (participant.drive_status === 'Cancelled') {
+        return { status: 'cancelled', drive_name: participant.drive_name };
+    }
+
+    const newStatus = action === 'confirm' ? 'Confirmed' : 'Declined';
+    await bloodDriveModel.updateParticipantStatus(
+        participant.drive_id,
+        participant.user_id,
+        newStatus
+    );
+    await bloodDriveModel.clearConfirmationToken(
+        participant.drive_id,
+        participant.user_id
+    );
+
+    return {
+        status:         action,
+        first_name:     participant.first_name,
+        drive_name:     participant.drive_name,
+        start_datetime: participant.start_datetime,
+        venue_name:     participant.venue_name,
+    };
+};
+
 module.exports = {
     getAllDrives,
     getDriveById,
@@ -235,4 +288,5 @@ module.exports = {
     addParticipant,
     removeParticipant,
     updateParticipantStatus,
+    confirmParticipation,
 };

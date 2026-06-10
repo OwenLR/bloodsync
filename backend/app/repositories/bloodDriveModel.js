@@ -132,14 +132,14 @@ const updateDrive = async (drive_id, data) => {
          WHERE drive_id = $17
          RETURNING *`,
         [
-            name || null, description || null,
-            venue_name || null, venue_type || null,
-            building || null, floor_room || null,
-            street_address || null, city || null,
-            province || null, postal_code || null,
-            slots_available || null, contact_person || null,
-            contact_number || null, contact_email || null,
-            start_datetime || null, end_datetime || null,
+            name ?? null, description ?? null,
+            venue_name ?? null, venue_type ?? null,
+            building ?? null, floor_room ?? null,
+            street_address ?? null, city ?? null,
+            province ?? null, postal_code ?? null,
+            slots_available ?? null, contact_person ?? null,
+            contact_number ?? null, contact_email ?? null,
+            start_datetime ?? null, end_datetime ?? null,
             drive_id,
         ]
     );
@@ -166,6 +166,7 @@ const cancelDrive = async (drive_id, cancelled_by, cancellation_reason) => {
             cancellation_reason  = $2,
             updated_at           = NOW()
          WHERE drive_id = $3
+           AND status != 'Cancelled'
          RETURNING *`,
         [cancelled_by, cancellation_reason || null, drive_id]
     );
@@ -257,6 +258,40 @@ const updateParticipantStatus = async (drive_id, user_id, assignment_status) => 
     return result.rows[0];
 };
 
+const setConfirmationToken = async (drive_id, user_id, token) => {
+    const result = await pool.query(
+        `UPDATE blood_drive_participants
+         SET confirmation_token = $1
+         WHERE drive_id = $2 AND user_id = $3
+         RETURNING *`,
+        [token, drive_id, user_id]
+    );
+    return result.rows[0];
+};
+
+const getParticipantByToken = async (token) => {
+    const result = await pool.query(
+        `SELECT bdp.*, bd.name AS drive_name, bd.start_datetime,
+                bd.venue_name, bd.status AS drive_status,
+                u.first_name, u.last_name
+         FROM blood_drive_participants bdp
+         JOIN blood_drives bd ON bdp.drive_id = bd.drive_id
+         JOIN users u ON bdp.user_id = u.user_id
+         WHERE bdp.confirmation_token = $1`,
+        [token]
+    );
+    return result.rows[0];
+};
+
+const clearConfirmationToken = async (drive_id, user_id) => {
+    await pool.query(
+        `UPDATE blood_drive_participants
+         SET confirmation_token = NULL
+         WHERE drive_id = $1 AND user_id = $2`,
+        [drive_id, user_id]
+    );
+};
+
 module.exports = {
     getAllDrives,
     getDriveById,
@@ -271,4 +306,7 @@ module.exports = {
     addParticipant,
     removeParticipant,
     updateParticipantStatus,
+    setConfirmationToken,
+    getParticipantByToken,
+    clearConfirmationToken,
 };

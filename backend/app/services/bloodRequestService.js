@@ -11,6 +11,7 @@ const bloodRequestModel = require('../repositories/bloodRequestModel');
 const bloodUnitModel = require('../repositories/bloodUnitModel');
 const { invalidateCache } = require('../cache/cacheService');
 const { assertValidTransition } = require('../domain/bloodRequestRules');
+const notificationService = require('./notificationService');
 
 /**
  * Create a blood request with its line items.
@@ -40,6 +41,14 @@ const createRequest = async (data, items, userId) => {
         changed_by_id:    userId,
         notes:            'Request submitted',
     });
+
+    // Fire and forget — notification failure must not break request creation
+    notificationService.notifyNewBloodRequest({
+        request_id: request.request_id,
+        branch_id:  request.branch_id,
+        patient_name:  data.patient_name,
+        urgency_level: data.urgency_level,
+    }).catch((err) => console.error('notifyNewBloodRequest failed:', err));
 
     return { request, items: createdItems };
 };
