@@ -1,11 +1,18 @@
 # BloodSync Session State
 
 ## Current Development Goal
-Reports feature — next major backend feature before frontend and deployment.
+Dual auth (cookies for web + Bearer token for mobile) — in progress this session.
+
+## Project Phase Clarification
+Thesis 2 — Implementation + Real User UAT phase.
+Real PRC staff and requestors will use the system during UAT.
+Mobile app for requestors is IN SCOPE for this phase, not post-defense.
 
 ## Pending Features
+- Dual auth implementation (cookies for web, Bearer token for mobile) ← NEXT
+- Frontend (HTML + CSS + Vanilla JS) — web app for Admin, PRC Staff, Volunteer, Phlebotomist
+- Requestor mobile app (React Native) — in scope for UAT
 - Reports
-- Frontend (HTML + CSS + Vanilla JS)
 - Railway deployment
 
 ## Known Issues
@@ -83,6 +90,59 @@ Reports feature — next major backend feature before frontend and deployment.
 - CURRENT_SECURITY.md created — covers all security features and architectural
   security decisions
 
+### Frontend Notes — COMPLETE
+- FRONTEND_NOTES.MD created — full frontend developer reference
+  covering auth, cookies, response shape, roles, routes, mobile notes
+
+---
+
+## Dual Auth Design (to be implemented)
+
+### Problem
+httpOnly cookies work perfectly for web browsers but are painful for native
+mobile (React Native). Mobile's native pattern is Bearer token in
+Authorization header stored in expo-secure-store.
+
+### Solution — Client-type branching
+Backend detects client type via `x-client-type: mobile` request header.
+
+**authController.js — login()**
+- Mobile: return access token + refresh token in response body (no cookies)
+- Web: set httpOnly cookies as before (no tokens in body)
+
+**authController.js — refresh()**
+- Mobile: read refresh token from request body, return new tokens in body
+- Web: read refresh token from cookie, set new cookies as before
+
+**authController.js — logout()**
+- Mobile: read refresh token from request body, delete from DB, return 200
+- Web: read refresh token from cookie, delete from DB, clear cookies
+
+**authMiddleware.js**
+- Check cookie first: req.cookies.access_token
+- Fall back to Bearer: req.headers.authorization?.split(' ')[1]
+- Same JWT verification after that — no branching needed
+
+**authService.js — no changes needed**
+- login(), refresh(), logout() are pure logic — cookie/body handling stays in controller
+
+### Files to change
+1. middleware/authMiddleware.js — add Bearer header fallback
+2. app/controllers/authController.js — add mobile branching to login/refresh/logout
+3. No other files need changes
+
+### Mobile client contract
+- Send header: `x-client-type: mobile` on all requests
+- Store access token in expo-secure-store (never AsyncStorage — not encrypted)
+- Store refresh token in expo-secure-store
+- Send refresh token in body on POST /api/auth/refresh: { refresh_token: '...' }
+- Send refresh token in body on POST /api/auth/logout: { refresh_token: '...' }
+- Send access token as: Authorization: Bearer <token>
+
+### Web client contract (unchanged)
+- credentials: 'include' on all fetch calls
+- No tokens handled in JS — cookies are automatic
+
 ---
 
 ## Notification Types and Channels (reference)
@@ -150,11 +210,10 @@ EMAIL_PASS=                         # new
 EMAIL_FROM=                         # new (any value works for Mailtrap)
 ```
 
-## Post-Defense Improvements (do not prioritize now)
+## Post-UAT Improvements (do not prioritize now)
 - Model-layer error normalization
 - Pagination on getAllDrives
 - getDrivesByBranch existence check for non-existent branch
-- Mobile app (React Native)
 - Donor login and self-service
 - SMS notifications
 - Refresh token family detection (reuse detection)

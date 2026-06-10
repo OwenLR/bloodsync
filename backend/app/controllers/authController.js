@@ -8,11 +8,23 @@ const COOKIE_OPTIONS = {
     path:     '/',
 };
 
+const isMobileRequest = (req) => req.headers['x-client-type'] === 'mobile';
+
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const result = await authService.login(email, password);
 
+        if (isMobileRequest(req)) {
+            // Mobile: return tokens in response body for secure storage
+            return response.success(res, {
+                user:          result.user,
+                access_token:  result.accessToken,
+                refresh_token: result.refreshToken,
+            }, 'Login successful');
+        }
+
+        // Web: set httpOnly cookies — tokens never exposed to JavaScript
         res.cookie('access_token', result.accessToken, {
             ...COOKIE_OPTIONS,
             maxAge: 15 * 60 * 1000, // 15 minutes in ms
@@ -31,6 +43,18 @@ const login = async (req, res) => {
 
 const refresh = async (req, res) => {
     try {
+        if (isMobileRequest(req)) {
+            // Mobile: refresh token comes from request body
+            const { refresh_token } = req.body;
+            const result = await authService.refresh(refresh_token);
+
+            return response.success(res, {
+                access_token:  result.newAccessToken,
+                refresh_token: result.newRefreshToken,
+            }, 'Token refreshed');
+        }
+
+        // Web: refresh token comes from httpOnly cookie
         const refreshToken = req.cookies.refresh_token;
         const result = await authService.refresh(refreshToken);
 
@@ -52,6 +76,15 @@ const refresh = async (req, res) => {
 
 const logout = async (req, res) => {
     try {
+        if (isMobileRequest(req)) {
+            // Mobile: refresh token comes from request body
+            const { refresh_token } = req.body;
+            await authService.logout(refresh_token);
+
+            return response.success(res, null, 'Logged out successfully');
+        }
+
+        // Web: refresh token comes from httpOnly cookie, then clear both cookies
         const refreshToken = req.cookies.refresh_token;
         await authService.logout(refreshToken);
 
