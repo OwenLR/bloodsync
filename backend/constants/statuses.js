@@ -13,6 +13,7 @@ const UNIT_STATUSES = [
     'Disposed',
     'Withdrawn',
     'Expired',
+    'Separated',
 ];
 
 const SCREENING_RESULTS   = ['Eligible', 'Deferred'];
@@ -24,14 +25,8 @@ const URGENCY_LEVELS      = ['Routine', 'STAT'];
 const CHANGED_BY_TYPES    = ['staff', 'requestor'];
 const USER_STATUSES       = ['Active', 'Inactive', 'Pending', 'Declined'];
 
-// Blood drive statuses
-// Upcoming  → drive is scheduled but has not started yet
-// Ongoing   → drive is currently within its start/end window
-// Ended     → drive window has passed (terminal — no updates allowed)
-// Cancelled → manually cancelled by Admin or Staff (terminal — no updates allowed)
 const BLOOD_DRIVE_STATUSES = ['Upcoming', 'Ongoing', 'Ended', 'Cancelled'];
 
-// Valid venue types for blood drives
 const VENUE_TYPES = [
     'School',
     'Hospital',
@@ -41,8 +36,20 @@ const VENUE_TYPES = [
     'Other',
 ];
 
-// Participant assignment statuses
 const PARTICIPANT_STATUSES = ['Assigned', 'Confirmed', 'Declined', 'No Show'];
+
+/**
+ * Notification type constants — used in notifications.type column.
+ * Always use these constants instead of hardcoded strings.
+ */
+const NOTIFICATION_TYPES = {
+    BLOOD_REQUEST_NEW:     'blood_request_new',
+    BLOOD_REQUEST_STATUS:  'blood_request_status',
+    BLOOD_DRIVE_ASSIGNED:  'blood_drive_assigned',
+    DONOR_POST_EXTRACTION: 'donor_post_extraction',
+    INVENTORY_LOW:         'inventory_low',
+    INVENTORY_EXPIRING:    'inventory_expiring',
+};
 
 module.exports = {
     COLLECTION_STATUSES,
@@ -58,4 +65,5 @@ module.exports = {
     BLOOD_DRIVE_STATUSES,
     VENUE_TYPES,
     PARTICIPANT_STATUSES,
+    NOTIFICATION_TYPES,
 };

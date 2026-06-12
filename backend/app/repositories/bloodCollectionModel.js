@@ -164,11 +164,65 @@ const getExpiryDays = async (component) => {
     return result.rows[0];
 };
 
+/**
+ * Insert 3 derived blood collection rows from a separated whole blood unit.
+ * Each row gets a fresh expiry date computed from today + component expiry days.
+ * source_unit_id links back to the original whole blood unit for traceability.
+ *
+ * @param {object} client - pg transaction client
+ * @param {object} sourceUnit - the original whole blood unit row
+ * @param {Array<{ component: string, expiry_days: number }>} components
+ * @param {number} separatedBy - user_id of the staff performing separation
+ * @returns {Promise<object[]>} the 3 inserted collection rows
+ */
+const createDerivedCollections = async (client, sourceUnit, components, separatedBy) => {
+    const inserted = [];
+
+    for (const { component, expiry_days } of components) {
+        const result = await client.query(
+            `INSERT INTO blood_collections (
+                donation_id,
+                donor_id,
+                branch_id,
+                collected_by,
+                blood_type,
+                component,
+                volume_ml,
+                collection_date,
+                expiration_date,
+                status,
+                drive_id,
+                source_unit_id
+             ) VALUES (
+                $1, $2, $3, $4, $5, $6,
+                $7, NOW(), (NOW() + ($8 || ' days')::interval)::date,
+                'Pending', $9, $10
+             ) RETURNING *`,
+            [
+                sourceUnit.donation_id,
+                sourceUnit.donor_id,
+                sourceUnit.branch_id,
+                separatedBy,
+                sourceUnit.blood_type,
+                component,
+                sourceUnit.volume_ml,
+                expiry_days,
+                sourceUnit.drive_id,
+                sourceUnit.unit_id,
+            ]
+        );
+        inserted.push(result.rows[0]);
+    }
+
+    return inserted;
+};
+
 module.exports = {
     getAllCollections,
     getCollectionById,
     getCollectionsByBranch,
     createCollection,
     updateCollectionStatus,
-    getExpiryDays
+    getExpiryDays,
+    createDerivedCollections,
 };

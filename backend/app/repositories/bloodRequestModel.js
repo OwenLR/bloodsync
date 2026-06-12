@@ -8,6 +8,8 @@ const getAllRequests = async () => {
                 br.branch_id, b.branch_name,
                 br.patient_name, br.patient_age, br.diagnosis,
                 br.urgency_level, br.request_form_path,
+                br.fulfillment_type, br.delivery_address,
+                br.preferred_branch_id,
                 br.status, br.denial_reason,
                 br.reviewed_by, br.reviewed_at,
                 br.notes, br.created_at, br.updated_at
@@ -28,6 +30,8 @@ const getRequestById = async (id) => {
                 br.branch_id, b.branch_name,
                 br.patient_name, br.patient_age, br.diagnosis,
                 br.urgency_level, br.request_form_path,
+                br.fulfillment_type, br.delivery_address,
+                br.preferred_branch_id,
                 br.status, br.denial_reason,
                 br.reviewed_by, br.reviewed_at,
                 br.notes, br.created_at, br.updated_at
@@ -46,7 +50,8 @@ const getRequestsByUser = async (userId) => {
         `SELECT br.request_id, br.hospital_id, h.hospital_name,
                 br.branch_id, b.branch_name,
                 br.patient_name, br.urgency_level,
-                br.status, br.created_at
+                br.fulfillment_type, br.delivery_address,
+                br.status, br.denial_reason, br.created_at
          FROM blood_requests br
          LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
          LEFT JOIN branches b ON br.branch_id = b.branch_id
@@ -61,17 +66,23 @@ const createRequest = async (data) => {
     const {
         user_id, hospital_id, branch_id,
         patient_name, patient_age, diagnosis,
-        urgency_level, request_form_path, notes
+        urgency_level, request_form_path, notes,
+        fulfillment_type, delivery_address, preferred_branch_id
     } = data;
 
     const result = await pool.query(
         `INSERT INTO blood_requests
             (user_id, hospital_id, branch_id, patient_name,
-             patient_age, diagnosis, urgency_level, request_form_path, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             patient_age, diagnosis, urgency_level, request_form_path, notes,
+             fulfillment_type, delivery_address, preferred_branch_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          RETURNING *`,
-        [user_id, hospital_id, branch_id, patient_name,
-         patient_age, diagnosis, urgency_level, request_form_path, notes]
+        [
+            user_id, hospital_id, branch_id, patient_name,
+            patient_age, diagnosis, urgency_level, request_form_path, notes,
+            fulfillment_type || 'Pickup', delivery_address || null,
+            preferred_branch_id || null
+        ]
     );
     return result.rows[0];
 };
@@ -89,6 +100,38 @@ const updateRequestStatus = async (id, status, reviewedBy, denialReason = null) 
         [status, reviewedBy, denialReason, id]
     );
     return result.rows[0];
+};
+
+/**
+ * Requestor self-cancel — only allowed when status is Pending.
+ * Returns null if request not found or not owned by this user.
+ */
+const cancelRequest = async (requestId, userId) => {
+    const result = await pool.query(
+        `UPDATE blood_requests SET
+            status     = 'Cancelled',
+            updated_at = NOW()
+         WHERE request_id = $1
+         AND user_id      = $2
+         AND status       = 'Pending'
+         RETURNING *`,
+        [requestId, userId]
+    );
+    return result.rows[0] || null;
+};
+
+/**
+ * Get pending request count for a branch — used for waiting time estimate.
+ */
+const getPendingCountByBranch = async (branchId) => {
+    const result = await pool.query(
+        `SELECT COUNT(*) AS count
+         FROM blood_requests
+         WHERE branch_id = $1
+         AND status = 'Pending'`,
+        [branchId]
+    );
+    return parseInt(result.rows[0].count, 10);
 };
 
 const createRequestItems = async (requestId, items) => {
@@ -152,13 +195,13 @@ const getStatusLogsByRequest = async (requestId) => {
 };
 
 const createReservation = async (data) => {
-    const { request_id, item_id, unit_id, reserved_by, notes } = data;
+    const { request_id, item_id, unit_id, reserved_by, notes, branch_id } = data;
     const result = await pool.query(
         `INSERT INTO reservations
-            (request_id, item_id, unit_id, reserved_by, notes)
-         VALUES ($1, $2, $3, $4, $5)
+            (request_id, item_id, unit_id, reserved_by, notes, branch_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [request_id, item_id, unit_id, reserved_by, notes]
+        [request_id, item_id, unit_id, reserved_by, notes, branch_id || null]
     );
     return result.rows[0];
 };
@@ -166,9 +209,11 @@ const createReservation = async (data) => {
 const getReservationsByRequest = async (requestId) => {
     const result = await pool.query(
         `SELECT res.*, bu.blood_type, bu.component,
-                bu.expiration_date, bu.barcode
+                bu.expiration_date, bu.barcode,
+                b.branch_name
          FROM reservations res
          LEFT JOIN blood_units bu ON res.unit_id = bu.unit_id
+         LEFT JOIN branches b ON res.branch_id = b.branch_id
          WHERE res.request_id = $1`,
         [requestId]
     );
@@ -193,6 +238,8 @@ module.exports = {
     getRequestsByUser,
     createRequest,
     updateRequestStatus,
+    cancelRequest,
+    getPendingCountByBranch,
     createRequestItems,
     getItemsByRequest,
     updateItemFulfilled,

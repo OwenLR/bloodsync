@@ -18,7 +18,7 @@ const getAllUnits = async () => {
             d.last_name,
             b.branch_name,
             u.first_name AS processed_by_first,
-            u.last_name AS processed_by_last
+            u.last_name  AS processed_by_last
          FROM blood_units bu
          JOIN donors d ON bu.donor_id = d.donor_id
          LEFT JOIN branches b ON bu.branch_id = b.branch_id
@@ -32,6 +32,11 @@ const getUnitById = async (id) => {
     const result = await pool.query(
         `SELECT
             bu.unit_id,
+            bu.collection_id,
+            bu.donation_id,
+            bu.donor_id,
+            bu.branch_id,
+            bu.drive_id,
             bu.blood_type,
             bu.component,
             bu.volume_ml,
@@ -43,13 +48,11 @@ const getUnitById = async (id) => {
             bu.withdrawal_reason,
             bu.processed_at,
             bu.created_at,
-            d.donor_id,
             d.first_name,
             d.last_name,
             b.branch_name,
-            b.branch_id,
             u.first_name AS processed_by_first,
-            u.last_name AS processed_by_last
+            u.last_name  AS processed_by_last
          FROM blood_units bu
          JOIN donors d ON bu.donor_id = d.donor_id
          LEFT JOIN branches b ON bu.branch_id = b.branch_id
@@ -88,44 +91,78 @@ const getInventoryByBloodType = async () => {
             b.branch_name,
             bu.blood_type,
             bu.component,
-            COUNT(*) as units_available,
-            MIN(bu.expiration_date) as nearest_expiry
+            COUNT(*) AS units_available,
+            MIN(bu.expiration_date) AS nearest_expiry
          FROM blood_units bu
          LEFT JOIN branches b ON bu.branch_id = b.branch_id
          WHERE bu.status = 'Available'
          AND bu.expiration_date > NOW()
-         GROUP BY bu.branch_id, b.branch_name,
-                  bu.blood_type, bu.component
+         GROUP BY bu.branch_id, b.branch_name, bu.blood_type, bu.component
          ORDER BY bu.branch_id, bu.blood_type ASC`
     );
     return result.rows;
 };
 
+/**
+ * Availability for requestors — returns boolean per blood type + component per branch.
+ * Also returns branch coordinates for distance calculation on the mobile app.
+ * Does NOT expose unit counts.
+ */
 const getInventoryAvailability = async () => {
-    // Returns only available or not
-    // for requestor view
     const result = await pool.query(
         `SELECT
+            b.branch_id,
             b.branch_name,
-            bu.blood_type,
-            bu.component,
+            b.latitude,
+            b.longitude,
+            bt.blood_type,
+            bt.component,
             CASE
-                WHEN COUNT(*) > 0 THEN 'Available'
-                ELSE 'Not Available'
-            END as availability
+                WHEN COUNT(bu.unit_id) > 0 THEN true
+                ELSE false
+            END AS available
          FROM branches b
          CROSS JOIN (
              SELECT DISTINCT blood_type, component
              FROM blood_units
          ) bt
          LEFT JOIN blood_units bu
-             ON bu.branch_id = b.branch_id
-             AND bu.blood_type = bt.blood_type
-             AND bu.component = bt.component
-             AND bu.status = 'Available'
+             ON bu.branch_id    = b.branch_id
+             AND bu.blood_type  = bt.blood_type
+             AND bu.component   = bt.component
+             AND bu.status      = 'Available'
              AND bu.expiration_date > NOW()
-         GROUP BY b.branch_name, bu.blood_type, bu.component
-         ORDER BY b.branch_name, bu.blood_type ASC`
+         GROUP BY b.branch_id, b.branch_name, b.latitude, b.longitude,
+                  bt.blood_type, bt.component
+         ORDER BY b.branch_name, bt.blood_type ASC`
+    );
+    return result.rows;
+};
+
+/**
+ * Get available units for a specific blood type + component across all branches.
+ * Returns count per branch with coordinates for distance-based sorting on the service layer.
+ * Used for multi-branch fulfillment logic.
+ */
+const getAvailableCountByBranch = async (bloodType, component) => {
+    const result = await pool.query(
+        `SELECT
+            b.branch_id,
+            b.branch_name,
+            b.latitude,
+            b.longitude,
+            COUNT(bu.unit_id) AS available_count
+         FROM branches b
+         LEFT JOIN blood_units bu
+             ON bu.branch_id   = b.branch_id
+             AND bu.blood_type = $1
+             AND bu.component  = $2
+             AND bu.status     = 'Available'
+             AND bu.expiration_date > NOW()
+         GROUP BY b.branch_id, b.branch_name, b.latitude, b.longitude
+         HAVING COUNT(bu.unit_id) > 0
+         ORDER BY b.branch_name ASC`,
+        [bloodType, component]
     );
     return result.rows;
 };
@@ -151,8 +188,9 @@ const createUnit = async (data) => {
         [
             collection_id, donation_id, donor_id,
             branch_id, blood_type,
-            component || 'Whole Blood',
-            volume_ml || 450, barcode,
+            component     || 'Whole Blood',
+            volume_ml     || 450,
+            barcode,
             collection_date, expiration_date,
             processed_by
         ]
@@ -165,7 +203,7 @@ const updateUnitStatus = async (id, status, reason, user_id) => {
         `UPDATE blood_units SET
             status = $1,
             disposal_reason = CASE
-                WHEN $1 = 'Disposed' THEN $2
+                WHEN $1 = 'Disposed'  THEN $2
                 ELSE disposal_reason
             END,
             withdrawal_reason = CASE
@@ -179,14 +217,40 @@ const updateUnitStatus = async (id, status, reason, user_id) => {
     return result.rows[0];
 };
 
+/**
+ * Mark a whole blood unit as Separated.
+ * Called inside a transaction — accepts a pg client.
+ *
+ * @param {object} client - pg transaction client
+ * @param {number} unitId
+ * @param {number} separatedBy - user_id
+ * @returns {Promise<object>} updated unit row
+ */
+const markUnitSeparated = async (client, unitId, separatedBy) => {
+    const result = await client.query(
+        `UPDATE blood_units SET
+            status       = 'Separated',
+            processed_by = $1,
+            processed_at = NOW()
+         WHERE unit_id = $2
+         RETURNING *`,
+        [separatedBy, unitId]
+    );
+    return result.rows[0];
+};
+
+/**
+ * FEFO: get available units for assignment — nearest expiry first.
+ * Scoped to a specific branch.
+ */
 const getAvailableUnitsForAssignment = async (bloodType, component, branchId, limit) => {
     const result = await pool.query(
-        `SELECT unit_id, blood_type, component, expiration_date, barcode
+        `SELECT unit_id, blood_type, component, expiration_date, barcode, branch_id
          FROM blood_units
          WHERE blood_type = $1
-         AND component = $2
-         AND branch_id = $3
-         AND status = 'Available'
+         AND component    = $2
+         AND branch_id    = $3
+         AND status       = 'Available'
          AND expiration_date > NOW()
          ORDER BY expiration_date ASC
          LIMIT $4`,
@@ -195,13 +259,30 @@ const getAvailableUnitsForAssignment = async (bloodType, component, branchId, li
     return result.rows;
 };
 
+/**
+ * Get pending request count for a branch — used for waiting time estimate.
+ */
+const getPendingRequestCountByBranch = async (branchId) => {
+    const result = await pool.query(
+        `SELECT COUNT(*) AS count
+         FROM blood_requests
+         WHERE branch_id = $1
+         AND status = 'Pending'`,
+        [branchId]
+    );
+    return parseInt(result.rows[0].count, 10);
+};
+
 module.exports = {
     getAllUnits,
     getUnitById,
     getUnitsByBranch,
     getInventoryByBloodType,
     getInventoryAvailability,
+    getAvailableCountByBranch,
     createUnit,
     updateUnitStatus,
-    getAvailableUnitsForAssignment
+    markUnitSeparated,
+    getAvailableUnitsForAssignment,
+    getPendingRequestCountByBranch,
 };

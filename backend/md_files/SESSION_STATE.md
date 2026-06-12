@@ -1,18 +1,17 @@
 # BloodSync Session State
 
 ## Current Development Goal
-Dual auth (cookies for web + Bearer token for mobile) — in progress this session.
+Frontend development — backend complete and stable.
 
-## Project Phase Clarification
+## Project Phase
 Thesis 2 — Implementation + Real User UAT phase.
 Real PRC staff and requestors will use the system during UAT.
-Mobile app for requestors is IN SCOPE for this phase, not post-defense.
+Mobile app for requestors is IN SCOPE for this phase.
 
 ## Pending Features
-- Dual auth implementation (cookies for web, Bearer token for mobile) ← NEXT
 - Frontend (HTML + CSS + Vanilla JS) — web app for Admin, PRC Staff, Volunteer, Phlebotomist
 - Requestor mobile app (React Native) — in scope for UAT
-- Reports
+- Reports (frontend-first — build UI then write queries to match)
 - Railway deployment
 
 ## Known Issues
@@ -67,6 +66,15 @@ Mobile app for requestors is IN SCOPE for this phase, not post-defense.
 - JWT access token expiry changed: 8h → 15m
 - New env vars: JWT_REFRESH_SECRET, REFRESH_TOKEN_EXPIRES_IN=7d
 
+### Dual Auth (Web + Mobile) — COMPLETE
+- authMiddleware.js — Bearer token fallback added (cookie first, then Authorization header)
+- authController.js — mobile/web branching via x-client-type: mobile header
+  - login: mobile returns tokens in body, web sets httpOnly cookies
+  - refresh: mobile reads token from body, web reads from cookie
+  - logout: mobile reads token from body, web reads from cookie + clears cookies
+- server.js — CORS added with credentials: true, ALLOWED_ORIGINS env var
+- New env var: ALLOWED_ORIGINS (comma-separated list of allowed frontend origins)
+
 ### Drive Assignment Confirmation — COMPLETE
 - confirmation_token column added to blood_drive_participants (migration done)
 - bloodDriveModel.js — setConfirmationToken(), getParticipantByToken(),
@@ -90,58 +98,88 @@ Mobile app for requestors is IN SCOPE for this phase, not post-defense.
 - CURRENT_SECURITY.md created — covers all security features and architectural
   security decisions
 
-### Frontend Notes — COMPLETE
-- FRONTEND_NOTES.MD created — full frontend developer reference
-  covering auth, cookies, response shape, roles, routes, mobile notes
+### Blood Request Enhancements — COMPLETE
+- Migration run on Neon:
+  - branches table: latitude, longitude columns added
+  - blood_requests table: fulfillment_type, delivery_address, preferred_branch_id added
+  - reservations table: branch_id added (tracks which branch each unit came from)
+  - Branch coordinates seeded: Batangas, Lipa, Nasugbu, Tanauan
+- constants/bloodRequestConstant.js — new file:
+  - MAX_UNITS_PER_REQUEST = 10
+  - MAX_UNITS_PER_ITEM = 10
+  - WAIT_TIME_ESTIMATES — queue depth → label mapping
+  - OPERATING_HOURS — 8AM–5PM PHT
+- socketHandler.js — requestors now join user_${user_id} private room on connect
+  - Uses ROLES constants instead of hardcoded role IDs
+- bloodUnitModel.js — updated:
+  - getInventoryAvailability() returns boolean + branch coords (not string)
+  - getAvailableCountByBranch() added — stock count per branch with coordinates
+  - getPendingRequestCountByBranch() added — for waiting time estimate
+- bloodRequestModel.js — updated:
+  - cancelRequest(requestId, userId) added — SQL-scoped to user_id AND status=Pending
+  - getPendingCountByBranch(branchId) added
+  - createReservation() accepts branch_id
+  - All SELECT queries include new columns
+- bloodRequestService.js — full rewrite:
+  - validateRequestItems() — enforces unit cap using constants
+  - getWaitingTimeEstimate() — dynamic queue + operating hours awareness
+  - getFulfillmentOptions() — multi-branch plan with Haversine distance sorting
+  - buildFulfillmentPlan() — per-item: single branch vs split recommendation
+  - approveRequest() — multi-branch FEFO: primary branch first, fills from others
+  - cancelRequest() — requestor self-cancel with proper BusinessError messages
+  - All status changes emit notifyRequestStatusChange() fire-and-forget
+- notificationService.js — notifyRequestStatusChange() added:
+  - Writes DB notification for requestor
+  - Emits to user_${user_id} socket room
+  - Handles Approved, Rejected, Released status messages
+- bloodRequestRoutes.js — new endpoints:
+  - POST /fulfillment-options (Requestor)
+  - GET /estimate/:branch_id (Requestor)
+  - PATCH /:id/cancel (Requestor)
+- bloodRequestController.js — new methods + fixed all catch blocks to use handleError:
+  - getFulfillmentOptions
+  - getWaitingTimeEstimate
+  - cancelRequest
+- bloodRequestValidator.js — updated:
+  - validateItems() extracted as shared helper
+  - validateFulfillmentOptions() added
+  - Unit cap validation uses constants (not hardcoded)
 
----
+### Frontend Notes & Planning — COMPLETE
+- FRONTEND_NOTES.MD created — developer guide for web + mobile
+- FRONTEND_CONTRACT.MD created — full API surface, request/response shapes
+- FRONTEND_AI_RULES.MD created — how AI should work on frontend
+- FRONTEND_SESSION_STATE.MD created — frontend build tracker (not started)
 
-## Dual Auth Design (to be implemented)
+### Blood Unit Separation — COMPLETE
+- migration.sql — source_unit_id column added to blood_collections (nullable FK → blood_units)
+- constants/statuses.js — 'Separated' added to UNIT_STATUSES
+- app/domain/bloodUnitRules.js — 'Separated' added to TERMINAL_STATUSES, assertSeparable() added
+- validators/bloodUnitValidator.js — validateSeparate() added
+- app/repositories/bloodCollectionModel.js — createDerivedCollections() added
+- app/repositories/bloodUnitModel.js — markUnitSeparated() added, getUnitById() extended
+  to include donation_id, donor_id, branch_id, drive_id
+- app/services/bloodUnitService.js — separateUnit() added
+- app/controllers/bloodUnitController.js — separateUnit() added
+- app/routes/bloodUnitRoutes.js — POST /:id/separate (Admin + PRC Staff only)
 
-### Problem
-httpOnly cookies work perfectly for web browsers but are painful for native
-mobile (React Native). Mobile's native pattern is Bearer token in
-Authorization header stored in expo-secure-store.
+### Cache Fixes — COMPLETE
+- bloodUnitRoutes.js — GET /inventory now cached (cache:blood-units:inventory, 60s TTL)
+- bloodUnitService.js — invalidateCache() called on both cache keys after
+  updateUnitStatus() and separateUnit()
+- bloodRequestService.js — inventory cache key added alongside existing
+  availability invalidation in approveRequest(), releaseRequest(), rejectRequest()
+- Cache key constants defined at top of both service files — never hardcoded inline
 
-### Solution — Client-type branching
-Backend detects client type via `x-client-type: mobile` request header.
-
-**authController.js — login()**
-- Mobile: return access token + refresh token in response body (no cookies)
-- Web: set httpOnly cookies as before (no tokens in body)
-
-**authController.js — refresh()**
-- Mobile: read refresh token from request body, return new tokens in body
-- Web: read refresh token from cookie, set new cookies as before
-
-**authController.js — logout()**
-- Mobile: read refresh token from request body, delete from DB, return 200
-- Web: read refresh token from cookie, delete from DB, clear cookies
-
-**authMiddleware.js**
-- Check cookie first: req.cookies.access_token
-- Fall back to Bearer: req.headers.authorization?.split(' ')[1]
-- Same JWT verification after that — no branching needed
-
-**authService.js — no changes needed**
-- login(), refresh(), logout() are pure logic — cookie/body handling stays in controller
-
-### Files to change
-1. middleware/authMiddleware.js — add Bearer header fallback
-2. app/controllers/authController.js — add mobile branching to login/refresh/logout
-3. No other files need changes
-
-### Mobile client contract
-- Send header: `x-client-type: mobile` on all requests
-- Store access token in expo-secure-store (never AsyncStorage — not encrypted)
-- Store refresh token in expo-secure-store
-- Send refresh token in body on POST /api/auth/refresh: { refresh_token: '...' }
-- Send refresh token in body on POST /api/auth/logout: { refresh_token: '...' }
-- Send access token as: Authorization: Bearer <token>
-
-### Web client contract (unchanged)
-- credentials: 'include' on all fetch calls
-- No tokens handled in JS — cookies are automatic
+### bloodRequestService.js Split — COMPLETE
+- app/services/fulfillmentService.js — new file: getDistanceKm(), buildFulfillmentPlan(),
+  getFulfillmentOptions(), getWaitingTimeEstimate()
+- app/services/bloodRequestService.js — lifecycle only: createRequest(), approveRequest(),
+  releaseRequest(), rejectRequest(), cancelRequest(), updateStatus()
+  validateRequestItems() removed — replaced with validateItems() from validator
+- validators/bloodRequestValidator.js — validateItems() now exported (was internal only)
+- app/controllers/bloodRequestController.js — fulfillmentService imported separately;
+  getFulfillmentOptions and getWaitingTimeEstimate now call fulfillmentService directly
 
 ---
 
@@ -149,19 +187,36 @@ Backend detects client type via `x-client-type: mobile` request header.
 | Type | Trigger | Channel | Recipients |
 |---|---|---|---|
 | blood_request_new | Requestor submits request | Socket.io + DB | Branch staff only |
+| blood_request_status | Staff approves/rejects/releases | Socket.io + DB | The requestor |
 | blood_drive_assigned | Staff adds participant | Email + DB | Assigned volunteer/phlebotomist |
 | donor_post_extraction | Donation created | Email only | The donor |
 | inventory_low | Daily cron | Email + DB | Branch staff + all admins |
 | inventory_expiring | Daily cron | Email + DB | Branch staff + all admins |
 
-## Inventory Thresholds (confirmed)
-- LOW_STOCK_THRESHOLD = 5 units
-- NEAR_EXPIRY_DAYS: Whole Blood 7d, PRBC 7d, Platelets 2d, FFP 30d
-
 ## Socket.io Room Strategy
 - Staff/Admin → join room: branch_${branch_id}
 - Admin → also joins: admin_global
-- Requestors: no socket room
+- Requestors → join room: user_${user_id} (private — for request status updates)
+
+## Blood Request Unit Cap
+- MAX_UNITS_PER_REQUEST = 10 (total across all items)
+- MAX_UNITS_PER_ITEM = 10 (per line item)
+- Defined in constants/bloodRequestConstant.js — change there only
+
+## Blood Request Fulfillment Priority
+1. Nearest branch that can fulfill ALL units → auto-select
+2. No single branch sufficient → show requestor: split (nearest first) vs single farther branch
+3. No branch has enough even combined → auto-split across available branches
+
+## Branch Coordinates (seeded on Neon)
+- Batangas: 13.765939, 121.065009
+- Lipa: 13.949117, 121.175462
+- Nasugbu: 14.074731, 120.632809
+- Tanauan: 14.081115, 121.153060
+
+## Inventory Thresholds (confirmed)
+- LOW_STOCK_THRESHOLD = 5 units
+- NEAR_EXPIRY_DAYS: Whole Blood 7d, PRBC 7d, Platelets 2d, FFP 30d
 
 ## Email Provider
 - Development: Mailtrap (any EMAIL_FROM value works)
@@ -180,6 +235,7 @@ Backend detects client type via `x-client-type: mobile` request header.
 
 ## File Responsibility Contract (do not violate)
 - constants/inventoryRulesConstant.js → fixed values only
+- constants/bloodRequestConstant.js → fixed values only (MAX_UNITS, WAIT_TIME_ESTIMATES, OPERATING_HOURS)
 - app/domain/inventoryRulesDomain.js → isLowStock(), isNearExpiry() only
 - app/email/emailService.js → sendEmail() only
 - app/email/emailTemplates.js → HTML builders only
@@ -192,22 +248,48 @@ Backend detects client type via `x-client-type: mobile` request header.
 - app/controllers/notificationController.js → 4 steps only
 - app/routes/notificationRoutes.js → endpoints only
 
-## Packages Added This Session
+## Packages Added
 ```bash
-npm install nodemailer node-cron socket.io cookie-parser
+npm install nodemailer node-cron socket.io cookie-parser cors
 ```
 
-## Environment Variables Added This Session
+## Environment Variables (all)
 ```
-JWT_EXPIRES_IN=15m                  # changed from 8h
-JWT_REFRESH_SECRET=                 # new — separate secret for refresh tokens
-REFRESH_TOKEN_EXPIRES_IN=7d         # new
-APP_URL=http://localhost:3000        # new — used for confirmation email links
-EMAIL_HOST=                         # new
-EMAIL_PORT=                         # new
-EMAIL_USER=                         # new
-EMAIL_PASS=                         # new
-EMAIL_FROM=                         # new (any value works for Mailtrap)
+# JWT
+JWT_SECRET=
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=
+REFRESH_TOKEN_EXPIRES_IN=7d
+
+# App
+APP_URL=http://localhost:3000
+ALLOWED_ORIGINS=http://localhost:5500,http://127.0.0.1:5500
+
+# Email
+EMAIL_HOST=
+EMAIL_PORT=
+EMAIL_USER=
+EMAIL_PASS=
+EMAIL_FROM=
+
+# Database
+DATABASE_URL=
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+
+# Upstash Redis
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
+# GlitchTip
+GLITCHTIP_DSN=
+
+# Environment
+NODE_ENV=development
+PORT=3000
 ```
 
 ## Post-UAT Improvements (do not prioritize now)

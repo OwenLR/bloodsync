@@ -13,10 +13,11 @@ router.get('/availability',
     bloodUnitController.getInventoryAvailability
 );
 
-// Staff views full inventory with counts
+// Staff views full inventory with counts — cached, invalidated on any unit mutation
 router.get('/inventory',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]),
+    cache(60, () => 'cache:blood-units:inventory'),
     bloodUnitController.getInventoryByBloodType
 );
 
@@ -46,6 +47,13 @@ router.patch('/:id/status',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]),
     bloodUnitController.updateUnitStatus
+);
+
+// Separate a whole blood unit into 3 component collections
+router.post('/:id/separate',
+    verifyToken,
+    checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]),
+    bloodUnitController.separateUnit
 );
 
 module.exports = router;

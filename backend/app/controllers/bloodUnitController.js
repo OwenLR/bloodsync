@@ -1,7 +1,10 @@
 const bloodUnitModel   = require('../repositories/bloodUnitModel');
 const bloodUnitService = require('../services/bloodUnitService');
 const response         = require('../../utils/responseHelper');
-const { validateUpdateUnitStatus } = require('../../validators/bloodUnitValidator');
+const {
+    validateUpdateUnitStatus,
+    validateSeparate,
+} = require('../../validators/bloodUnitValidator');
 
 const getAllUnits = async (req, res) => {
     try {
@@ -66,6 +69,26 @@ const updateUnitStatus = async (req, res) => {
     }
 };
 
+const separateUnit = async (req, res) => {
+    try {
+        const errors = validateSeparate();
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
+
+        const result = await bloodUnitService.separateUnit(
+            req.params.id,
+            req.user
+        );
+
+        return response.success(
+            res,
+            result,
+            'Whole blood unit separated into 3 component collections'
+        );
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 module.exports = {
     getAllUnits,
     getUnitById,
@@ -73,4 +96,5 @@ module.exports = {
     getInventoryByBloodType,
     getInventoryAvailability,
     updateUnitStatus,
+    separateUnit,
 };

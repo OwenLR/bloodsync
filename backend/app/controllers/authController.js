@@ -74,6 +74,8 @@ const refresh = async (req, res) => {
     }
 };
 
+
+
 const logout = async (req, res) => {
     try {
         if (isMobileRequest(req)) {
@@ -97,4 +99,12 @@ const logout = async (req, res) => {
     }
 };
 
-module.exports = { login, refresh, logout };
+const me = async (req, res) => {
+    try {
+        return response.success(res, { user: req.user }, 'User fetched');
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+module.exports = { login, refresh, logout, me };

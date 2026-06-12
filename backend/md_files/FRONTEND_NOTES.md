@@ -5,13 +5,6 @@ Everything the frontend needs to know about how the backend is built — contrac
 gotchas, naming rules, auth behavior, and role logic — so the frontend doesn't
 re-discover these by debugging failures.
 
-For naming conventions, column names, and file path conventions, refer to the
-backend memory files directly:
-- **ARCHITECTURE.MD** — folder structure, layer responsibilities, database tables
-- **AI_RULES.MD** — naming rules, coding rules, folder rules
-- **FILE_INDEX.MD** — what every backend file does
-- **CURRENT_SECURITY.md** — all security decisions and why
-
 This file focuses on what the frontend specifically needs to know and act on.
 
 ---
@@ -130,7 +123,7 @@ async function apiFetch(url, options = {}) {
         headers: { 'Content-Type': 'application/json', ...options.headers }
       });
     } else {
-      window.location.href = '/login.html';
+      window.location.href = '/index.html';
       return;
     }
   }
@@ -399,7 +392,9 @@ Approved → Released
 Approved → Rejected
 ```
 Only show action buttons for valid transitions. Don't show "Approve" on an
-already-Approved request.
+already-Approved request. Don't show "Cancel" unless status is Pending
+(backend scopes cancelRequest to user_id AND status=Pending — it returns
+null and 404 if either condition fails).
 
 ---
 
@@ -435,14 +430,42 @@ PATCH  /api/notifications/:id/read
 PATCH  /api/notifications/read-all
 ```
 
-### Socket.io (web — real-time for staff/admin)
+### Socket.io rooms
+- Staff/Admin → joined to `branch_${branch_id}` on connect
+- Admin → also joined to `admin_global`
+- Requestors → joined to `user_${user_id}` (private — request status updates)
+
+### Socket.io (web — staff/admin)
 ```javascript
 const socket = io('/', { withCredentials: true });
 socket.emit('join_room', `branch_${user.branch_id}`);
 socket.on('blood_request_new', (data) => { showNotificationBadge(); });
 ```
 
-Requestors have no socket room — poll the REST endpoint for status updates.
+### Socket.io (mobile — requestors)
+Requestors receive real-time status updates via their private `user_${user_id}` room.
+Connect with Bearer token — the backend reads it to identify the user and assign the room:
+```javascript
+const socket = io(API_BASE_URL, {
+  extraHeaders: {
+    'x-client-type': 'mobile',
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+socket.on('blood_request_status', (data) => {
+  // data.request_id, data.status, data.message
+  // Update the matching request card in my-requests screen
+});
+```
+
+### Notification types
+| Event | Who receives | Channel |
+|---|---|---|
+| `blood_request_new` | Branch staff + Admin | Socket + DB |
+| `blood_request_status` | The requestor | Socket + DB |
+| `inventory_low` | Branch staff + Admin | Email + DB |
+| `inventory_expiring` | Branch staff + Admin | Email + DB |
+| `blood_drive_assigned` | Assigned volunteer/phlebotomist | Email + DB |
 
 ---
 
@@ -470,12 +493,40 @@ For login 429 specifically: "Too many login attempts. Please wait 15 minutes."
 
 ---
 
-## 14. Suggested Folder Structure
+## 14. Blood Unit Separation
+
+### Endpoint
+```
+POST /api/blood-units/:id/separate
+Roles: Admin, PRC Staff only
+```
+Separates a Whole Blood unit into 3 derived component collections
+(Packed Red Blood Cells, Platelets, Fresh Frozen Plasma).
+
+### UI rules
+- Show "Separate" button only for units where: `component = 'Whole Blood'`
+  AND `status = 'Available'`
+- After separation, the source unit status becomes `Separated` — it is terminal,
+  no further actions apply
+- The 3 derived collections appear as new Pending entries in blood collections
+
+### Reservations now include branch_name
+`getReservationsByRequest` response includes `branch_name` from a join on branches.
+Use this to show the requestor which branch each reserved unit is coming from on
+the request detail view.
+
+---
+
+## 15. Folder Structure
 
 ### Web app (Vanilla JS)
+
+`assets/` = static resources only (CSS, images). Application code lives in `js/`.
+
 ```
 frontend/
 ├── index.html                        ← Login page
+│
 ├── assets/
 │   ├── css/
 │   │   ├── main.css                  ← Global styles, variables, resets
@@ -485,46 +536,60 @@ frontend/
 │   │       ├── inventory.css
 │   │       ├── notifications.css
 │   │       └── reports.css
-│   │
-│   ├── img/
-│   │
+│   └── img/
+│
+├── js/
 │   ├── core/                         ← Shared infrastructure — loaded on every page
 │   │   ├── api.js                    ← apiFetch wrapper (credentials, 401 retry) — BUILD FIRST
 │   │   ├── auth.js                   ← login(), logout(), redirectByRole(), getCurrentUser()
-│   │   ├── socket.js                 ← Socket.io init, room join, event listeners
-│   │   └── utils.js                  ← formatPHT(), showError(), showSuccess(), formatBloodType()
+│   │   ├── socket.js                 ← Socket.io init, room join, event export
+│   │   ├── utils.js                  ← formatPHT(), showError(), showSuccess(), formatBloodType()
+│   │   └── guards/
+│   │       ├── authGuard.js          ← requireAuth() — redirect to login if no session
+│   │       └── roleGuard.js          ← requireRole(role) — redirect if wrong role
 │   │
-│   ├── features/                     ← Domain logic per feature (mirrors backend domains)
-│   │   ├── donors/
-│   │   │   ├── donorApi.js           ← All fetch calls for /api/donors (data only)
-│   │   │   ├── donorUI.js            ← DOM rendering, table building, form handling
-│   │   │   └── donorValidation.js    ← Client-side checks before sending to backend
-│   │   ├── bloodRequests/
-│   │   │   ├── bloodRequestApi.js
-│   │   │   ├── bloodRequestUI.js     ← Also handles real-time row injection via socket events
-│   │   │   └── bloodRequestValidation.js
-│   │   ├── inventory/
-│   │   │   ├── inventoryApi.js
-│   │   │   └── inventoryUI.js
-│   │   ├── bloodDrives/
-│   │   │   ├── bloodDriveApi.js
-│   │   │   └── bloodDriveUI.js
-│   │   ├── notifications/
-│   │   │   ├── notificationApi.js
-│   │   │   └── notificationUI.js     ← Badge count, dropdown, mark as read
-│   │   └── reports/
-│   │       ├── reportApi.js
-│   │       └── reportUI.js
+│   ├── constants/
+│   │   └── config.js                 ← API_BASE_URL, ROLES, STATUSES, BLOOD_TYPES, COMPONENTS
+│   │
+│   ├── layouts/                      ← Page structure elements (not reusable components)
+│   │   ├── navbar.js                 ← Renders nav, calls notificationUI for badge
+│   │   └── sidebar.js                ← Renders sidebar based on role
 │   │
 │   ├── components/                   ← Reusable UI pieces, no feature-specific logic
-│   │   ├── navbar.js                 ← Renders nav, calls notificationUI for badge
-│   │   ├── sidebar.js
-│   │   └── modal.js                  ← Generic confirm/alert modal
+│   │   ├── modal.js                  ← Generic confirm/alert modal
+│   │   ├── toast.js                  ← Success/error toast notifications
+│   │   └── pagination.js             ← Reusable pagination controls
 │   │
-│   └── constants/
-│       └── config.js                 ← API_BASE_URL, ROLES, STATUS values
-│                                        mirrors backend constants/ — define once, use everywhere
-│                                        e.g. ROLES = { ADMIN: 1, PRC_STAFF: 2, ... }
+│   ├── entry/                        ← Entry point per page — wires up imports and init calls
+│   │   ├── dashboardPage.js
+│   │   ├── donorsPage.js
+│   │   ├── bloodDrivesPage.js
+│   │   ├── bloodUnitsPage.js
+│   │   ├── bloodRequestsPage.js
+│   │   ├── notificationsPage.js
+│   │   └── reportsPage.js
+│   │
+│   └── features/                     ← Domain logic per feature (mirrors backend domains)
+│       ├── donors/
+│       │   ├── donorApi.js           ← All fetch calls for /api/donors (data only, no DOM)
+│       │   ├── donorUI.js            ← DOM rendering, table building, form handling (no fetch)
+│       │   └── donorValidation.js    ← Client-side checks before sending to backend
+│       ├── bloodRequests/
+│       │   ├── bloodRequestApi.js
+│       │   ├── bloodRequestUI.js     ← Also handles real-time row injection via socket events
+│       │   └── bloodRequestValidation.js
+│       ├── inventory/
+│       │   ├── inventoryApi.js
+│       │   └── inventoryUI.js
+│       ├── bloodDrives/
+│       │   ├── bloodDriveApi.js
+│       │   └── bloodDriveUI.js
+│       ├── notifications/
+│       │   ├── notificationApi.js
+│       │   └── notificationUI.js     ← Badge count, dropdown, mark as read
+│       └── reports/
+│           ├── reportApi.js
+│           └── reportUI.js
 │
 └── pages/
     ├── dashboard.html
@@ -536,20 +601,67 @@ frontend/
     └── reports.html
 ```
 
-#### Real-time without React — how it works
-Socket.io events are handled in `core/socket.js` (initialized once) and
-feature UI files update the DOM directly. No framework needed:
+### Layer responsibilities — STRICT
+
+| Folder | Responsibility | Never |
+|---|---|---|
+| `core/api.js` | apiFetch wrapper only | DOM, business logic |
+| `core/auth.js` | login, logout, getCurrentUser, redirectByRole | DOM |
+| `core/socket.js` | Socket.io init, room join, event export | DOM manipulation |
+| `core/utils.js` | Pure helper functions | fetch, DOM |
+| `core/guards/` | Auth and role redirect checks | DOM, fetch |
+| `layouts/` | Page structure rendering | Feature-specific logic, fetch |
+| `components/` | Reusable UI pieces | Feature logic, fetch |
+| `entry/*.js` | Entry point: imports + init calls | Business logic, fetch |
+| `features/*Api.js` | fetch calls only, returns parsed data | DOM |
+| `features/*UI.js` | DOM manipulation, event handlers | fetch, apiFetch directly |
+| `features/*Validation.js` | Client-side input checks | fetch, DOM |
+| `constants/config.js` | Static values only | imports from other feature files |
+
+### Layouts vs Components — the distinction
+
+- **layouts/**: page structure elements rendered once per page load — `navbar.js`,
+  `sidebar.js`. These define the chrome around the content area.
+- **components/**: reusable UI pieces used many times across pages — `modal.js`,
+  `toast.js`, `pagination.js`. Called by UI files with data passed in.
+
+### Page entry files — pattern to follow
+
+Each `entry/*.js` is the single entry point for its HTML page.
+Wires imports and init calls — no logic of its own:
 
 ```javascript
-// core/socket.js — initialize once, export instance
+// js/entry/donorsPage.js
+import { requireAuth } from '../core/guards/authGuard.js';
+import { requireRole } from '../core/guards/roleGuard.js';
+import { renderNavbar } from '../layouts/navbar.js';
+import { renderSidebar } from '../layouts/sidebar.js';
+import { initDonorsTable } from '../features/donors/donorUI.js';
+import { ROLES } from '../constants/config.js';
+
+await requireAuth();
+await requireRole(ROLES.ADMIN, ROLES.PRC_STAFF);
+renderNavbar();
+renderSidebar();
+initDonorsTable();
+```
+
+The HTML page imports only the page entry file:
+```html
+<script type="module" src="../js/entry/donorsPage.js"></script>
+```
+
+### Real-time without React — how it works
+
+```javascript
+// js/core/socket.js — initialize once, export instance
 const socket = io('/', { withCredentials: true });
 export { socket };
 
-// features/bloodRequests/bloodRequestUI.js — import and listen
+// js/features/bloodRequests/bloodRequestUI.js — import and listen
 import { socket } from '../../core/socket.js';
 
 socket.on('blood_request_new', (data) => {
-    // If user is on the blood requests page, prepend the new row
     const tbody = document.querySelector('#requests-table tbody');
     if (!tbody) return; // User is on a different page — badge only
     const row = buildRequestRow(data);
@@ -557,48 +669,70 @@ socket.on('blood_request_new', (data) => {
 });
 ```
 
-The notification badge in `navbar.js` listens to the same socket event and
+The notification badge in `layouts/navbar.js` listens to the same socket event and
 increments independently — both updates happen from one emitted event.
 
 ---
 
 ### Mobile app (React Native — requestors)
+
 ```
 mobile/
 ├── app/
 │   ├── (auth)/
-│   │   ├── login.tsx
-│   │   └── register.tsx
+│   │   ├── login.tsx                     ← Login screen
+│   │   └── register.tsx                  ← Requestor self-registration (with OCR pre-fill)
 │   └── (app)/
-│       ├── dashboard.tsx
-│       ├── my-requests.tsx
-│       └── new-request.tsx
+│       ├── dashboard.tsx                 ← Requestor dashboard (availability overview)
+│       ├── my-requests.tsx               ← List of submitted requests + live status
+│       └── new-request.tsx               ← Submit new blood request form
 │
 ├── features/
 │   ├── auth/
-│   │   ├── authApi.ts              ← login(), logout(), refresh() calls
-│   │   ├── authHooks.ts            ← useAuth() hook
-│   │   └── authTypes.ts
+│   │   ├── authApi.ts                    ← login(), logout(), refresh() calls
+│   │   ├── authHooks.ts                  ← useAuth() hook
+│   │   └── authTypes.ts                  ← Auth-specific types (LoginPayload, etc.)
 │   ├── requests/
-│   │   ├── requestApi.ts           ← All fetch calls for /api/blood-requests
-│   │   ├── requestHooks.ts         ← useRequests(), useCreateRequest() hooks
-│   │   ├── requestTypes.ts
-│   │   └── requestValidation.ts    ← Client-side checks before sending
+│   │   ├── requestApi.ts                 ← All fetch calls for /api/blood-requests
+│   │   ├── requestHooks.ts               ← useRequests(), useCreateRequest() hooks
+│   │   ├── requestTypes.ts               ← Request-specific types (BloodRequest, etc.)
+│   │   └── requestValidation.ts          ← Client-side checks before sending to backend
 │   └── dashboard/
-│       ├── dashboardApi.ts
-│       └── dashboardHooks.ts
+│       ├── dashboardApi.ts               ← Fetch calls for availability + summary data
+│       └── dashboardHooks.ts             ← useDashboard() hook
 │
 ├── components/
-│   ├── Button.tsx
-│   ├── Input.tsx
-│   └── Card.tsx
+│   ├── ui/                               ← Primitives, no domain knowledge
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   └── Card.tsx
+│   ├── request/                          ← Request-domain components
+│   │   └── RequestCard.tsx               ← Single request card with live status badge
+│   └── notification/                     ← Notification-domain components
+│       └── NotificationBadge.tsx         ← Unread count badge, used in app header
+│
+├── providers/
+│   ├── AuthProvider.tsx                  ← Stores current user, exposes useAuth context
+│   ├── SocketProvider.tsx                ← Socket.io init with Bearer token, exposes socket context
+│   └── NotificationProvider.tsx          ← Unread count state, exposes useNotifications context
+│
+├── types/                                ← Shared types used across multiple features
+│   ├── api.ts                            ← ApiResponse<T>, PaginatedResponse<T>
+│   ├── user.ts                           ← User, Role
+│   ├── notification.ts                   ← Notification
+│   └── common.ts                         ← Shared enums, utility types
+│
+├── utils/
+│   ├── date.ts                           ← formatPHT(), formatDate()
+│   └── blood.ts                          ← formatBloodType()
 │
 ├── lib/
-│   ├── api.ts                      ← apiFetch wrapper (Bearer token, 401 retry) — BUILD FIRST
-│   └── auth.ts                     ← SecureStore token get/set/clear helpers
+│   ├── api.ts                            ← apiFetch wrapper (Bearer token, 401 retry) — BUILD FIRST
+│   ├── auth.ts                           ← SecureStore token get/set/clear helpers
+│   └── socket.ts                         ← Socket.io init with Bearer token, room join, event export
 │
 └── constants/
-    └── config.ts                   ← API_BASE_URL, ROLES, STATUS values
+    └── config.ts                         ← API_BASE_URL, ROLES, STATUSES, BLOOD_TYPES
 ```
 
 `core/api.js` (web) and `lib/api.ts` (mobile) are the most critical files in
@@ -606,7 +740,48 @@ both clients. Build them first. Every other file depends on them.
 
 ---
 
-## 15. Things That Look Wrong But Are Intentional
+## 16. Hosting — Railway Full-Stack
+
+BloodSync runs entirely on Railway. The Express backend serves the frontend as
+static files — no separate hosting platform needed.
+
+### Setup in Express (app.js)
+```javascript
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(express.static(path.join(__dirname, '../frontend')));
+```
+
+### Project structure with Railway full-stack
+```
+bloodsync/                ← monorepo root, one Railway deployment
+├── backend/              ← Node.js/Express (existing)
+├── frontend/             ← Vanilla JS (new)
+└── mobile/               ← React Native/Expo (separate — not served by Railway)
+```
+
+### API_BASE_URL by environment
+```javascript
+// js/constants/config.js
+export const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000'
+  : '';  // empty string = same origin in production (Railway)
+```
+
+Empty string in production means all `apiFetch('/api/...')` calls resolve to the
+same Railway domain automatically — no hardcoded production URL needed.
+
+### Hostinger
+Domain retained for DNS only — point DNS A record to Railway deployment URL.
+Do not use Hostinger for file hosting.
+
+---
+
+## 17. Things That Look Wrong But Are Intentional
 
 1. **No token in login response body (web)** — correct. Token is in cookie.
 2. **Token in login response body (mobile)** — correct. No cookie on native.
@@ -618,3 +793,9 @@ both clients. Build them first. Every other file depends on them.
 8. **Requestors use same login endpoint as staff** — correct. Unified users table.
 9. **Volunteer/Phlebotomist identity fields read-only** — correct. Server rejects
    updates to first_name, last_name, birthdate, sex even with valid token.
+10. **API_BASE_URL is empty string in production** — correct. Same-origin Railway
+    deployment means relative paths resolve automatically.
+11. **cancelRequest returns 404 if request is not Pending** — correct. Backend scopes
+    the cancel query to user_id AND status=Pending. Only show Cancel on Pending requests.
+12. **Separated status is terminal on blood units** — correct. No further status
+    transitions allowed. Hide all action buttons for Separated units.

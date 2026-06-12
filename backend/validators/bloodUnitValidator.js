@@ -20,6 +20,16 @@ const validateUpdateUnitStatus = (data) => {
     return errors;
 };
 
+/**
+ * validateSeparate — no body required.
+ * unit_id comes from req.params; nothing else needed from the request body.
+ * Kept here for consistency with the 4-step controller pattern.
+ */
+const validateSeparate = () => {
+    return []; // no body fields to validate
+};
+
 module.exports = {
     validateUpdateUnitStatus,
+    validateSeparate,
 };

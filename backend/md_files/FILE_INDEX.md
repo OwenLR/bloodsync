@@ -25,9 +25,10 @@ Responsibilities: uploadToCloudinary(buffer, folder), deleteFromCloudinary(publi
 
 ## middleware/authMiddleware.js
 Purpose: JWT verification
-Responsibilities: Read access_token from req.cookies.access_token, verify JWT,
+Responsibilities: Read token from req.cookies.access_token (web) OR
+                  Authorization: Bearer header (mobile), verify JWT,
                   attach decoded payload to req.user
-Note: Reads httpOnly cookie — NOT Authorization header (changed this session)
+Note: Cookie takes priority over Bearer header — web always uses cookie
 
 ## middleware/roleMiddleware.js
 Purpose: Role-based access control
@@ -97,7 +98,10 @@ Should NOT contain: Sending logic, nodemailer, DB queries
 ## app/socket/socketHandler.js
 Purpose: Socket.io server setup and room management
 Exports: initSocket(server), emitToRoom(room, event, data), getIO()
-Room strategy: branch_${branch_id} per branch, admin_global for admins
+Room strategy:
+  - branch_${branch_id} — Staff and Admin (branch-scoped events)
+  - admin_global — Admins only (system-wide events)
+  - user_${user_id} — Requestors only (private request status updates)
 Should NOT contain: Business logic, DB queries, email
 
 ## app/scheduler/inventoryScheduler.js
@@ -131,6 +135,27 @@ Exports: createNotification(data), getNotificationsByUser(user_id),
 Note: markAsRead scopes by both notification_id AND user_id — prevents
       users from marking other users' notifications as read
 
+## app/repositories/bloodUnitModel.js
+Key functions:
+- getInventoryAvailability() — boolean per blood type + component per branch,
+  includes branch coordinates (latitude, longitude) for distance calculation
+  Does NOT expose unit counts — requestor-safe
+- getAvailableCountByBranch(bloodType, component) — stock count per branch with
+  coordinates, used for multi-branch fulfillment planning
+- getAvailableUnitsForAssignment(bloodType, component, branchId, limit) — FEFO,
+  nearest expiry first, scoped to branch
+- getPendingRequestCountByBranch(branchId) — used for waiting time estimate
+- markUnitSeparated(client, unitId, separatedBy) — sets status='Separated' inside
+  a transaction; accepts pg client
+
+## app/repositories/bloodRequestModel.js
+Key functions:
+- cancelRequest(requestId, userId) — SQL-scoped to user_id AND status='Pending',
+  returns null if not found/not owned/wrong status
+- getPendingCountByBranch(branchId) — pending request count for waiting time
+- createReservation(data) — now accepts branch_id for multi-branch tracking
+- getReservationsByRequest(requestId) — includes branch_name from branches join
+
 ## app/services/authService.js
 Exports: login(), refresh(), logout()
 login(): issues access token (JWT, 15min) + refresh token (random 64-char hex, 7d)
@@ -139,14 +164,19 @@ refresh(): validates token hash against DB, rotates token (delete old, issue new
            re-checks user is_active on every refresh
 logout(): deletes refresh token from DB immediately — token is truly dead
 Should NOT contain: Cookie logic (that is in authController)
+Note: authController handles web/mobile branching — service is client-agnostic
 
 ## app/services/notificationService.js
 Purpose: Orchestrates all notification delivery
-Exports: notifyNewBloodRequest(request) → DB + socket emit to branch room
-         notifyBloodDriveAssigned(user, drive) → DB + email with confirm/decline links
-         notifyDonorPostExtraction(donor, donation) → email only
-         notifyInventoryLow(branch_id, branch_name, items) → DB + email + socket
-         notifyInventoryExpiring(branch_id, branch_name, items) → DB + email + socket
+Exports:
+  notifyNewBloodRequest(request) → DB + socket to branch room
+  notifyRequestStatusChange({request_id, user_id, new_status, patient_name, reason})
+    → DB notification + socket to user_${user_id} room
+    → Called on: Approved, Rejected, Released
+  notifyBloodDriveAssigned(user, drive) → DB + email with confirm/decline links
+  notifyDonorPostExtraction(donor, donation) → email only
+  notifyInventoryLow(branch_id, branch_name, items) → DB + email + socket
+  notifyInventoryExpiring(branch_id, branch_name, items) → DB + email + socket
 Calls: notificationModel, emailService, emailTemplates, socketHandler, staffModel
 Should NOT contain: SQL, HTML templates, nodemailer directly
 
@@ -167,8 +197,17 @@ addParticipant(): generates confirmation_token via crypto.randomBytes(32),
                   calls notificationService.notifyBloodDriveAssigned() (fire and forget)
 
 ## app/services/bloodRequestService.js
-createRequest(): calls notificationService.notifyNewBloodRequest() after creation
-                 (fire and forget — notification failure does not break request)
+Exports:
+  createRequest(data, items, userId) — validates unit cap, creates request + items + log
+  getFulfillmentOptions(items, lat, lon) — multi-branch plan with Haversine distance sorting
+    Returns: { plans, recommendation: 'single_branch'|'split', any_insufficient }
+  getWaitingTimeEstimate(branchId) — queue depth + operating hours → label
+  approveRequest(requestId, staffId) — FEFO multi-branch, SELECT FOR UPDATE
+  releaseRequest(requestId, staffId)
+  rejectRequest(requestId, staffId, denialReason) — frees reserved units
+  cancelRequest(requestId, userId) — requestor self-cancel, Pending only
+  updateStatus(requestId, status, staffId, denialReason) — routes to above
+All status changes call notifyRequestStatusChange() fire-and-forget
 
 ## app/services/screeningService.js
 Cross-drive check: FIELD_ROLES check interview.drive_id !== reqDriveId → 403
@@ -193,6 +232,12 @@ confirmParticipation(): public endpoint, returns HTML not JSON, uses esc() for
                         XSS safety, delegates logic to bloodDriveService
 esc(): escapes &, <, >, ", ' — safe for both element content and attribute context
 
+## app/controllers/bloodRequestController.js
+Exports: getAllRequests, getRequestById, getMyRequests, createRequest,
+         updateRequestStatus, getFulfillmentOptions, getWaitingTimeEstimate,
+         cancelRequest
+Note: All catch blocks use response.handleError() — NOT response.error()
+
 ## app/routes/notificationRoutes.js
 Base path: /api/notifications
 GET /               → getMyNotifications (all authenticated roles)
@@ -204,6 +249,18 @@ PATCH /read-all     → markAllAsRead (all authenticated roles)
 GET /confirm → confirmParticipation — PUBLIC, no auth middleware
 CRITICAL: Must be registered BEFORE /:id route to avoid Express route shadowing
 
+## app/routes/bloodRequestRoutes.js
+Requestor routes:
+  POST /                    → createRequest
+  GET  /my-requests         → getMyRequests
+  POST /fulfillment-options → getFulfillmentOptions (call before submitting)
+  GET  /estimate/:branch_id → getWaitingTimeEstimate
+  PATCH /:id/cancel         → cancelRequest (Pending only)
+Staff/Admin routes:
+  GET  /         → getAllRequests
+  GET  /:id      → getRequestById
+  PATCH /:id/status → updateRequestStatus
+
 ## app/routes/registrationRoutes.js
 Contains: Self-registration routes + Admin approval routes ONLY
 Does NOT contain: Volunteer self-profile routes (those are in volunteerProfileRoutes.js)
@@ -214,8 +271,13 @@ Contains: GET /profile, PATCH /profile for Volunteer and Phlebotomist roles only
 
 ## app/routes/authRoutes.js
 POST /login   → login (public)
-POST /refresh → refresh (public — refresh token cookie is the auth)
+POST /refresh → refresh (public — refresh token cookie/body is the auth)
 POST /logout  → logout (public — clears cookies + deletes refresh token from DB)
+
+## validators/bloodRequestValidator.js
+Exports: validateCreateRequest, validateUpdateRequestStatus, validateFulfillmentOptions
+validateItems() — shared internal helper, validates unit cap using bloodRequestConstant.js
+Unit cap: MAX_UNITS_PER_ITEM per line item, MAX_UNITS_PER_REQUEST total
 
 ## validators/interviewAnswerValidator.js
 Uses object method style: interviewAnswerValidator.validateSubmit()
@@ -244,3 +306,57 @@ NEAR_EXPIRY_DAYS = {
 }
 Should NOT contain: Functions or logic
 Note: Previously planned as inventoryRules.js — renamed to avoid confusion
+
+## constants/bloodRequestConstant.js
+MAX_UNITS_PER_REQUEST = 10 (total units across all items per request)
+MAX_UNITS_PER_ITEM = 10 (units per single blood type + component line item)
+WAIT_TIME_ESTIMATES = queue depth thresholds → human-readable labels
+OPERATING_HOURS = { start: 8, end: 17 } (PHT, 8AM–5PM)
+Should NOT contain: Functions or logic
+Note: Update here when PRC changes policy — no other files need to change
+
+## app/services/fulfillmentService.js
+Purpose: Blood request fulfillment planning — read-only, no mutations
+Exports: getDistanceKm(lat1, lon1, lat2, lon2)
+         getWaitingTimeEstimate(branchId)
+         buildFulfillmentPlan(item, requestorLat, requestorLon)
+         getFulfillmentOptions(items, requestorLat, requestorLon)
+Uses: bloodUnitModel, bloodRequestModel, bloodRequestValidator.validateItems()
+Should NOT contain: DB mutations, cache writes, notifications, socket, email
+
+
+
+UPDATED CHANGES (LATEST)
+## app/repositories/bloodCollectionModel.js
+ADD to Exports: createDerivedCollections(client, sourceUnit, components, separatedBy)
+  — inserts 3 derived Pending collections from a separated whole blood unit,
+    sets source_unit_id for traceability, fresh expiry from separation date
+
+## app/repositories/bloodUnitModel.js
+ADD to Key functions:
+- markUnitSeparated(client, unitId, separatedBy) — sets status='Separated' inside
+  a transaction; accepts pg client
+
+## app/services/bloodUnitService.js
+ADD to Exports: separateUnit(unitId, staffUser)
+  — asserts Whole Blood + Available, PRC Staff branch ownership check,
+    fetches component expiry days, runs transaction:
+    markUnitSeparated + createDerivedCollections
+    invalidates both cache keys after commit
+
+## app/services/bloodRequestService.js
+UPDATE description: lifecycle only — createRequest, approveRequest, releaseRequest,
+  rejectRequest, cancelRequest, updateStatus
+  Fulfillment planning moved to fulfillmentService.js
+  validateRequestItems removed — uses validateItems() from bloodRequestValidator
+
+## validators/bloodRequestValidator.js
+ADD to Exports: validateItems() — now exported for use by services
+  (was previously internal helper only)
+
+## app/controllers/bloodUnitController.js
+ADD to Exports: separateUnit
+
+## app/routes/bloodUnitRoutes.js
+ADD: POST /:id/separate — Admin + PRC Staff only
+ADD: GET /inventory now cached (60s, key: cache:blood-units:inventory)

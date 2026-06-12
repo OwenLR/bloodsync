@@ -9,7 +9,7 @@
 /**
  * Terminal statuses — units in these states cannot be updated further.
  */
-const TERMINAL_STATUSES = ['Released', 'Disposed', 'Withdrawn'];
+const TERMINAL_STATUSES = ['Released', 'Disposed', 'Withdrawn', 'Separated'];
 
 /**
  * Statuses that require a reason to be provided.
@@ -45,9 +45,30 @@ const assertReasonProvided = (status, reason) => {
     }
 };
 
+/**
+ * Assert that a unit can be separated.
+ * Only Available Whole Blood units can be separated.
+ *
+ * @param {{ component: string, status: string }} unit
+ * @throws {Error}
+ */
+const assertSeparable = (unit) => {
+    if (unit.component !== 'Whole Blood') {
+        throw new Error(
+            `Only Whole Blood units can be separated. This unit is ${unit.component}`
+        );
+    }
+    if (unit.status !== 'Available') {
+        throw new Error(
+            `Only Available units can be separated. This unit is ${unit.status}`
+        );
+    }
+};
+
 module.exports = {
     TERMINAL_STATUSES,
     REASON_REQUIRED_STATUSES,
     assertNotTerminal,
     assertReasonProvided,
+    assertSeparable,
 };

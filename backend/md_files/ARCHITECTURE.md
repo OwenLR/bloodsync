@@ -112,10 +112,11 @@ backend/
     │   ├── registrationService.js
     │   ├── bloodUnitService.js
     │   ├── interviewService.js
+    │   ├── fulfillmentService.js    ← read-only fulfillment planning, distance sorting, wait time estimates; no mutations
     │   ├── screeningService.js      ← cross-drive check added
     │   ├── donationService.js       ← cross-drive check + donor email check added
     │   ├── bloodCollectionService.js ← cross-drive check added
-    │   ├── bloodRequestService.js   ← will call notificationService after createRequest
+    │   ├── bloodRequestService.js   ← will call notificationService after createRequest, lifecycle only (create, approve, release, reject, cancel); imports fulfillmentService
     │   ├── bloodDriveService.js     ← will call notificationService in addParticipant
     │   ├── notificationService.js   ← orchestrates DB + email + socket [PENDING]
     │   └── inventoryCheckService.js ← runDailyCheck() [PENDING]
@@ -313,6 +314,15 @@ Set once at interview, auto-filled downstream. NULL = walk-in (Admin/Staff outsi
 10. interview_id in answers and deferrals (NOT screening_id) — architectural fix
 11. drive_id NULL on records = walk-in operation — intentional, not a bug
 12. bloodDriveMiddleware sets req.drive_id = null for Admin/Staff — intentional
+13. confirmParticipation returns HTML not JSON — browser-facing endpoint, not API
+14. GET /confirm has no auth middleware — confirmation token IS the authentication
+15. inventoryCheckService uses pool directly — cross-branch aggregate query has
+    no single repository owner; known exception to the no-SQL-in-services rule
+16. refresh token stored as plaintext in DB but access token stored as JWT —
+    refresh token is random bytes (not JWT), hashed before storage; access token
+    is short-lived JWT verified by signature, not DB lookup
+17. fulfillmentService exports getDistanceKm() — pure math helper exported
+    intentionally so callers can use it without reimplementing Haversine
 
 
 # ARCHITECTURE.MD — Updated Sections Only
@@ -454,12 +464,23 @@ Add to Accepted:
 
 ---
 
-## REPLACE: Things That Look Wrong But Are Intentional (add new entries)
-Add:
-13. confirmParticipation returns HTML not JSON — browser-facing endpoint, not API
-14. GET /confirm has no auth middleware — confirmation token IS the authentication
-15. inventoryCheckService uses pool directly — cross-branch aggregate query has
-    no single repository owner; known exception to the no-SQL-in-services rule
-16. refresh token stored as plaintext in DB but access token stored as JWT —
-    refresh token is random bytes (not JWT), hashed before storage; access token
-    is short-lived JWT verified by signature, not DB lookup
+REMINDER: THESE ARE MORE LATEST
+Add to the folder structure under services/:
+│   ├── fulfillmentService.js    ← read-only fulfillment planning, distance sorting,
+│   │                               wait time estimates; no mutations
+Update bloodRequestService.js line:
+│   ├── bloodRequestService.js   ← lifecycle only (create, approve, release,
+│   │                               reject, cancel); imports fulfillmentService
+Add to "Things That Look Wrong But Are Intentional":
+17. fulfillmentService exports getDistanceKm() — pure math helper exported
+    intentionally so callers can use it without reimplementing Haversine
+Add to "Important Decisions → Accepted":
+- bloodRequestService split into bloodRequestService + fulfillmentService —
+  lifecycle mutations and read-only planning are different concerns;
+  fulfillmentService has no side effects and is easier to test in isolation
+- validateItems exported from bloodRequestValidator — services use it directly
+  as a BusinessError thrower; single definition of item validation rules
+- Inventory cache added (cache:blood-units:inventory, 60s TTL) — invalidated
+  alongside availability cache on all unit mutations
+- Cache keys defined as constants in service files — prevents key drift between
+  write (invalidation) and read (route middleware) sides
