@@ -1,35 +1,42 @@
 /**
- * roleGuard.js — Role-based access guard for BloodSync web app.
+ * roleGuard.js — Authorization guard for BloodSync web app.
  *
  * Responsibilities:
- * - requireRole() — redirect to login if the user's role is not allowed
+ * - requireRole() — redirect if the user's role is not allowed on this page
  *
- * Always call requireAuth() first, then requireRole() with the returned user.
- * requireRole() does NOT re-fetch the user — it receives it as a parameter.
+ * Does NOT fetch the current user — receives it as a parameter.
+ * Does NOT perform authentication checks — that is authGuard's responsibility.
+ * Does NOT render any UI.
  *
- * Example:
- *   import { requireAuth }  from '../core/guards/authGuard.js';
- *   import { requireRole }  from '../core/guards/roleGuard.js';
- *   import { ROLES }        from '../constants/config.js';
+ * Authorization failure (wrong role) redirects to the user's own dashboard —
+ * NOT to login. The user is authenticated, just not authorized for this page.
+ * Authentication failure (no user) is authGuard's concern.
  *
+ * Usage:
  *   const user = await requireAuth();
- *   requireRole(user, [ROLES.ADMIN, ROLES.PRC_STAFF]);
- *   // execution continues only if role is allowed
+ *   if (!user) return;
+ *   if (!requireRole(user, [ROLES.ADMIN, ROLES.PRC_STAFF])) return;
  */
+
+import { redirectByRole } from '../auth.js';
+import { ROUTES }         from '../../constants/routes.js';
 
 /**
  * requireRole(user, allowedRoles)
  *
- * Checks whether the user's role_id is in the allowedRoles array.
- * If not, redirects to login and returns false.
- *
- * @param {object}   user         — user object returned by requireAuth()
- * @param {number[]} allowedRoles — array of role_id values allowed on this page
+ * @param {object}   user         — user object from requireAuth()
+ * @param {number[]} allowedRoles — role_id values allowed on this page
  * @returns {boolean} — true if allowed, false if redirected
  */
 export function requireRole(user, allowedRoles) {
-  if (!user || !allowedRoles.includes(user.role_id)) {
-    window.location.href = '/index.html';
+  if (!user) {
+    window.location.href = ROUTES.LOGIN;
+    return false;
+  }
+
+  if (!allowedRoles.includes(user.role_id)) {
+    // Authenticated but wrong role — send to their own dashboard
+    redirectByRole(user.role_id);
     return false;
   }
 

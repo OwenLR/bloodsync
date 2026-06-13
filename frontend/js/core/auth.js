@@ -1,23 +1,28 @@
 /**
- * auth.js — Authentication helpers for BloodSync web app.
+ * auth.js — Authentication functions for BloodSync web app.
  *
  * Responsibilities:
- * - login()           — POST credentials, cache user, redirect by role
- * - logout()          — POST logout, clear cache, redirect to login
+ * - login()           — POST credentials, cache user, return user object
+ * - logout()          — POST logout, clear cache
  * - getCurrentUser()  — return cached user or fetch from /api/auth/me
- * - redirectByRole()  — send user to the correct dashboard for their role
+ * - redirectByRole()  — send user to correct dashboard for their role
  *
- * This file does NOT touch the DOM directly.
- * Error display is the caller's responsibility.
+ * Does NOT navigate after login() or logout() — that is the caller's job.
+ * Entry files call redirectByRole() after login(), and redirect after logout().
+ *
+ * User cache note:
+ * _currentUser is an in-memory variable. It does NOT survive page navigation
+ * or page reload — this is a multi-page app, not an SPA. On every new page
+ * load, getCurrentUser() re-fetches from /api/auth/me via the cookie.
  */
 
-import { apiFetch } from './api.js';
-import { ROLES }    from '../constants/config.js';
+import { apiFetch }       from './api.js';
+import { ROLES }          from '../constants/roles.js';
+import { ROUTES }         from '../constants/routes.js';
+import { API_ENDPOINTS }  from '../constants/apiConfig.js';
 
 // ---------------------------------------------------------------------------
-// In-memory user cache
-// Survives navigation within the SPA but resets on page reload.
-// getCurrentUser() re-fetches from /api/auth/me on reload.
+// In-memory user cache — current page load only
 // ---------------------------------------------------------------------------
 
 let _currentUser = null;
@@ -25,12 +30,13 @@ let _currentUser = null;
 // ---------------------------------------------------------------------------
 // login(email, password)
 // Returns the user object on success, throws on failure.
+// Caller is responsible for calling redirectByRole() after login().
 // ---------------------------------------------------------------------------
 
 export async function login(email, password) {
-  const res = await apiFetch('/api/auth/login', {
+  const res = await apiFetch(API_ENDPOINTS.AUTH_LOGIN, {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body:   JSON.stringify({ email, password }),
   });
 
   const body = await res.json();
@@ -40,45 +46,42 @@ export async function login(email, password) {
   }
 
   _currentUser = body.data.user;
-  redirectByRole(_currentUser.role_id);
-
   return _currentUser;
 }
 
 // ---------------------------------------------------------------------------
 // logout()
-// Clears server session and local cache, redirects to login.
+// Clears server session and local cache.
+// Caller is responsible for redirecting after logout().
 // ---------------------------------------------------------------------------
 
 export async function logout() {
   try {
-    await apiFetch('/api/auth/logout', { method: 'POST' });
+    await apiFetch(API_ENDPOINTS.AUTH_LOGOUT, { method: 'POST' });
   } catch {
-    // Even if the request fails, clear local state and redirect
+    // If the request fails, clear local state anyway
   }
 
   _currentUser = null;
-  window.location.href = '/index.html';
 }
 
 // ---------------------------------------------------------------------------
 // getCurrentUser()
-// Returns the cached user if available, otherwise fetches from /api/auth/me.
-// Returns null if the user is not authenticated.
+// Returns cached user if available, otherwise fetches from /api/auth/me.
+// Returns null if unauthenticated.
 // ---------------------------------------------------------------------------
 
 export async function getCurrentUser() {
   if (_currentUser) return _currentUser;
 
   try {
-    const res  = await apiFetch('/api/auth/me');
+    const res = await apiFetch(API_ENDPOINTS.AUTH_ME);
 
-    // apiFetch returns undefined if refresh failed and redirect is happening
-    if (!res) return null;
+    if (!res || !res.ok) return null;
 
     const body = await res.json();
 
-    if (!res.ok || !body.success) return null;
+    if (!body.success) return null;
 
     _currentUser = body.data.user;
     return _currentUser;
@@ -93,21 +96,13 @@ export async function getCurrentUser() {
 // ---------------------------------------------------------------------------
 
 export function redirectByRole(roleId) {
-  const routes = {
-    [ROLES.ADMIN]:        '/pages/admin/dashboard.html',
-    [ROLES.PRC_STAFF]:    '/pages/staff/dashboard.html',
-    [ROLES.VOLUNTEER]:    '/pages/volunteer/dashboard.html',
-    [ROLES.PHLEBOTOMIST]: '/pages/phlebotomist/dashboard.html',
-    [ROLES.REQUESTOR]:    '/pages/requestor/dashboard.html',
+  const destinations = {
+    [ROLES.ADMIN]:        ROUTES.ADMIN.DASHBOARD,
+    [ROLES.PRC_STAFF]:    ROUTES.STAFF.DASHBOARD,
+    [ROLES.VOLUNTEER]:    ROUTES.VOLUNTEER.DASHBOARD,
+    [ROLES.PHLEBOTOMIST]: ROUTES.PHLEBOTOMIST.DASHBOARD,
+    [ROLES.REQUESTOR]:    ROUTES.REQUESTOR.DASHBOARD,
   };
 
-  const destination = routes[roleId];
-
-  if (!destination) {
-    // Unknown role — send back to login
-    window.location.href = '/index.html';
-    return;
-  }
-
-  window.location.href = destination;
+  window.location.href = destinations[roleId] || ROUTES.LOGIN;
 }

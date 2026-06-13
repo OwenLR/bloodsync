@@ -3,56 +3,43 @@
  *
  * Responsibilities:
  * - Initialize the Socket.io connection with auth payload
- * - Export event name constants for use across feature files
  * - Export the socket instance for feature files to attach listeners
+ *
+ * Does NOT attach feature-specific event listeners.
+ * Infrastructure listeners (connect, disconnect, connect_error) are allowed
+ * here — they are transport concerns, not feature concerns.
  *
  * Room assignment is handled server-side on connect —
  * the backend reads user_id, role_id, and branch_id from
  * socket.handshake.auth and joins the correct rooms automatically.
  * The frontend does NOT emit join_room manually.
  *
- * This file does NOT attach any event listeners itself.
- * Feature files (e.g. bloodRequestUI.js) import { socket } and
- * call socket.on(SOCKET_EVENTS.BLOOD_REQUEST_NEW, handler) directly.
+ * Socket event name constants live in constants/socketEvents.js.
+ * Feature files import { socket } and attach listeners directly:
+ *   socket.on(SOCKET_EVENTS.BLOOD_REQUEST_NEW, handler);
+ *
+ * Socket.io client is loaded via CDN script tag in each HTML page
+ * that needs real-time — it attaches to window.io.
  */
 
-import { API_BASE_URL }    from '../constants/config.js';
-import { getCurrentUser }  from './auth.js';
-
-// ---------------------------------------------------------------------------
-// Socket event name constants
-// Mirror the values emitted by the backend — never hardcode these in feature files
-// ---------------------------------------------------------------------------
-
-export const SOCKET_EVENTS = {
-  BLOOD_REQUEST_NEW:    'blood_request_new',
-  BLOOD_REQUEST_STATUS: 'blood_request_status',
-  INVENTORY_LOW:        'inventory_low',
-  INVENTORY_EXPIRING:   'inventory_expiring',
-};
-
-// ---------------------------------------------------------------------------
-// Socket instance — exported for feature files to attach listeners
-// ---------------------------------------------------------------------------
+import { API_BASE_URL }   from '../constants/apiConfig.js';
+import { getCurrentUser } from './auth.js';
 
 export let socket = null;
 
-// ---------------------------------------------------------------------------
-// initSocket()
-// Call once after the user is authenticated (e.g. in the page entry file).
-// Safe to call multiple times — skips init if already connected.
-// ---------------------------------------------------------------------------
-
+/**
+ * initSocket()
+ * Call once after the user is authenticated (in the page entry file).
+ * Safe to call multiple times — skips init if already connected.
+ */
 export async function initSocket() {
   if (socket && socket.connected) return;
 
   const user = await getCurrentUser();
   if (!user) return;
 
-  // Socket.io is loaded via CDN script tag in each HTML page —
-  // it attaches to window.io
   if (typeof io === 'undefined') {
-    console.error('Socket.io client not loaded. Add the CDN script tag to the page.');
+    console.error('[Socket] Socket.io client not loaded. Add the CDN script tag to the page.');
     return;
   }
 

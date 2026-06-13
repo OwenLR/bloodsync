@@ -1,18 +1,32 @@
 /**
- * api.js — apiFetch wrapper for BloodSync web app.
- *
- * Every API call in the app goes through this function — never raw fetch().
+ * api.js — HTTP infrastructure layer for BloodSync web app.
  *
  * Responsibilities:
- * - Attaches credentials: 'include' so httpOnly cookies are sent automatically
- * - Sets Content-Type: application/json by default
- * - Intercepts 401 responses, attempts a token refresh, then retries once
- * - Redirects to login if refresh fails (session truly expired)
+ * - Attach credentials: 'include' so httpOnly cookies are sent automatically
+ * - Set Content-Type: application/json (skipped for FormData uploads)
+ * - Intercept 401 responses, attempt a token refresh, then retry once
+ * - Redirect to login and throw if refresh fails
  *
- * This file does NOT touch the DOM. Error display is the caller's responsibility.
+ * Allowed:
+ * - HTTP requests
+ * - Credential handling
+ * - Token refresh
+ * - Retry logic
+ *
+ * Not allowed:
+ * - DOM manipulation
+ * - Toast notifications
+ * - Modal display
+ * - Feature logic
+ * - Validation
+ * - Business rules
+ *
+ * Network errors and session expiry are thrown as Error.
+ * Error display is the caller's responsibility.
  */
 
-import { API_BASE_URL } from '../constants/config.js';
+import { API_BASE_URL, API_ENDPOINTS } from '../constants/apiConfig.js';
+import { ROUTES }                      from '../constants/routes.js';
 
 // ---------------------------------------------------------------------------
 // Core fetch wrapper
@@ -23,40 +37,36 @@ import { API_BASE_URL } from '../constants/config.js';
  *
  * @param {string} path     - API path, e.g. '/api/blood-requests'
  * @param {object} options  - Standard fetch options (method, body, headers, etc.)
- * @returns {Promise<Response>} - The fetch Response object
+ * @returns {Promise<Response>}
  *
- * Callers are responsible for:
- *   const res = await apiFetch('/api/...');
- *   const body = await res.json();
- *   if (!res.ok || !body.success) { // handle error }
+ * Throws:
+ * - Error('Session expired') if refresh fails — redirects to login first
+ * - Error('Network error: ...') if fetch itself fails (offline, DNS, etc.)
  */
 export async function apiFetch(path, options = {}) {
-  const url = `${API_BASE_URL}${path}`;
+  const url    = `${API_BASE_URL}${path}`;
+  const config = buildConfig(options);
 
-  const config = {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  };
+  let res;
 
-  let res = await fetch(url, config);
+  try {
+    res = await fetch(url, config);
+  } catch (err) {
+    throw new Error(`Network error: ${err.message}`);
+  }
 
-  // -------------------------------------------------------------------
-  // 401 handling — attempt refresh then retry once
-  // -------------------------------------------------------------------
   if (res.status === 401) {
     const refreshed = await tryRefresh();
 
-    if (refreshed) {
-      // Retry original request — new access token cookie is now set
-      res = await fetch(url, config);
-    } else {
-      // Refresh failed — session is dead, send to login
+    if (!refreshed) {
       redirectToLogin();
-      return;
+      throw new Error('Session expired');
+    }
+
+    try {
+      res = await fetch(url, config);
+    } catch (err) {
+      throw new Error(`Network error: ${err.message}`);
     }
   }
 
@@ -67,29 +77,38 @@ export async function apiFetch(path, options = {}) {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+function buildConfig(options) {
+  const headers = { ...options.headers };
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  return {
+    ...options,
+    credentials: 'include',
+    headers,
+  };
+}
+
 /**
- * Attempt to refresh the access token using the refresh token cookie.
- * Returns true if successful, false if the session cannot be recovered.
+ * IMPORTANT: Never replace fetch() here with apiFetch().
+ * Doing so causes recursive refresh attempts (infinite loop).
  */
 async function tryRefresh() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-      method: 'POST',
+    const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH_REFRESH}`, {
+      method:      'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers:     { 'Content-Type': 'application/json' },
     });
 
     return res.ok;
   } catch {
-    // Network error during refresh — treat as failed
     return false;
   }
 }
 
-/**
- * Redirect to the login page.
- * Centralised here so the redirect target is changed in one place if needed.
- */
 function redirectToLogin() {
-  window.location.href = '/index.html';
+  window.location.href = ROUTES.LOGIN;
 }

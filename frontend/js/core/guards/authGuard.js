@@ -4,31 +4,34 @@
  * Responsibilities:
  * - requireAuth() — redirect to login if the user is not authenticated
  *
+ * Does NOT perform role checks — that is roleGuard's responsibility.
+ * Does NOT render any UI.
+ *
  * Usage: call requireAuth() at the top of every protected page entry file.
- * It returns the current user on success so the entry file can use it
+ * Returns the current user on success so the entry file can use it
  * immediately without a second getCurrentUser() call.
  *
  * Example:
- *   import { requireAuth } from '../core/guards/authGuard.js';
  *   const user = await requireAuth();
- *   // user is guaranteed to be non-null past this point
+ *   if (!user) return;
+ *   requireRole(user, [ROLES.ADMIN]);
  */
 
 import { getCurrentUser } from '../auth.js';
+import { ROUTES }         from '../../constants/routes.js';
 
 /**
  * requireAuth()
+ * Returns the current user if authenticated, otherwise redirects to login
+ * and returns null.
  *
- * Fetches the current user. If none is found (unauthenticated or session
- * expired), redirects to the login page and returns null.
- *
- * @returns {Promise<object|null>} — the current user object, or null if redirected
+ * @returns {Promise<object|null>}
  */
 export async function requireAuth() {
   const user = await getCurrentUser();
 
   if (!user) {
-    window.location.href = '/index.html';
+    window.location.href = ROUTES.LOGIN;
     return null;
   }
 
