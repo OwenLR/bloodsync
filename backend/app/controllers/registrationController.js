@@ -111,6 +111,19 @@ const getVolunteerProfile = async (req, res) => {
     }
 };
 
+const getAvailableVolunteers = async (req, res) => {
+    try {
+        // Optional filters: ?role=5 or ?role=6, ?municipality=Batangas City
+        const roleId       = req.query.role         ? parseInt(req.query.role) : null;
+        const municipality = req.query.municipality || null;
+
+        const profiles = await profileModel.getAvailableVolunteers(roleId, municipality);
+        return response.success(res, profiles);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 module.exports = {
     registerRequestor,
     registerVolunteer,
@@ -119,4 +132,5 @@ module.exports = {
     declineRegistration,
     getPendingRegistrations,
     getVolunteerProfile,
+    getAvailableVolunteers,
 };

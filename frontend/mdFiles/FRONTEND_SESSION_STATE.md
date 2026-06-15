@@ -96,7 +96,7 @@ Run with backend running on localhost:3000 and frontend on Live Server.
 ---
 
 ## Phase 2 — Features / Web (not started)
-- [ ] Dashboard (per role)
+- [x] Dashboard (per role)
 - [ ] Blood Drives
 - [ ] Donors
 - [ ] Donor Workflow
@@ -455,3 +455,22 @@ mobile/
 
 ### Backend (modified during Phase 1)
 - authController.js — me() now includes first_name/last_name via userModel.getUserById()
+
+## FILES CREATED - Phase 2
+
+### Dashboards
+- pages/admin/dashboard.html
+- pages/staff/dashboard.html
+- pages/volunteer/dashboard.html
+- pages/phlebotomist/dashboard.html
+- pages/requestor/dashboard.html
+- js/entry/admin/dashboard.js
+- js/entry/staff/dashboard.js
+- js/entry/volunteer/dashboard.js
+- js/entry/phlebotomist/dashboard.js
+- js/entry/requestor/dashboard.js
+- assets/css/pages/admin/dashboard.css
+- assets/css/pages/staff/dashboard.css
+- assets/css/pages/volunteer/dashboard.css
+- assets/css/pages/phlebotomist/dashboard.css
+- assets/css/pages/requestor/dashboard.css

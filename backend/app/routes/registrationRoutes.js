@@ -42,6 +42,12 @@ router.get('/volunteers/pending',
     registrationController.getPendingRegistrations
 );
 
+router.get('/volunteers/available',
+    verifyToken,
+    checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]),
+    registrationController.getAvailableVolunteers
+);
+
 router.get('/volunteers/:id/profile',
     verifyToken,
     checkRole([ROLES.ADMIN]),

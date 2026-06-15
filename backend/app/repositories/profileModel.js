@@ -110,16 +110,37 @@ const updateProfile = async (userId, data) => {
     return result.rows[0];
 };
 
-const deleteProfileByUserId = async (userId) => {
-    await pool.query(
-        'DELETE FROM volunteer_profiles WHERE user_id = $1',
-        [userId]
+const getAvailableVolunteers = async (roleId = null, municipality = null) => {
+    const result = await pool.query(
+        `SELECT vp.user_id, vp.contact, vp.address_municipality, vp.address_province,
+                vp.profile_img,
+                u.first_name, u.last_name, u.email,
+                r.role_id, r.role_name
+         FROM volunteer_profiles vp
+         JOIN users u ON vp.user_id = u.user_id
+         JOIN roles r ON u.role_id = r.role_id
+         WHERE u.is_active = true
+           AND u.status = 'Active'
+           AND r.role_id IN (5, 6)
+           AND ($1::INT IS NULL OR r.role_id = $1)
+           AND ($2::VARCHAR IS NULL OR LOWER(vp.address_municipality) = LOWER($2))
+         ORDER BY u.last_name ASC, u.first_name ASC`,
+        [roleId || null, municipality || null]
     );
+    return result.rows;
 };
+
+    const deleteProfileByUserId = async (userId) => {
+        await pool.query(
+            'DELETE FROM volunteer_profiles WHERE user_id = $1',
+            [userId]
+        );
+    };
 
 module.exports = {
     getProfileByUserId,
     getAllProfiles,
+    getAvailableVolunteers,
     createProfile,
     updateProfile,
     deleteProfileByUserId,
