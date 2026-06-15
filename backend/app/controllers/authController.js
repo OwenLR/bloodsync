@@ -1,4 +1,5 @@
 const authService = require('../services/authService');
+const userModel   = require('../repositories/userModel');
 const response    = require('../../utils/responseHelper');
 
 const COOKIE_OPTIONS = {
@@ -99,9 +100,28 @@ const logout = async (req, res) => {
     }
 };
 
+// GET /api/auth/me
+// Returns JWT payload fields + first_name/last_name from DB lookup —
+// frontend needs name fields for navbar display on every page load
+// (in-memory user cache does not survive page reload).
 const me = async (req, res) => {
     try {
-        return response.success(res, { user: req.user }, 'User fetched');
+        const user = await userModel.getUserById(req.user.user_id);
+
+        if (!user) {
+            return response.handleError(res, new Error('User not found'));
+        }
+
+        return response.success(res, {
+            user: {
+                user_id:    req.user.user_id,
+                email:      req.user.email,
+                role_id:    req.user.role_id,
+                branch_id:  req.user.branch_id,
+                first_name: user.first_name,
+                last_name:  user.last_name,
+            }
+        }, 'User fetched');
     } catch (error) {
         return response.handleError(res, error);
     }

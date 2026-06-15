@@ -30,6 +30,11 @@ import { ROUTES }         from '../../constants/routes.js';
  */
 export function requireRole(user, allowedRoles) {
   if (!user) {
+    // Safety net only — this branch should never be reached in normal flow
+    // because requireAuth() runs first and returns null if unauthenticated,
+    // causing the entry file to return before requireRole() is ever called.
+    // If this fires, it means requireRole() was called without requireAuth() —
+    // that is a developer error, not a runtime condition.
     window.location.href = ROUTES.LOGIN;
     return false;
   }

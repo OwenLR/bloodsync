@@ -25,3 +25,10 @@ app.use(morgan('combined')); // detailed — best for production
 - added donation and blood collection mvc
 - added blood unit(main inventory, safe and tested), the blood collection is the holding inventory for untested unit, came straight from blood extraction
 ***NOT YET TESTED IN POSTMAN***
+
+--------------------------------------------------------31/05/2026-------------------------------------------------------------------
+
+
+--------------------------------------------------------01/06/2026-------------------------------------------------------------------
+PROMPT "done, lets not compress everything in controller, or model, lets use other files like contants, utilities, etc(i dont know other folders but i know there are many variation). lets not make this too crowded just for lesser files, this is not just thesis that its okay if it runs, i want this to be professionally acceptable also in the real world. that when other developer handle the system, they will thank us for the organized and each files handles only what it intend to do."
+

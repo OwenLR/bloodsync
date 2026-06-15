@@ -5,78 +5,98 @@ This file defines the exact API surface the frontend needs to integrate with the
 backend. Nothing more. No implementation details, no database structure, no service
 logic. Only what goes in, what comes out, and what the rules are.
 
+This file documents API request/response fields and valid values — it does NOT
+define frontend constant shapes (arrays vs frozen objects, file locations, etc.).
+Frontend implementation decisions live in FRONTEND_AI_RULES.md.
+
 Cross-reference FRONTEND_NOTES.MD for auth setup, fetch wrappers, folder structure,
 and build plan.
 
 ---
 
-## Constants — Use These Everywhere, Never Hardcode
+## Valid Values Reference
 
-### Roles
-```javascript
-// constants/config.js
-export const ROLES = {
-  ADMIN:         1,
-  PRC_STAFF:     2,
-  DONOR:         3, // not a login role
-  REQUESTOR:     4,
-  VOLUNTEER:     5,
-  PHLEBOTOMIST:  6,
-};
-```
+These are not frontend constant definitions — they are the valid values the
+API accepts and returns. The frontend's own constants (frozen objects in
+constants/) must match these values exactly. This section documents API
+surface only; how the frontend structures its constants is an implementation
+decision documented in FRONTEND_AI_RULES.md.
+
+### Roles (role_id)
+| role_id | Role | Login? |
+|---|---|---|
+| 1 | Admin | Yes |
+| 2 | PRC Staff | Yes |
+| 3 | Donor | No — not a system user |
+| 4 | Requestor | Yes |
+| 5 | Volunteer | Yes |
+| 6 | Phlebotomist | Yes |
 
 ### Blood Types
-```javascript
-export const BLOOD_TYPES = [
-  'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
-];
-```
+`A+ | A- | B+ | B- | AB+ | AB- | O+ | O-`
 
 ### Blood Components
-```javascript
-export const COMPONENTS = [
-  'Whole Blood',
-  'Packed Red Blood Cells',
-  'Fresh Frozen Plasma',
-  'Platelets',
-];
-```
+`Whole Blood | Packed Red Blood Cells | Platelets | Fresh Frozen Plasma`
 
 ### Status Values
-```javascript
-export const STATUSES = {
-  // Blood drives
-  DRIVE: ['Scheduled', 'Active', 'Ended', 'Cancelled'],
 
-  // Blood drive participants
-  PARTICIPANT: ['Pending', 'Confirmed', 'Declined', 'No Show'],
+**Blood Drive status** (`GET /api/blood-drives*`):
+`Upcoming | Ongoing | Ended | Cancelled` — computed server-side from PHT time, never recompute on frontend
 
-  // Screening
-  SCREENING_RESULT: ['Eligible', 'Deferred'],
-  HEMOGLOBIN_STATUS: ['Allowed', 'Not Allowed'],
+**Blood Drive Participant status** (`assignment_status`):
+`Assigned | Confirmed | Declined | No Show`
 
-  // Blood collections
-  COLLECTION: ['Pending', 'Safe', 'Rejected'],
+**Screening result** (`screening_result`):
+`Eligible | Deferred`
 
-  // Blood units
-  BLOOD_UNIT: ['Available', 'Reserved', 'Released', 'Expired', 'Disposed', 'Withdrawn'],
+**Hemoglobin status** (`hemoglobin_status`):
+`Allowed | Not Allowed`
 
-  // Blood requests
-  BLOOD_REQUEST: ['Pending', 'Approved', 'Released', 'Rejected', 'Cancelled'],
+**Screening result** (`screening_result`):
+`Eligible | Deferred`
 
-  // Users
-  USER: ['Active', 'Inactive', 'Pending'],
-};
+**Hemoglobin status** (`hemoglobin_status`):
+`Allowed | Not Allowed`
 
-// Blood request valid transitions — only show buttons for these
-export const REQUEST_TRANSITIONS = {
-  Pending:  ['Approved', 'Rejected'],
-  Approved: ['Released', 'Rejected'],
-};
+**Blood Collection status**:
+`Pending | Safe | Rejected | Disposed | Withdrawn`
 
-// Blood drive venue types
-export const VENUE_TYPES = ['Indoor', 'Outdoor', 'Mobile'];
-```
+**Blood Unit status**:
+`Available | Reserved | Released | Disposed | Withdrawn | Expired | Separated`
+— `Released`, `Disposed`, `Withdrawn`, `Expired`, `Separated` are terminal; no further transitions
+
+**Blood Request status**:
+`Pending | Approved | Released | Rejected | Cancelled`
+— `Cancelled` is set only via `PATCH /:id/cancel` (requestor self-cancel, Pending requests only)
+— Never a valid value for `PATCH /:id/status` — staff cannot set this via the status update route
+
+**Reservation status**:
+`Reserved | Released | Cancelled`
+
+**Donor status**:
+`Active | Inactive | Deferred`
+
+**User status**:
+`Active | Inactive | Pending | Declined`
+
+**Urgency level**:
+`Routine | STAT`
+
+**Venue type**:
+`School | Hospital | Community Center | Church | Government | Other`
+
+### Blood Request Valid Transitions
+The backend is the authority on valid transitions — `bloodRequestRules.js`
+(`assertValidTransition()`) rejects any transition not listed here with a 400.
+
+| Current status | Can transition to |
+|---|---|
+| Pending | Approved, Rejected |
+| Approved | Released, Rejected |
+
+The frontend derives action button visibility from the current status against
+this table. If the backend adds a new transition, this table must be updated —
+do not let the frontend silently diverge from `bloodRequestRules.js`.
 
 ---
 
@@ -194,6 +214,40 @@ Response:
 ```json
 { "success": true, "message": "Logged out successfully", "data": null }
 ```
+
+---
+
+### GET /api/auth/me
+**Requires authentication**
+
+Web: cookie sent automatically
+Mobile: `Authorization: Bearer <token>` + `x-client-type: mobile`
+
+Response `200`:
+```json
+{
+  "success": true,
+  "message": "User fetched",
+  "data": {
+    "user": {
+      "user_id":    1,
+      "email":      "juan@prc.org",
+      "role_id":    2,
+      "branch_id":  1,
+      "first_name": "Juan",
+      "last_name":  "dela Cruz"
+    }
+  }
+}
+```
+
+Used by the frontend on every protected page load (`requireAuth()`) to verify
+the session and to populate the navbar display name — the in-memory user cache
+does not survive page reload on a multi-page app, so this endpoint is the
+source of truth for display name on every page.
+
+Errors:
+- `401` — no valid token (handled by apiFetch refresh flow)
 
 ---
 
@@ -1076,12 +1130,26 @@ Payload:
 
 ---
 
-### Joining rooms (web only)
+### Room assignment — server-side, not frontend-controlled
+Rooms are assigned automatically by the backend when the socket connects,
+based on `socket.handshake.auth`:
+
 ```javascript
-socket.emit('join_room', `branch_${user.branch_id}`);
-// Admins also:
-socket.emit('join_room', 'admin_global');
+// Frontend connects with auth payload — backend reads this on connect
+socket = io(url, {
+  auth: { user_id, role_id, branch_id },
+  withCredentials: true,
+});
 ```
+
+The backend then joins the socket to rooms server-side:
+- Requestor (`role_id === 4`) → `user_${user_id}` (private)
+- Any role with `branch_id` → `branch_${branch_id}`
+- Admin (`role_id === 1`) → also `admin_global`
+
+**The frontend never calls `socket.emit('join_room', ...)`.** There is no
+`join_room` handler on the backend — emitting it has no effect. Room
+membership is determined entirely by the auth payload at connection time.
 
 ---
 

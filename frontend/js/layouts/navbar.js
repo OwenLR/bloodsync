@@ -60,13 +60,14 @@ export function renderNavbar(user, unreadCount = 0) {
   const notifHref = getNotificationsHref(user.role_id);
   const notifLi   = buildNavItem('Notifications', notifHref);
 
-  if (unreadCount > 0) {
-    const badge       = document.createElement('span');
-    badge.id          = 'notif-badge';
-    badge.className   = 'notif-badge';
-    badge.textContent = unreadCount;
-    notifLi.querySelector('a').appendChild(badge);
-  }
+  // Always render the badge element so notificationUI.js can call
+  // document.getElementById('notif-badge') after a socket event fires,
+  // even if unreadCount was 0 at page load. Visibility toggled via CSS class.
+  const badge     = document.createElement('span');
+  badge.id        = 'notif-badge';
+  badge.className = 'notif-badge' + (unreadCount > 0 ? '' : ' notif-badge-hidden');
+  badge.textContent = unreadCount > 0 ? unreadCount : '';
+  notifLi.querySelector('a').appendChild(badge);
 
   ul.appendChild(notifLi);
 

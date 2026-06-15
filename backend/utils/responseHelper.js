@@ -12,7 +12,7 @@ const Sentry      = require('@sentry/node');
 const BusinessError = require('./businessError');
 
 const success = (res, data, message = null, statusCode = 200) => {
-    const response = { status: 'success' };
+    const response = { success: true };
     if (message) response.message = message;
     if (Array.isArray(data)) response.count = data.length;
     response.data = data;
@@ -28,7 +28,7 @@ const error = (res, message, statusCode = 500) => {
         Sentry.captureMessage(message, 'error');
     }
     return res.status(statusCode).json({
-        status: 'error',
+        success: false,
         message,
     });
 };
@@ -63,7 +63,7 @@ const forbidden = (res, message = 'Access denied') => {
 const handleError = (res, err) => {
     if (err instanceof BusinessError) {
         return res.status(err.statusCode).json({
-            status:  'error',
+            success: false,
             message: err.message,
         });
     }

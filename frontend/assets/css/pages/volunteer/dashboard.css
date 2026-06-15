@@ -1,0 +1,13 @@
+/*
+ * dashboard.css — Dashboard page layout.
+ * Minimal functional styles only — design pass in Phase 4.
+ */
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+}

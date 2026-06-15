@@ -16,10 +16,10 @@
  * load, getCurrentUser() re-fetches from /api/auth/me via the cookie.
  */
 
-import { apiFetch }       from './api.js';
-import { ROLES }          from '../constants/roles.js';
-import { ROUTES }         from '../constants/routes.js';
-import { API_ENDPOINTS }  from '../constants/apiConfig.js';
+import { apiFetch }                        from './api.js';
+import { ROLES }                           from '../constants/roles.js';
+import { ROUTES }                          from '../constants/routes.js';
+import { API_BASE_URL, API_ENDPOINTS }     from '../constants/apiConfig.js';
 
 // ---------------------------------------------------------------------------
 // In-memory user cache — current page load only
@@ -34,9 +34,14 @@ let _currentUser = null;
 // ---------------------------------------------------------------------------
 
 export async function login(email, password) {
-  const res = await apiFetch(API_ENDPOINTS.AUTH_LOGIN, {
-    method: 'POST',
-    body:   JSON.stringify({ email, password }),
+  // Raw fetch — not apiFetch — because login is not an authenticated request.
+  // apiFetch would intercept a 401 (wrong credentials) and attempt a refresh,
+  // then redirect to login — causing a redirect loop from the login page itself.
+  const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH_LOGIN}`, {
+    method:      'POST',
+    credentials: 'include',
+    headers:     { 'Content-Type': 'application/json' },
+    body:        JSON.stringify({ email, password }),
   });
 
   const body = await res.json();
@@ -75,12 +80,17 @@ export async function getCurrentUser() {
   if (_currentUser) return _currentUser;
 
   try {
-    const res = await apiFetch(API_ENDPOINTS.AUTH_ME);
+    // Raw fetch — not apiFetch — because a 401 here means "not logged in",
+    // not "session expired". apiFetch would intercept the 401, attempt a
+    // refresh, then redirect to login — causing an infinite loop on the
+    // login page itself. This is a session probe, not an authenticated request.
+    const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH_ME}`, {
+      credentials: 'include',
+    });
 
-    if (!res || !res.ok) return null;
+    if (!res.ok) return null;
 
     const body = await res.json();
-
     if (!body.success) return null;
 
     _currentUser = body.data.user;

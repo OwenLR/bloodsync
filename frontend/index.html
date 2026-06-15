@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloodSync — Sign In</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/login.css" />
+</head>
+<body>
+
+  <div class="login-card">
+
+    <div class="login-brand">
+      <div class="brand-logo">
+        <!-- brand-cross: placeholder for PRC cross icon — styled in Phase 4 -->
+        <div class="brand-cross" aria-hidden="true"></div>
+        <span class="brand-name">BloodSync</span>
+      </div>
+      <p class="brand-org">Philippine Red Cross · Batangas Chapter</p>
+    </div>
+
+    <div class="login-form-panel">
+      <h1 class="login-heading">Sign in</h1>
+      <p class="login-subheading">Enter your credentials to continue.</p>
+
+      <p id="login-error" class="login-error" role="alert"></p>
+
+      <div class="field">
+        <label for="input-email">Email address</label>
+        <input
+          id="input-email"
+          type="email"
+          placeholder="Email"
+          autocomplete="email"
+          required
+        />
+      </div>
+
+      <div class="field">
+        <label for="input-password">Password</label>
+        <input
+          id="input-password"
+          type="password"
+          placeholder="Password"
+          autocomplete="current-password"
+          required
+        />
+      </div>
+
+      <button id="btn-login" class="btn-primary btn-full-width">Sign in</button>
+    </div>
+
+  </div>
+
+  <script type="module" src="/js/entry/loginPage.js"></script>
+</body>
+</html>

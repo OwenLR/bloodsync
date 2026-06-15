@@ -2,6 +2,7 @@ require("./instrument");
 
 const express      = require("express");
 const http         = require("http");
+const path         = require("path");
 const dotenv       = require("dotenv");
 const morgan       = require("morgan");
 const helmet       = require("helmet");
@@ -39,7 +40,21 @@ app.use(
 );
 
 // Security middleware
-app.use(helmet());
+// CSP configured to allow same-origin scripts (frontend JS modules),
+// the Socket.io CDN used on protected pages, and WebSocket connections.
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc:  ["'self'"],
+            scriptSrc:   ["'self'", "https://cdn.socket.io"],
+            styleSrc:    ["'self'", "'unsafe-inline'"],
+            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "https://cdn.socket.io"],
+            imgSrc:      ["'self'", "data:", "https://res.cloudinary.com"],
+            fontSrc:     ["'self'"],
+            objectSrc:   ["'none'"],
+        },
+    },
+}));
 app.use(hpp());
 app.use((req, res, next) => {
     if (req.body) {
@@ -104,8 +119,16 @@ app.use("/api/blood-drives",      bloodDriveRoutes);
 app.use("/api/volunteers/me",     volunteerProfileRoutes);
 app.use("/api/notifications",     notificationRoutes);
 
-app.get("/", (req, res) => {
-    res.json({ message: "BloodSync API is running" });
+// Serve frontend static files
+// In production (Railway): serves the frontend/ folder from the same deployment.
+// In local dev: visit http://localhost:3000 to use the backend-served frontend.
+app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Fallback for frontend routes — app.use() avoids Express 5 path-to-regexp wildcard issues.
+// Skips /api routes so API endpoints are unaffected.
+app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    res.sendFile(path.join(__dirname, "../frontend", "index.html"));
 });
 
 // GlitchTip error handler — after all routes
@@ -129,4 +152,5 @@ startScheduler();
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Local: http://localhost:${PORT}`);
 });

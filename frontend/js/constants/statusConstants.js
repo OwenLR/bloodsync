@@ -16,10 +16,21 @@ export const BLOOD_DRIVE_STATUS = Object.freeze({
 });
 
 export const BLOOD_REQUEST_STATUS = Object.freeze({
-  PENDING:  'Pending',
-  APPROVED: 'Approved',
-  RELEASED: 'Released',
-  REJECTED: 'Rejected',
+  PENDING:   'Pending',
+  APPROVED:  'Approved',
+  RELEASED:  'Released',
+  REJECTED:  'Rejected',
+  CANCELLED: 'Cancelled', // set by requestor self-cancel only — never via staff status update route
+});
+
+export const SCREENING_RESULT = Object.freeze({
+  ELIGIBLE: 'Eligible',
+  DEFERRED: 'Deferred',
+});
+
+export const HEMOGLOBIN_STATUS = Object.freeze({
+  ALLOWED:     'Allowed',
+  NOT_ALLOWED: 'Not Allowed',
 });
 
 export const BLOOD_UNIT_STATUS = Object.freeze({

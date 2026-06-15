@@ -1,0 +1,36 @@
+/*
+ * 404.css — Not found page layout.
+ * Minimal positioning only — design pass in Phase 4.
+ */
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 24px;
+}
+
+.not-found {
+  max-width: 360px;
+}
+
+.not-found-code {
+  font-size: 72px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.not-found-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.not-found-message {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
