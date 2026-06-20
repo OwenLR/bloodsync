@@ -484,3 +484,99 @@ Add to "Important Decisions → Accepted":
   alongside availability cache on all unit mutations
 - Cache keys defined as constants in service files — prevents key drift between
   write (invalidation) and read (route middleware) sides
+
+
+
+
+  ### UPDATES
+
+  # Patch for ARCHITECTURE.MD
+# Apply to your actual ARCHITECTURE.MD.
+
+## ADD to folder structure — validators/ section
+
+OLD:
+validators/
+├── userValidator.js
+├── donorValidator.js            ← email NOW REQUIRED (changed this session)
+├── registrationValidator.js     ← validateRequestorRegistration + validateRegistration
+├── donorInterviewValidator.js
+├── screeningValidator.js
+├── bloodCollectionValidator.js
+├── bloodRequestValidator.js
+├── bloodDriveValidator.js       ← drive + participant validation only
+├── bloodUnitValidator.js
+├── interviewAnswerValidator.js  ← object method style (intentional)
+├── interviewQuestionValidator.js
+├── branchValidator.js
+├── hospitalValidator.js
+└── volunteerProfileValidator.js ← identity fields locked server-side
+
+NEW:
+validators/
+├── authValidator.js             ← NEW — validateChangePassword() only
+├── userValidator.js
+├── donorValidator.js            ← email NOW REQUIRED (changed this session)
+├── registrationValidator.js     ← validateRequestorRegistration + validateRegistration
+├── donorInterviewValidator.js
+├── screeningValidator.js
+├── bloodCollectionValidator.js
+├── bloodRequestValidator.js
+├── bloodDriveValidator.js       ← drive + participant validation only
+├── bloodUnitValidator.js
+├── interviewAnswerValidator.js  ← object method style (intentional)
+├── interviewQuestionValidator.js
+├── branchValidator.js
+├── hospitalValidator.js
+└── volunteerProfileValidator.js ← identity fields locked server-side
+
+## ADD to "Database Summary → Key Tables" section
+
+ADD this line alongside the existing volunteer_profiles entry:
+- staff_profiles — Admin (role_id 1) + PRC Staff (role_id 2) profile data,
+  parallel to volunteer_profiles but for the other role group. Currently
+  minimal: user_id (UNIQUE FK → users, ON DELETE CASCADE), profile_img.
+  Extend with more columns later the same way volunteer_profiles would be
+  extended (add a column, not a new table) if Admin/Staff profile needs grow.
+
+## ADD to "Critical FK Notes" section
+- staff_profiles.user_id has a UNIQUE constraint (enforces true 1:1 with
+  users) — note that volunteer_profiles.user_id does NOT currently have
+  this constraint despite being conceptually 1:1 as well. This is a
+  pre-existing gap in volunteer_profiles, not something this session
+  introduced or fixed. staff_profiles was given the constraint from the
+  start since there was no reason to repeat the gap in a new table.
+
+## ADD to "Important Decisions → Accepted" section
+- staff_profiles as a separate table (not a profile_img column directly on
+  users) — keeps Admin/Staff and Volunteer/Phlebotomist profile data
+  symmetric: both role groups get their own profile table rather than one
+  group using a users column and the other using a separate table. Avoids
+  conditional "which table has the photo" logic in any future code that
+  needs to fetch a user's profile photo regardless of role.
+- Password change endpoint lives under /api/auth (authService/
+  authController/authRoutes), not /api/users — password verification and
+  hashing logic is role-independent, so it is shared by every authenticated
+  role rather than duplicated per role-specific controller. /api/users
+  remains exclusively for Admin's management of OTHER users' accounts.
+
+## ADD to "Things That Look Wrong But Are Intentional" — append as item 18
+18. PATCH /api/auth/me/password has no checkRole middleware — intentional,
+    not an oversight. Every authenticated role (Admin, PRC Staff, Volunteer,
+    Phlebotomist, Requestor) can change their own password; verifyToken
+    alone is the correct and sufficient guard, since the rule is "any
+    logged-in user can change their own password," not "only some roles can."
+
+
+
+### CURRENT UPDATE
+here's what changed.
+PATCH /api/donors/:id stays exactly as documented — Admin + PRC Staff only, full donor fields, unchanged. Don't add Volunteer/Phlebotomist to this one.
+New endpoint added: PATCH /api/donors/:id/contact — Volunteer + Phlebotomist only.
+Request body — only these two fields are accepted, nothing else:
+json{ "email": "new@email.com", "contact": "09171234567" }
+At least one of the two is required; either can be omitted if you're only updating the other. contact must be digits only, 7–15 characters — same rule as everywhere else. Sending any other field (blood_type, sex, birthdate, etc.) gets rejected with a 400 — this endpoint is hard-scoped to contact info only, by server-side validation, not just by what the UI exposes.
+Response on success:
+json{ "success": true, "message": "Donor contact information updated successfully", "data": { ...full donor object... } }
+Errors: 400 for validation failure or extra fields, 404 if the donor doesn't exist. No 403 for active-drive requirement — this one isn't gated by requireBloodDrive, so Volunteer/Phlebotomist can use it regardless of whether they're currently assigned to an active drive.
+So for the Donor detail view: Volunteer/Phlebotomist should get an inline-editable email/contact field (not the full edit form — that stays Admin/PRC-Staff-only and out of their reach entirely), backed by this new endpoint. Everything else on the donor record stays read-only for them, exactly as the contract already says.

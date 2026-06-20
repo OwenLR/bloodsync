@@ -1,19 +1,14 @@
-/**
- * dashboard.js — Entry file for pages/requestor/dashboard.html.
- *
- * Pattern: requireAuth → requireRole → renderNavbar → renderSidebar → feature init
- *
- * Path: frontend/js/entry/requestor/dashboard.js
- */
+// ─── js/entry/requestor/dashboard.js ─────────────────────────────────────────
 
-import { requireAuth }      from '../../core/guards/authGuard.js';
-import { requireRole }      from '../../core/guards/roleGuard.js';
-import { renderNavbar }     from '../../layouts/navbar.js';
+import { requireAuth }        from '../../core/guards/authGuard.js';
+import { requireRole }        from '../../core/guards/roleGuard.js';
+import { renderNavbar }       from '../../layouts/navbar.js';
 import { renderSidebar,
-         clearSidebar }     from '../../layouts/sidebar.js';
-import { getSidebarItems }  from '../../constants/sidebarItems.js';
-import { ROLES }            from '../../constants/roles.js';
-import { initSocket }       from '../../core/socket.js';
+         clearSidebar }       from '../../layouts/sidebar.js';
+import { revealAppShell }     from '../../layouts/appShell.js';
+import { getSidebarItems }    from '../../constants/sidebarItems.js';
+import { ROLES }              from '../../constants/roles.js';
+import { initSocket }         from '../../core/socket.js';
 
 async function init() {
   const user = await requireAuth();
@@ -24,9 +19,10 @@ async function init() {
   renderNavbar(user, 0);
 
   clearSidebar();
-  renderSidebar(getSidebarItems(user.role_id, 'requests'), 'Requests');
+  renderSidebar(getSidebarItems(user.role_id, 'general'), 'General');
 
-  // Socket — Requestor joins private room for request status updates
+  revealAppShell();
+
   initSocket(user);
 }
 

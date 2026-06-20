@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings|BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/settings.css" />
+  <link rel="stylesheet" href="/assets/css/pages/staff/settings.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1 class="page-title">Settings</h1>
+      </div>
+
+      <div class="settings-grid">
+
+        <!-- Change Password -->
+        <section class="settings-card" aria-labelledby="heading-password">
+          <h2 class="settings-card-title" id="heading-password">Change Password</h2>
+          <p class="settings-card-desc">Update your login password. You will not be logged out after changing it.</p>
+
+          <form id="password-form" novalidate>
+
+            <div class="form-group">
+              <label class="form-label" for="current-password">Current Password</label>
+              <input
+                class="form-input"
+                type="password"
+                id="current-password"
+                name="current_password"
+                autocomplete="current-password"
+                required
+              />
+              <span class="field-error field-error-hidden" id="error-current-password" aria-live="polite"></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="new-password">New Password</label>
+              <input
+                class="form-input"
+                type="password"
+                id="new-password"
+                name="new_password"
+                autocomplete="new-password"
+                required
+              />
+              <span class="field-error field-error-hidden" id="error-new-password" aria-live="polite"></span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="confirm-password">Confirm New Password</label>
+              <input
+                class="form-input"
+                type="password"
+                id="confirm-password"
+                name="confirm_password"
+                autocomplete="new-password"
+                required
+              />
+              <span class="field-error field-error-hidden" id="error-confirm-password" aria-live="polite"></span>
+            </div>
+
+            <span class="field-error field-error-hidden settings-form-error" id="error-password-form" aria-live="polite"></span>
+
+            <div class="settings-form-actions">
+              <button class="btn-primary" type="submit" id="btn-change-password">Change Password</button>
+            </div>
+
+          </form>
+        </section>
+
+        <!-- Profile Photo -->
+        <section class="settings-card" aria-labelledby="heading-photo">
+          <h2 class="settings-card-title" id="heading-photo">Profile Photo</h2>
+          <p class="settings-card-desc">Upload a profile photo or ID image. Accepted formats: JPEG, PNG, PDF. Max size: 5MB.</p>
+
+          <form id="photo-form" novalidate>
+
+            <div class="form-group">
+              <label class="form-label" for="profile-img-input">Select File</label>
+              <input
+                class="form-input"
+                type="file"
+                id="profile-img-input"
+                name="profile_img"
+                accept="image/jpeg,image/png,image/jpg,application/pdf"
+              />
+            </div>
+
+            <div class="photo-preview-wrap photo-preview-hidden" id="photo-preview-wrap">
+              <img class="photo-preview" id="photo-preview" src="" alt="Preview of selected profile photo" />
+            </div>
+
+            <span class="field-error field-error-hidden settings-form-error" id="error-photo-form" aria-live="polite"></span>
+
+            <div class="settings-form-actions">
+              <button class="btn-primary" type="submit" id="btn-upload-photo">Upload Photo</button>
+            </div>
+
+          </form>
+        </section>
+
+      </div><!-- .settings-grid -->
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/staff/settings.js"></script>
+</body>
+</html>

@@ -201,8 +201,49 @@ const approveRequest = async (requestId, staffId) => {
     }
 };
 
+// ─── Mark Ready for Pickup ────────────────────────────────────────────────────
+
+/**
+ * Staff marks units as ready for pickup — Approved → Waiting.
+ * Units stay Reserved. Request moves to Waiting so the requestor
+ * knows they can come collect.
+ */
+const markReadyForPickup = async (requestId, staffId) => {
+    const request = await bloodRequestModel.getRequestById(requestId);
+    if (!request) throw new BusinessError('Blood request not found', 404);
+
+    assertValidTransition(request.status, 'Waiting');
+
+    const updated = await bloodRequestModel.updateRequestStatus(
+        requestId, 'Waiting', staffId
+    );
+
+    await bloodRequestModel.createStatusLog({
+        request_id:      requestId,
+        old_status:      'Approved',
+        new_status:      'Waiting',
+        changed_by_type: 'staff',
+        changed_by_id:   staffId,
+        notes:           'Units prepared and ready for pickup',
+    });
+
+    notificationService.notifyRequestStatusChange({
+        request_id:   requestId,
+        user_id:      request.user_id,
+        new_status:   'Waiting',
+        patient_name: request.patient_name,
+    }).catch((err) => console.error('notifyRequestStatusChange failed:', err));
+
+    return updated;
+};
+
 // ─── Release ──────────────────────────────────────────────────────────────────
 
+/**
+ * Staff manually releases — Waiting → Released.
+ * Used when requestor failed to click "already received" or staff
+ * is handling it directly.
+ */
 const releaseRequest = async (requestId, staffId) => {
     const request = await bloodRequestModel.getRequestById(requestId);
     if (!request) throw new BusinessError('Blood request not found', 404);
@@ -224,11 +265,11 @@ const releaseRequest = async (requestId, staffId) => {
 
     await bloodRequestModel.createStatusLog({
         request_id:      requestId,
-        old_status:      'Approved',
+        old_status:      'Waiting',
         new_status:      'Released',
         changed_by_type: 'staff',
         changed_by_id:   staffId,
-        notes:           'Blood units released to requestor',
+        notes:           'Blood units released to requestor by staff',
     });
 
     await invalidateCache(AVAILABILITY_CACHE_KEY);
@@ -240,6 +281,52 @@ const releaseRequest = async (requestId, staffId) => {
         new_status:   'Released',
         patient_name: request.patient_name,
     }).catch((err) => console.error('notifyRequestStatusChange failed:', err));
+
+    return updated;
+};
+
+// ─── Mark Received (requestor-triggered) ─────────────────────────────────────
+
+/**
+ * Requestor confirms they have received the blood units — Waiting → Released.
+ * Same unit status flip as releaseRequest but logged as 'requestor' not 'staff'.
+ * Only allowed when status is Waiting — enforced by assertValidTransition.
+ */
+const markReceived = async (requestId, userId) => {
+    const request = await bloodRequestModel.getRequestById(requestId);
+    if (!request) throw new BusinessError('Blood request not found', 404);
+
+    // Scope check — requestor can only mark their own request
+    if (request.user_id !== userId) {
+        throw new BusinessError('Not authorized to update this request', 403);
+    }
+
+    assertValidTransition(request.status, 'Released');
+
+    const reservations = await bloodRequestModel.getReservationsByRequest(requestId);
+
+    for (const reservation of reservations) {
+        await bloodUnitModel.updateUnitStatus(reservation.unit_id, 'Released');
+        await bloodRequestModel.updateReservationStatus(
+            reservation.reservation_id, 'Released', new Date()
+        );
+    }
+
+    const updated = await bloodRequestModel.updateRequestStatus(
+        requestId, 'Released', userId
+    );
+
+    await bloodRequestModel.createStatusLog({
+        request_id:      requestId,
+        old_status:      'Waiting',
+        new_status:      'Released',
+        changed_by_type: 'requestor',
+        changed_by_id:   userId,
+        notes:           'Requestor confirmed receipt of blood units',
+    });
+
+    await invalidateCache(AVAILABILITY_CACHE_KEY);
+    await invalidateCache(INVENTORY_CACHE_KEY);
 
     return updated;
 };
@@ -267,7 +354,7 @@ const rejectRequest = async (requestId, staffId, denialReason) => {
 
     await bloodRequestModel.createStatusLog({
         request_id:      requestId,
-        old_status:      request.status,
+        old_status:      request.status, // Pending, Approved, or Waiting
         new_status:      'Rejected',
         changed_by_type: 'staff',
         changed_by_id:   staffId,
@@ -323,6 +410,7 @@ const cancelRequest = async (requestId, userId) => {
 
 const updateStatus = async (requestId, status, staffId, denialReason = null) => {
     if (status === 'Approved') return approveRequest(requestId, staffId);
+    if (status === 'Waiting')  return markReadyForPickup(requestId, staffId);
     if (status === 'Released') return releaseRequest(requestId, staffId);
     if (status === 'Rejected') return rejectRequest(requestId, staffId, denialReason);
     throw new BusinessError('Invalid status transition', 400);
@@ -331,7 +419,9 @@ const updateStatus = async (requestId, status, staffId, denialReason = null) => 
 module.exports = {
     createRequest,
     approveRequest,
+    markReadyForPickup,
     releaseRequest,
+    markReceived,
     rejectRequest,
     cancelRequest,
     updateStatus,

@@ -69,6 +69,7 @@ const createDrive = async (data) => {
         street_address, city, province, postal_code,
         slots_available, contact_person, contact_number,
         contact_email, start_datetime, end_datetime,
+        venue_latitude, venue_longitude,
     } = data;
 
     const result = await pool.query(
@@ -78,6 +79,7 @@ const createDrive = async (data) => {
             street_address, city, province, postal_code,
             slots_available, contact_person, contact_number,
             contact_email, start_datetime, end_datetime,
+            venue_latitude, venue_longitude,
             status
          ) VALUES (
             $1,  $2,  $3,  $4,
@@ -85,6 +87,7 @@ const createDrive = async (data) => {
             $9,  $10, $11, $12,
             $13, $14, $15,
             $16, $17, $18,
+            $19, $20,
             'Upcoming'
          ) RETURNING *`,
         [
@@ -96,6 +99,7 @@ const createDrive = async (data) => {
             slots_available || null,
             contact_person || null, contact_number || null,
             contact_email || null, start_datetime, end_datetime,
+            venue_latitude || null, venue_longitude || null,
         ]
     );
     return result.rows[0];
@@ -108,6 +112,7 @@ const updateDrive = async (drive_id, data) => {
         province, postal_code, slots_available,
         contact_person, contact_number, contact_email,
         start_datetime, end_datetime,
+        venue_latitude, venue_longitude,
     } = data;
 
     const result = await pool.query(
@@ -128,8 +133,10 @@ const updateDrive = async (drive_id, data) => {
             contact_email    = COALESCE($14, contact_email),
             start_datetime   = COALESCE($15, start_datetime),
             end_datetime     = COALESCE($16, end_datetime),
+            venue_latitude   = COALESCE($17, venue_latitude),
+            venue_longitude  = COALESCE($18, venue_longitude),
             updated_at       = NOW()
-         WHERE drive_id = $17
+         WHERE drive_id = $19
          RETURNING *`,
         [
             name ?? null, description ?? null,
@@ -140,6 +147,7 @@ const updateDrive = async (drive_id, data) => {
             slots_available ?? null, contact_person ?? null,
             contact_number ?? null, contact_email ?? null,
             start_datetime ?? null, end_datetime ?? null,
+            venue_latitude ?? null, venue_longitude ?? null,
             drive_id,
         ]
     );

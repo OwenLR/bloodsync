@@ -4,6 +4,7 @@
  * Responsibilities:
  * - Render a sidebar section into <aside id="sidebar">
  * - Highlight the active page link
+ * - Render collapsible groups for items with { group: true, children: [] }
  *
  * Does NOT:
  * - Know anything about roles or pages
@@ -11,16 +12,17 @@
  * - Fetch any data
  * - Call any APIs
  *
+ * Item shapes accepted:
+ *   Flat:  { label: string, href: string }
+ *   Group: { label: string, group: true, children: [{ label, href }] }
+ *
+ * Group items render as a <details>/<summary> collapsible block.
+ * Groups are open by default — field roles navigate between workflow
+ * steps constantly during a blood drive.
+ *
  * Usage:
- *   import { renderSidebar }    from '../layouts/sidebar.js';
- *   import { getSidebarItems }  from '../constants/sidebarItems.js';
- *
- *   // Single section
- *   renderSidebar(getSidebarItems(user.role_id, 'operations'));
- *
- *   // Multiple sections with headings
- *   renderSidebar(getSidebarItems(user.role_id, 'operations'), 'Operations');
- *   renderSidebar(getSidebarItems(user.role_id, 'management'), 'Management');
+ *   renderSidebar(getSidebarItems(user.role_id, 'general'), 'General');
+ *   renderSidebar(getSidebarItems(user.role_id, 'workflow'), 'Workflow');
  *
  * Expects <aside id="sidebar"></aside> in the HTML page.
  * JS targets IDs — CSS targets classes.
@@ -35,7 +37,7 @@
  * Render a sidebar section into <aside id="sidebar">.
  * Appends to existing content — call multiple times for multiple sections.
  *
- * @param {Array<{ label: string, href: string }>} items
+ * @param {Array} items — flat or group items from getSidebarItems()
  * @param {string} [heading] — optional section heading label
  */
 export function renderSidebar(items, heading = '') {
@@ -56,17 +58,11 @@ export function renderSidebar(items, heading = '') {
   ul.className = 'sidebar-links';
 
   items.forEach(item => {
-    const li      = document.createElement('li');
-    const a       = document.createElement('a');
-    a.href        = item.href;
-    a.textContent = item.label;
-
-    if (isActivePage(item.href)) {
-      a.classList.add('sidebar-active');
+    if (item.group && Array.isArray(item.children)) {
+      ul.appendChild(renderGroup(item));
+    } else {
+      ul.appendChild(renderFlatItem(item));
     }
-
-    li.appendChild(a);
-    ul.appendChild(li);
   });
 
   section.appendChild(ul);
@@ -85,6 +81,68 @@ export function clearSidebar() {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Render a plain link item.
+ */
+function renderFlatItem(item) {
+  const li      = document.createElement('li');
+  const a       = document.createElement('a');
+  a.href        = item.href;
+  a.textContent = item.label;
+
+  if (isActivePage(item.href)) {
+    a.classList.add('sidebar-active');
+  }
+
+  li.appendChild(a);
+  return li;
+}
+
+/**
+ * Render a collapsible group using <details>/<summary>.
+ * Open by default. If any child is the active page, the group is also
+ * marked active so users can see which step they're on.
+ */
+function renderGroup(item) {
+  const li      = document.createElement('li');
+  li.className  = 'sidebar-group-item';
+
+  const details = document.createElement('details');
+
+  // Check if any child is the current page — keep group open and styled
+  const hasActiveChild = item.children.some(child => isActivePage(child.href));
+  details.open = true; // always open by default for field role usability
+  if (hasActiveChild) {
+    details.classList.add('sidebar-group-active');
+  }
+
+  const summary     = document.createElement('summary');
+  summary.className = 'sidebar-group-label';
+  summary.textContent = item.label;
+  details.appendChild(summary);
+
+  const childUl     = document.createElement('ul');
+  childUl.className = 'sidebar-group-links';
+
+  item.children.forEach(child => {
+    const childLi = document.createElement('li');
+    const a       = document.createElement('a');
+    a.href        = child.href;
+    a.textContent = child.label;
+
+    if (isActivePage(child.href)) {
+      a.classList.add('sidebar-active');
+    }
+
+    childLi.appendChild(a);
+    childUl.appendChild(childLi);
+  });
+
+  details.appendChild(childUl);
+  li.appendChild(details);
+  return li;
+}
 
 function isActivePage(href) {
   return window.location.pathname === href.split('?')[0].split('#')[0];

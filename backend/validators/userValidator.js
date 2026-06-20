@@ -7,20 +7,15 @@ const ADMIN_CREATABLE_ROLES = [1, 2];
 
 const validateCreateUser = (data) => {
     const errors = [];
-    const { first_name, last_name, email, password, role_id } = data;
+    const { first_name, last_name, email, role_id } = data;
 
     if (!first_name || first_name.trim() === '') errors.push('first_name is required');
     if (!last_name || last_name.trim() === '') errors.push('last_name is required');
     if (!email) errors.push('email is required');
-    if (!password) errors.push('password is required');
     if (!role_id) errors.push('role_id is required');
 
     if (email && !validator.isEmail(email)) {
         errors.push('Invalid email format');
-    }
-
-    if (password && password.length < 8) {
-        errors.push('password must be at least 8 characters');
     }
 
     if (role_id && !ADMIN_CREATABLE_ROLES.includes(Number(role_id))) {
@@ -51,5 +46,5 @@ const validateUpdateUser = (data) => {
 
 module.exports = {
     validateCreateUser,
-    validateUpdateUser
+    validateUpdateUser,
 };

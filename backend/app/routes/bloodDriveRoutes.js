@@ -77,6 +77,22 @@ router.post('/:id/participants',
     bloodDriveController.addParticipant
 );
 
+// Suggestions — ranked list of available volunteers sorted by distance.
+// Registered BEFORE /:id/participants/:user_id to avoid route shadowing.
+// Query params: role_id (5 or 6), limit (positive int) — both optional.
+router.get('/:id/participants/suggestions',
+    verifyToken,
+    checkRole(ADMIN_STAFF),
+    bloodDriveController.getSuggestedParticipants
+);
+
+// Bulk assign — manual selection (user_ids) or auto top-N (target_count).
+router.post('/:id/participants/bulk',
+    verifyToken,
+    checkRole(ADMIN_STAFF),
+    bloodDriveController.bulkAddParticipants
+);
+
 // Remove participant from drive
 router.delete('/:id/participants/:user_id',
     verifyToken,

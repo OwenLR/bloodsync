@@ -7,5 +7,6 @@ router.post('/login', authController.login);
 router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
 router.get('/me', verifyToken, authController.me);
+router.patch('/me/password', verifyToken, authController.changePassword);
 
 module.exports = router;

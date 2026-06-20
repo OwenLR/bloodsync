@@ -1,0 +1,76 @@
+/**
+ * assets/css/features/settings.css
+ *
+ * Shared styles for the Settings feature.
+ * Used by both admin/settings.html and staff/settings.html.
+ *
+ * Phase 2: functional styles only — no design tokens yet.
+ */
+
+/* ---- Layout ---- */
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 900px;
+}
+
+@media (max-width: 720px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Card ---- */
+
+.settings-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 24px;
+}
+
+.settings-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: #111;
+}
+
+.settings-card-desc {
+  font-size: 0.875rem;
+  color: #555;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+/* ---- Form ---- */
+
+.settings-form-actions {
+  margin-top: 20px;
+}
+
+.settings-form-error {
+  display: block;
+  margin-top: 12px;
+}
+
+/* ---- Photo preview ---- */
+
+.photo-preview-wrap {
+  margin: 12px 0;
+}
+
+.photo-preview-hidden {
+  display: none;
+}
+
+.photo-preview {
+  display: block;
+  max-width: 140px;
+  max-height: 140px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  object-fit: cover;
+}

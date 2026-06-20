@@ -360,3 +360,78 @@ ADD to Exports: separateUnit
 ## app/routes/bloodUnitRoutes.js
 ADD: POST /:id/separate — Admin + PRC Staff only
 ADD: GET /inventory now cached (60s, key: cache:blood-units:inventory)
+
+
+
+### UPDATED
+
+# Patch for FILE_INDEX.MD
+# Apply to your actual FILE_INDEX.MD. Insert each entry in its appropriate
+# alphabetical/logical location matching the existing file's organization.
+
+## ADD new entry — validators/authValidator.js
+
+## validators/authValidator.js
+Purpose: Technical input validation for auth endpoints
+Exports: validateChangePassword(data) — current_password required,
+         new_password required (min 8 chars), new_password must differ
+         from current_password
+Should NOT contain: business rules, DB queries, bcrypt calls
+Note: login()'s own inline validation in authService.js was NOT migrated
+      here — pre-existing inconsistency, flagged but not fixed this session
+
+## UPDATE existing entry — app/services/authService.js
+ADD to Exports: changePassword(userId, currentPassword, newPassword) —
+  shared by ALL roles, not role-restricted. Verifies currentPassword via
+  bcrypt.compare against the stored hash, then hashes and stores
+  newPassword via userModel.updatePassword(). Throws BusinessError(404) if
+  user not found, BusinessError(400) if currentPassword doesn't match.
+
+## UPDATE existing entry — app/repositories/userModel.js
+ADD to Key functions:
+- getUserCredentialsById(id) — returns {user_id, password} only. Exists
+  separately from getUserById() because getUserById() intentionally
+  excludes the password hash from its SELECT (used for public-safe user
+  data elsewhere). This one exists specifically so authService.changePassword()
+  can bcrypt.compare() against the real hash.
+- updatePassword(id, hashedPassword) — caller (authService) must hash
+  before calling; this function does not hash, only stores.
+- getStaffProfileByUserId(userId) — SELECT from staff_profiles
+- upsertStaffProfileImg(userId, profileImgUrl) — INSERT ... ON CONFLICT
+  (user_id) DO UPDATE SET profile_img, updated_at — safe to call repeatedly,
+  creates the staff_profiles row on first call, updates on subsequent calls
+
+## UPDATE existing entry — app/services/userService.js
+ADD to Exports: updateOwnProfileImg(userId, fileBuffer) — Admin + PRC Staff
+  self-service. Uploads fileBuffer to Cloudinary ('profile_images' folder,
+  same as volunteer/phlebotomist uploads), then calls
+  userModel.upsertStaffProfileImg() with the resulting URL.
+Note: changeOwnPassword() was considered for this file but moved to
+      authService.js instead — see ARCHITECTURE.MD "Important Decisions"
+      for the reasoning (password logic is role-independent, /api/users is
+      reserved for Admin managing OTHER users).
+
+## UPDATE existing entry — app/controllers/authController.js
+ADD to Exports: changePassword — reads req.user.user_id from JWT (never
+  request body), calls authValidator.validateChangePassword() then
+  authService.changePassword()
+
+## UPDATE existing entry — app/controllers/userController.js
+ADD to Exports: updateMyProfileImg — reads req.user.user_id from JWT and
+  req.file.buffer from multer (uploadMiddleware), calls
+  userService.updateOwnProfileImg()
+
+## UPDATE existing entry — app/routes/authRoutes.js
+ADD: PATCH /me/password → changePassword (verifyToken only, no checkRole —
+  every authenticated role may change their own password)
+
+## UPDATE existing entry — app/routes/userRoutes.js
+ADD: PATCH /me/profile-img → updateMyProfileImg (Admin + PRC Staff only,
+  via upload.single('profile_img') middleware)
+CRITICAL: Must be registered BEFORE PATCH /:id to avoid Express route
+  shadowing (same pattern as GET /api/volunteers/available vs
+  /volunteers/:id/profile)
+
+## ADD new table reference (if FILE_INDEX.MD tracks tables — otherwise skip, covered in ARCHITECTURE.MD)
+staff_profiles — Admin + PRC Staff profile data (currently: profile_img
+  only). Parallel structure to volunteer_profiles for the other role group.

@@ -1,0 +1,418 @@
+/*
+ * fieldWorkflow.css
+ *
+ * Shared styles for all five field donor workflow pages.
+ * main.css owns: .btn-*, .form-group, .form-input, .field-error,
+ *   .modal-overlay, .modal-dialog, .modal-header, .modal-body,
+ *   .modal-footer, .modal-title, .modal-close, .page-header, .page-title
+ * This file owns only what is specific to the field workflow pages.
+ */
+
+/* ── Page subtitle ────────────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-header-left { flex: 1; }
+
+.page-subtitle {
+  font-size: 13px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* ── Workflow step indicator ──────────────────────────────────────────────── */
+/* Shows which of the 5 steps the user is currently on.
+   Purely visual — navigation is in the sidebar. */
+.workflow-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 28px;
+  overflow-x: auto;
+}
+
+.workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.workflow-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ddd;
+  color: #888;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.workflow-step.active {
+  color: #111;
+  font-weight: 600;
+}
+
+.workflow-step.active .workflow-step-number {
+  background: #c00;
+  color: #fff;
+}
+
+.workflow-step.done {
+  color: #666;
+}
+
+.workflow-step.done .workflow-step-number {
+  background: #4caf50;
+  color: #fff;
+}
+
+.workflow-step-divider {
+  width: 24px;
+  height: 2px;
+  background: #ddd;
+  flex-shrink: 0;
+}
+
+/* ── Section card ─────────────────────────────────────────────────────────── */
+/* Each functional section of a workflow page sits in a card. */
+.workflow-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+.workflow-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+/* ── Donor search bar (registration page) ─────────────────────────────────── */
+.donor-search-bar {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.donor-search-bar .form-input {
+  flex: 1;
+}
+
+.search-results-dropdown {
+  margin-top: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: #fafafa;
+}
+
+.search-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-result-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+}
+
+.search-result-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.search-status {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* ── Duplicate warning (blur detection) ───────────────────────────────────── */
+.duplicate-warning {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #7b5800;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.duplicate-warning-text {
+  flex: 1;
+}
+
+.duplicate-warning-btn {
+  background: none;
+  border: none;
+  color: #c00;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.duplicate-checking {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #888;
+}
+
+/* ── Selected donor banner ────────────────────────────────────────────────── */
+/* Shown when an existing donor is selected from search results. */
+.selected-donor-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #e6f4ea;
+  border: 1px solid #a5d6a7;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.selected-donor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.selected-donor-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+}
+
+.selected-donor-meta {
+  font-size: 12px;
+  color: #555;
+}
+
+.btn-clear-selection {
+  background: none;
+  border: none;
+  color: #c00;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* ── Form row (two columns) ───────────────────────────────────────────────── */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.form-row .form-group {
+  margin-bottom: 0;
+}
+
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  margin-top: 3px;
+}
+
+.required-mark {
+  color: #c00;
+}
+
+.form-error {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #fde8e8;
+  border: 1px solid #f5c6c6;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #c00;
+}
+
+/* ── Donor selector (interview/screening/donation/collection pages) ────────── */
+/* Dropdown to select a donor by name — populated from prior step data. */
+.donor-selector-group {
+  margin-bottom: 20px;
+}
+
+.donor-selector-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* ── Donor info panel (shown after selecting a donor) ─────────────────────── */
+.donor-info-panel {
+  padding: 12px 14px;
+  background: #f8f8f8;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.donor-info-panel dt {
+  font-size: 11px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.donor-info-panel dd {
+  color: #111;
+  margin: 0 0 6px;
+}
+
+.donor-info-panel dd:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Interview questions list ─────────────────────────────────────────────── */
+.question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.question-item {
+  padding: 12px 14px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.question-text {
+  font-size: 13px;
+  color: #111;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.question-options {
+  display: flex;
+  gap: 16px;
+}
+
+.question-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.question-option input[type="radio"] {
+  accent-color: #c00;
+  cursor: pointer;
+}
+
+/* ── QNS warning (donation page) ──────────────────────────────────────────── */
+/* Shown when extraction_time > 15 minutes. */
+.qns-warning {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fff3e0;
+  border: 1px solid #ffcc80;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #7b3f00;
+}
+
+/* ── Submit section ───────────────────────────────────────────────────────── */
+.submit-section {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ── Success state (after form submitted) ─────────────────────────────────── */
+.success-state {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.success-state-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.success-state-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2e7d32;
+  margin-bottom: 6px;
+}
+
+.success-state-body {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-steps {
+    gap: 0;
+  }
+
+  .submit-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

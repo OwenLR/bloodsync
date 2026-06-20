@@ -1,11 +1,14 @@
-const bloodDriveService = require('../services/bloodDriveService');
-const response          = require('../../utils/responseHelper');
+const bloodDriveService         = require('../services/bloodDriveService');
+const bloodDriveStaffingService = require('../services/bloodDriveStaffingService');
+const response                  = require('../../utils/responseHelper');
 const {
     validateCreateDrive,
     validateUpdateDrive,
     validateCancelDrive,
     validateAddParticipant,
     validateUpdateParticipant,
+    validateSuggestions,
+    validateBulkAssign,
 } = require('../../validators/bloodDriveValidator');
 
 const getAllDrives = async (req, res) => {
@@ -207,6 +210,49 @@ const confirmParticipation = async (req, res) => {
     }
 };
 
+// GET /api/blood-drives/:id/participants/suggestions
+// Returns active volunteers/phlebotomists sorted by distance from drive venue.
+// Already-assigned participants are excluded from results.
+// Query params: role_id (optional: 5 or 6), limit (optional: positive int)
+const getSuggestedParticipants = async (req, res) => {
+    try {
+        const errors = validateSuggestions(req.query);
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
+
+        const results = await bloodDriveStaffingService.getSuggestedParticipants(
+            req.params.id,
+            {
+                role_id: req.query.role_id || null,
+                limit:   req.query.limit   || null,
+            }
+        );
+        return response.success(res, results);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+// POST /api/blood-drives/:id/participants/bulk
+// Mode 1 — manual: { user_ids: [1, 2, 3], role_notes: "optional" }
+// Mode 2 — auto:   { target_count: 30, role_id: 5, role_notes: "optional" }
+// Returns { total_assigned, total_failed, assigned: [...], failed: [...] }
+// Partial success is intentional — see bloodDriveStaffingService for details.
+const bulkAddParticipants = async (req, res) => {
+    try {
+        const errors = validateBulkAssign(req.body);
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
+
+        const result = await bloodDriveStaffingService.bulkAddParticipants(
+            req.params.id,
+            req.body,
+            req.user
+        );
+        return response.success(res, result, `${result.total_assigned} participant(s) assigned successfully`);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 module.exports = {
     getAllDrives,
     getDriveById,
@@ -219,4 +265,6 @@ module.exports = {
     removeParticipant,
     updateParticipantStatus,
     confirmParticipation,
+    getSuggestedParticipants,
+    bulkAddParticipants,
 };

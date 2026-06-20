@@ -1,6 +1,7 @@
 const authService = require('../services/authService');
 const userModel   = require('../repositories/userModel');
 const response    = require('../../utils/responseHelper');
+const { validateChangePassword } = require('../../validators/authValidator');
 
 const COOKIE_OPTIONS = {
     httpOnly: true,
@@ -127,4 +128,23 @@ const me = async (req, res) => {
     }
 };
 
-module.exports = { login, refresh, logout, me };
+// PATCH /api/auth/me/password — self-service, all authenticated roles
+// user_id comes from req.user (JWT) — never from request body
+const changePassword = async (req, res) => {
+    try {
+        const errors = validateChangePassword(req.body);
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
+
+        const { current_password, new_password } = req.body;
+        const result = await authService.changePassword(
+            req.user.user_id,
+            current_password,
+            new_password
+        );
+        return response.success(res, result, 'Password updated successfully');
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+module.exports = { login, refresh, logout, me, changePassword };

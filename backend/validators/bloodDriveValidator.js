@@ -153,10 +153,87 @@ const validateUpdateParticipant = (data) => {
     return errors;
 };
 
+/**
+ * Validate query params for participant suggestions endpoint.
+ * role_id and limit are both optional.
+ */
+const validateSuggestions = (query) => {
+    const errors = [];
+    const { role_id, limit } = query;
+
+    if (role_id !== undefined) {
+        const parsed = Number(role_id);
+        if (!Number.isInteger(parsed) || ![5, 6].includes(parsed)) {
+            errors.push('role_id must be 5 (Volunteer) or 6 (Phlebotomist)');
+        }
+    }
+
+    if (limit !== undefined) {
+        const parsed = Number(limit);
+        if (!Number.isInteger(parsed) || parsed < 1) {
+            errors.push('limit must be a positive integer');
+        }
+    }
+
+    return errors;
+};
+
+/**
+ * Validate bulk assignment body.
+ * Either user_ids (array) OR target_count must be provided — not both.
+ */
+const validateBulkAssign = (data) => {
+    const errors = [];
+    const { user_ids, target_count, role_id } = data;
+
+    const hasUserIds     = user_ids !== undefined;
+    const hasTargetCount = target_count !== undefined;
+
+    if (!hasUserIds && !hasTargetCount) {
+        errors.push('Provide either user_ids (array) or target_count');
+        return errors;
+    }
+
+    if (hasUserIds && hasTargetCount) {
+        errors.push('Provide either user_ids or target_count, not both');
+        return errors;
+    }
+
+    if (hasUserIds) {
+        if (!Array.isArray(user_ids) || user_ids.length === 0) {
+            errors.push('user_ids must be a non-empty array');
+        } else if (user_ids.some((id) => isNaN(id) || Number(id) < 1)) {
+            errors.push('All user_ids must be positive integers');
+        }
+    }
+
+    if (hasTargetCount) {
+        const parsed = Number(target_count);
+        if (!Number.isInteger(parsed) || parsed < 1) {
+            errors.push('target_count must be a positive integer');
+        }
+
+        if (role_id !== undefined) {
+            const parsedRole = Number(role_id);
+            if (!Number.isInteger(parsedRole) || ![5, 6].includes(parsedRole)) {
+                errors.push('role_id must be 5 (Volunteer) or 6 (Phlebotomist)');
+            }
+        }
+    }
+
+    if (data.role_notes && data.role_notes.trim().length > 255) {
+        errors.push('role_notes cannot exceed 255 characters');
+    }
+
+    return errors;
+};
+
 module.exports = {
     validateCreateDrive,
     validateUpdateDrive,
     validateCancelDrive,
     validateAddParticipant,
     validateUpdateParticipant,
+    validateSuggestions,
+    validateBulkAssign,
 };

@@ -16,11 +16,9 @@ and build plan.
 
 ## Valid Values Reference
 
-These are not frontend constant definitions — they are the valid values the
-API accepts and returns. The frontend's own constants (frozen objects in
-constants/) must match these values exactly. This section documents API
-surface only; how the frontend structures its constants is an implementation
-decision documented in FRONTEND_AI_RULES.md.
+Self-Service Capability by Role (informational — for frontend Settings planning)
+
+RolePassword changeProfile photoAdminPATCH /api/auth/me/passwordPATCH /api/users/me/profile-img → staff_profilesPRC StaffPATCH /api/auth/me/passwordPATCH /api/users/me/profile-img → staff_profilesVolunteerPATCH /api/auth/me/passwordPATCH /api/volunteers/me/profile → volunteer_profiles (existing)PhlebotomistPATCH /api/auth/me/passwordPATCH /api/volunteers/me/profile → volunteer_profiles (existing)RequestorPATCH /api/auth/me/passwordNO endpoint exists yet — backlogDonorN/A — not a login roleN/A
 
 ### Roles (role_id)
 | role_id | Role | Login? |
@@ -52,12 +50,6 @@ decision documented in FRONTEND_AI_RULES.md.
 **Hemoglobin status** (`hemoglobin_status`):
 `Allowed | Not Allowed`
 
-**Screening result** (`screening_result`):
-`Eligible | Deferred`
-
-**Hemoglobin status** (`hemoglobin_status`):
-`Allowed | Not Allowed`
-
 **Blood Collection status**:
 `Pending | Safe | Rejected | Disposed | Withdrawn`
 
@@ -68,7 +60,8 @@ decision documented in FRONTEND_AI_RULES.md.
 **Blood Request status**:
 `Pending | Approved | Released | Rejected | Cancelled`
 — `Cancelled` is set only via `PATCH /:id/cancel` (requestor self-cancel, Pending requests only)
-— Never a valid value for `PATCH /:id/status` — staff cannot set this via the status update route
+— `Cancelled` is NEVER a valid value for `PATCH /:id/status` — staff cannot set this via the status update route
+— Frontend shows `Cancelled` as a display status only, never as a staff action button option
 
 **Reservation status**:
 `Reserved | Released | Cancelled`
@@ -86,17 +79,10 @@ decision documented in FRONTEND_AI_RULES.md.
 `School | Hospital | Community Center | Church | Government | Other`
 
 ### Blood Request Valid Transitions
-The backend is the authority on valid transitions — `bloodRequestRules.js`
-(`assertValidTransition()`) rejects any transition not listed here with a 400.
-
 | Current status | Can transition to |
 |---|---|
 | Pending | Approved, Rejected |
 | Approved | Released, Rejected |
-
-The frontend derives action button visibility from the current status against
-this table. If the backend adds a new transition, this table must be updated —
-do not let the frontend silently diverge from `bloodRequestRules.js`.
 
 ---
 
@@ -104,11 +90,11 @@ do not let the frontend silently diverge from `bloodRequestRules.js`.
 
 ### Tier 1 — Core (must work before anything else)
 1. Auth (login, refresh, logout)
-2. User profile (GET /api/users/me equivalent)
+2. User profile (GET /api/auth/me)
 3. Registration (requestor + volunteer/phlebotomist)
 
 ### Tier 2 — Primary Workflows
-4. Blood Drives (create, list, manage)
+4. Blood Drives (create, list, manage, participants)
 5. Donors (register, search, view)
 6. Donor Workflow (interview → answers → screening → donation → collection)
 
@@ -220,9 +206,6 @@ Response:
 ### GET /api/auth/me
 **Requires authentication**
 
-Web: cookie sent automatically
-Mobile: `Authorization: Bearer <token>` + `x-client-type: mobile`
-
 Response `200`:
 ```json
 {
@@ -241,13 +224,35 @@ Response `200`:
 }
 ```
 
-Used by the frontend on every protected page load (`requireAuth()`) to verify
-the session and to populate the navbar display name — the in-memory user cache
-does not survive page reload on a multi-page app, so this endpoint is the
-source of truth for display name on every page.
+Note: Does a DB lookup (not just JWT decode) specifically to include first_name/last_name
+for navbar display on every page load. In-memory cache resets on navigation.
 
 Errors:
 - `401` — no valid token (handled by apiFetch refresh flow)
+
+### PATCH /api/auth/me/password
+Requires authentication — ALL authenticated roles (Admin, PRC Staff,
+Volunteer, Phlebotomist, Requestor — not role-restricted, since password
+verification/hashing does not depend on role_id)
+
+Request:
+json{ "current_password": "string", "new_password": "string" }
+
+Response 200:
+json{ "success": true, "message": "Password updated successfully", "data": { "user_id": 1 } }
+
+Validation:
+current_password required
+new_password required, min 8 characters
+new_password must differ from current_password
+
+Errors:
+400 — validation failure, OR current_password does not match
+404 — user not found (should not normally occur for an authenticated request)
+
+Note: this endpoint lives under /api/auth, NOT /api/users — it is
+self-service for the currently authenticated user only. user_id is read
+from the JWT (req.user.user_id), never from the request body.
 
 ---
 
@@ -259,11 +264,11 @@ Errors:
 Request:
 ```json
 {
-  "first_name": "Maria",       // required
-  "last_name":  "Santos",      // required
-  "email":      "m@email.com", // required, valid email
-  "password":   "secret123",   // required, min 8 chars
-  "contact":    "09171234567"  // optional, digits only, 7-15 digits
+  "first_name": "Maria",
+  "last_name":  "Santos",
+  "email":      "m@email.com",
+  "password":   "secret123",
+  "contact":    "09171234567"
 }
 ```
 
@@ -277,22 +282,10 @@ Errors: `400` validation, `409` email already exists
 ---
 
 ### POST /api/volunteers/register
-**Public — multipart/form-data (has file upload)**
+**Public — multipart/form-data**
 
-Fields (form-data):
-```
-first_name    string  required
-last_name     string  required
-email         string  required
-password      string  required, min 8 chars
-sex           string  optional — Male | Female
-contact       string  optional — digits only, 7-15
-birthdate     string  optional — YYYY-MM-DD
-zip_code      string  optional — digits only, 4-10
-id_number     string  optional — min 3 chars
-emergency_contact_phone  string  optional — digits only, 7-15
-profile_img   file    optional — jpeg/png/jpg/pdf, max 5MB
-```
+Fields: `first_name`, `last_name`, `email`, `password`, `sex`, `contact`, `birthdate`,
+`zip_code`, `id_number`, `emergency_contact_phone`, `profile_img` (file, jpeg/png/jpg/pdf, max 5MB)
 
 Response `201`: user created with `status: Pending` — awaits admin approval
 
@@ -309,8 +302,41 @@ Same fields as volunteer registration above.
 
 Response `200`:
 ```json
-{ "data": [ { "user_id": 3, "first_name": "...", "status": "Pending", ... } ] }
+{ "success": true, "data": [ { "user_id": 3, "first_name": "...", "status": "Pending", ... } ] }
 ```
+
+---
+
+### GET /api/volunteers/available
+**Admin, PRC Staff only**
+
+Query params (optional):
+- `?role=5` — filter by role_id (5=Volunteer, 6=Phlebotomist)
+- `?municipality=Batangas City` — filter by address_municipality (case-insensitive)
+
+Response `200`:
+```json
+{
+  "success": true,
+  "count": 1,
+  "data": [{
+    "user_id":              3,
+    "first_name":           "Maria",
+    "last_name":            "Santos",
+    "role_id":              5,
+    "role_name":            "Volunteer",
+    "email":                "maria@email.com",
+    "contact":              "09171234567",
+    "address_municipality": "Batangas City",
+    "address_province":     "Batangas",
+    "profile_img":          "https://res.cloudinary.com/..."
+  }]
+}
+```
+
+Note: Returns only Active users (is_active=true, status='Active') with role_id 5 or 6.
+Used for participant assignment panel on blood drive pages.
+Route registered BEFORE /volunteers/:id/profile to prevent Express route shadowing.
 
 ---
 
@@ -319,18 +345,22 @@ Response `200`:
 
 Response `200`: full volunteer profile including volunteer_profiles table data
 
+Fields returned: `user_id`, `first_name`, `last_name`, `email`, `status`, `is_active`,
+`role_name`, `role_id`, `birthdate`, `sex`, `contact`, `address_street`, `address_brgy`,
+`address_municipality`, `address_province`, `zip_code`, `nationality`, `education`,
+`occupation`, `id_type`, `id_number`, `emergency_contact_name`, `emergency_contact_phone`,
+`profile_img`
+
 ---
 
 ### PATCH /api/volunteers/:id/approve
 **Admin only** — no body required
-
 Response `200`: user status set to Active, is_active set to true
 
 ---
 
 ### PATCH /api/volunteers/:id/decline
 **Admin only** — no body required
-
 Response `200`: user status set to Declined
 
 ---
@@ -345,6 +375,7 @@ Query params (optional): `?status=Active` | `Inactive` | `Pending`
 Response `200`:
 ```json
 {
+  "success": true,
   "data": [{
     "user_id": 1, "first_name": "...", "last_name": "...",
     "email": "...", "status": "Active", "is_active": true,
@@ -358,7 +389,6 @@ Response `200`:
 
 ### GET /api/users/:id
 **Admin, PRC Staff**
-
 Response `200`: single user object (same shape as list item above)
 
 ---
@@ -369,12 +399,12 @@ Response `200`: single user object (same shape as list item above)
 Request:
 ```json
 {
-  "first_name": "string",  // required
-  "last_name":  "string",  // required
-  "email":      "string",  // required, valid email
-  "password":   "string",  // required, min 8 chars
-  "role_id":    1,         // required — 1 (Admin) or 2 (PRC Staff) only
-  "branch_id":  1          // optional
+  "first_name": "string",
+  "last_name":  "string",
+  "email":      "string",
+  "password":   "string",
+  "role_id":    1,
+  "branch_id":  1
 }
 ```
 
@@ -399,8 +429,41 @@ Request:
 
 ### DELETE /api/users/:id
 **Admin only**
-
 Response `200`: deleted user object
+
+---
+
+### PATCH /api/users/me/profile-img
+
+Admin, PRC Staff only — multipart/form-data
+Field: profile_img (file, jpeg/png/jpg/pdf, max 5MB — same constraints as
+volunteer/phlebotomist registration uploads)
+
+Response 200:
+json{
+  "success": true,
+  "message": "Profile photo updated successfully",
+  "data": {
+    "profile_id": 1,
+    "user_id": 2,
+    "profile_img": "https://res.cloudinary.com/..."
+  }
+}
+
+Errors:
+400 — no file uploaded, or invalid file type/size (rejected by upload middleware)
+
+Note: This writes to a NEW table, staff_profiles (not the users table
+itself) — mirrors the existing pattern where Volunteer/Phlebotomist
+profile_img lives in volunteer_profiles, not users. Upserts on
+conflict — safe to call multiple times, always replaces the prior URL.
+user_id is read from the JWT (req.user.user_id), never from the request body.
+
+This endpoint is registered BEFORE /api/users/:id in userRoutes.js to
+prevent Express route shadowing (the literal path /me/profile-img would
+otherwise be captured by the :id wildcard if registered after it — same
+issue previously fixed for GET /api/volunteers/available vs
+/volunteers/:id/profile).
 
 ---
 
@@ -408,22 +471,23 @@ Response `200`: deleted user object
 
 ### GET /api/volunteers/me/profile
 **Volunteer, Phlebotomist only**
-
-Response `200`: own profile data
+Response `200`: own profile data (same shape as GET /api/volunteers/:id/profile)
 
 ---
 
 ### PATCH /api/volunteers/me/profile
 **Volunteer, Phlebotomist only**
 
-Updatable fields only — these four are LOCKED server-side, do not send them:
-- `first_name`, `last_name`, `birthdate`, `sex` → backend rejects with `400`
+LOCKED server-side (backend rejects with 400 if sent): `first_name`, `last_name`, `birthdate`, `sex`
 
 Allowed fields:
 ```json
 {
   "contact":                  "string",
-  "address":                  "string",
+  "address_street":           "string",
+  "address_brgy":             "string",
+  "address_municipality":     "string",
+  "address_province":         "string",
   "zip_code":                 "string",
   "emergency_contact_name":   "string",
   "emergency_contact_phone":  "string",
@@ -437,66 +501,71 @@ Allowed fields:
 
 ### GET /api/blood-drives/confirm (PUBLIC — returns HTML, not JSON)
 Query params: `?token=xxx&action=confirm` or `?action=decline`
-This is a browser link from email — the frontend does not call this programmatically.
+Browser link from email — frontend never calls this programmatically.
+CRITICAL: registered BEFORE /:id route in Express to prevent route shadowing.
 
 ---
 
 ### GET /api/blood-drives
 **Admin, PRC Staff**
 
-Response `200`: array of drives with computed status
+Response `200`: array of drives
 
----
-
-### GET /api/blood-drives/:id
-**Admin, PRC Staff, Volunteer, Phlebotomist**
-
-Response `200`:
-```json
-{
-  "data": {
-    "drive_id": 1,
-    "name": "Batangas Blood Drive",
-    "branch_id": 1,
-    "start_datetime": "2025-10-01T08:00:00+08:00",
-    "end_datetime":   "2025-10-01T17:00:00+08:00",
-    "status": "Active",
-    "slots_available": 50,
-    "venue_type": "Indoor",
-    "contact_number": "09171234567",
-    "contact_email": "drive@prc.org"
-  }
-}
-```
+Fields per drive:
+`drive_id`, `name`, `description`, `status`, `branch_id`, `branch_name`,
+`start_datetime`, `end_datetime`, `slots_available`,
+`venue_name`, `venue_type`, `building`, `floor_room`,
+`street_address`, `city`, `province`, `postal_code`,
+`contact_person`, `contact_number`, `contact_email`,
+`created_by`, `created_by_first`, `created_by_last`,
+`cancelled_by`, `cancelled_by_first`, `cancelled_by_last`,
+`cancellation_reason`, `cancelled_at`
 
 Note: `status` is computed on the backend from current PHT time — do not recompute on frontend.
 
 ---
 
+### GET /api/blood-drives/:id
+**Admin, PRC Staff, Volunteer, Phlebotomist**
+Response `200`: single drive object (same fields as list above)
+
+---
+
 ### GET /api/blood-drives/branch/:branch_id
 **Admin, PRC Staff**
+Response `200`: array of drives for that branch (same fields as list above)
 
 ---
 
 ### POST /api/blood-drives
 **Admin, PRC Staff**
-PRC Staff can only create drives for their own branch (enforced server-side).
+PRC Staff can only create drives for their own branch (enforced server-side — 403 otherwise).
 
 Request:
 ```json
 {
-  "name":            "string",    // required
-  "branch_id":       1,           // required — positive integer
-  "start_datetime":  "ISO 8601",  // required — e.g. 2025-10-01T08:00:00+08:00
-  "end_datetime":    "ISO 8601",  // required
-  "slots_available": 50,          // optional — positive integer
-  "venue_type":      "Indoor",    // optional — Indoor | Outdoor | Mobile
-  "contact_number":  "string",    // optional — digits only, 7-15
-  "contact_email":   "string",    // optional — valid email
-  "location":        "string",    // optional
-  "notes":           "string"     // optional
+  "name":            "string",
+  "branch_id":       1,
+  "start_datetime":  "ISO 8601",
+  "end_datetime":    "ISO 8601",
+  "description":     "string",
+  "venue_name":      "string",
+  "venue_type":      "School",
+  "building":        "string",
+  "floor_room":      "string",
+  "street_address":  "string",
+  "city":            "string",
+  "province":        "string",
+  "postal_code":     "string",
+  "slots_available": 50,
+  "contact_person":  "string",
+  "contact_number":  "string",
+  "contact_email":   "string"
 }
 ```
+
+Required: `name`, `branch_id`, `start_datetime`, `end_datetime`
+All other fields optional.
 
 Errors:
 - `400` — validation failure
@@ -507,7 +576,6 @@ Errors:
 
 ### PATCH /api/blood-drives/:id
 **Admin, PRC Staff** — all fields optional
-
 Cannot update Cancelled or Ended drives → `400`
 
 ---
@@ -517,7 +585,7 @@ Cannot update Cancelled or Ended drives → `400`
 
 Request:
 ```json
-{ "cancellation_reason": "string" } // optional but recommended
+{ "cancellation_reason": "string" }
 ```
 
 Errors: `400` — already Cancelled or Ended
@@ -527,6 +595,13 @@ Errors: `400` — already Cancelled or Ended
 ### GET /api/blood-drives/:id/participants
 **Admin, PRC Staff**
 
+Response `200`: array of participants
+
+Fields per participant:
+`drive_id`, `user_id`, `first_name`, `last_name`, `email`,
+`role_name`, `role_id`, `assignment_status`, `role_notes`,
+`assigned_at`, `assigned_by_first`, `assigned_by_last`
+
 ---
 
 ### POST /api/blood-drives/:id/participants
@@ -535,12 +610,12 @@ Errors: `400` — already Cancelled or Ended
 Request:
 ```json
 {
-  "user_id":    3,        // required — must be Volunteer or Phlebotomist
-  "role_notes": "string"  // optional, max 255 chars
+  "user_id":    3,
+  "role_notes": "string"
 }
 ```
 
-On success: assignment email sent to the participant with confirm/decline links.
+On success: assignment email sent to participant with confirm/decline links.
 
 ---
 
@@ -554,7 +629,7 @@ On success: assignment email sent to the participant with confirm/decline links.
 
 Request:
 ```json
-{ "assignment_status": "Confirmed" } // Pending | Confirmed | Declined | No Show
+{ "assignment_status": "Confirmed" }
 ```
 
 ---
@@ -568,7 +643,6 @@ Request:
 
 ### GET /api/donors/search
 **Admin, PRC Staff, Volunteer, Phlebotomist**
-
 Query params: `?q=searchterm`
 
 ---
@@ -579,8 +653,9 @@ Query params: `?q=searchterm`
 Response `200`:
 ```json
 {
+  "success": true,
   "data": {
-    "donor_id": 1,
+    "donor_id":   1,
     "first_name": "Pedro",
     "last_name":  "Reyes",
     "birthdate":  "1990-05-15",
@@ -601,25 +676,24 @@ Volunteer/Phlebotomist: requires active blood drive assignment.
 Request:
 ```json
 {
-  "first_name": "string",    // required
-  "last_name":  "string",    // required
-  "birthdate":  "YYYY-MM-DD",// required — not in future
-  "sex":        "Male",      // required — Male | Female
-  "email":      "string",    // required — valid email (required for donation email)
-  "blood_type": "O+",        // optional — must be valid blood type
-  "contact":    "string"     // optional — digits only, 7-15
+  "first_name": "string",
+  "last_name":  "string",
+  "birthdate":  "YYYY-MM-DD",
+  "sex":        "Male",
+  "email":      "string",
+  "blood_type": "O+",
+  "contact":    "string"
 }
 ```
 
-Errors: `409` — duplicate donor detected (same national ID or matching identity)
+Required: `first_name`, `last_name`, `birthdate`, `sex`, `email`
+Errors: `409` — duplicate donor detected
 
 ---
 
 ### PATCH /api/donors/:id
 **Admin, PRC Staff only**
-
-All fields optional, at least one required. Same format validation as create.
-Note: email is still validated if provided.
+All fields optional, at least one required. Same validation as create.
 
 ---
 
@@ -633,12 +707,8 @@ Note: email is still validated if provided.
 ### GET /api/donor-interviews
 **All roles**
 
----
-
 ### GET /api/donor-interviews/donor/:donor_id
 **All roles**
-
----
 
 ### GET /api/donor-interviews/:id
 **All roles**
@@ -646,17 +716,16 @@ Note: email is still validated if provided.
 Response `200`:
 ```json
 {
+  "success": true,
   "data": {
     "interview_id": 1,
     "donor_id":     1,
     "branch_id":    1,
-    "drive_id":     2,   // null if walk-in
+    "drive_id":     2,
     "created_at":   "..."
   }
 }
 ```
-
----
 
 ### POST /api/donor-interviews
 **All roles**
@@ -665,12 +734,12 @@ Volunteer/Phlebotomist: requires active blood drive assignment.
 Request:
 ```json
 {
-  "donor_id":  1, // required — positive integer
-  "branch_id": 1  // required — positive integer
+  "donor_id":  1,
+  "branch_id": 1
 }
 ```
 
-Note: `drive_id` is set automatically from the middleware — do not send it.
+Note: `drive_id` is set automatically by middleware — do not send it.
 
 ---
 
@@ -678,13 +747,12 @@ Note: `drive_id` is set automatically from the middleware — do not send it.
 
 ### POST /api/interview-answers
 **All roles**
-Volunteer/Phlebotomist: requires active blood drive.
 
 Request:
 ```json
 {
-  "interview_id": 1,   // required — NOT screening_id
-  "donor_id":     1,   // required
+  "interview_id": 1,
+  "donor_id":     1,
   "answers": [
     { "question_id": 1, "answer": "YES" },
     { "question_id": 2, "answer": "NO"  }
@@ -692,7 +760,7 @@ Request:
 }
 ```
 
-Note: `answer` must be exactly `"YES"` or `"NO"` (uppercase).
+CRITICAL: field is `interview_id` — NOT `screening_id`. `answer` must be exactly `"YES"` or `"NO"` (uppercase).
 
 ---
 
@@ -701,15 +769,9 @@ Note: `answer` must be exactly `"YES"` or `"NO"` (uppercase).
 ### GET /api/interview-questions
 **All roles**
 
----
-
 ### GET /api/interview-questions/sex/:sex
 **All roles**
-`:sex` — `Male` or `Female` (case-insensitive, backend normalises)
-
-Returns questions applicable to that sex (includes `Both` questions).
-
----
+`:sex` — `Male` or `Female`
 
 ### PATCH /api/interview-questions/:id
 **Admin only**
@@ -717,8 +779,8 @@ Returns questions applicable to that sex (includes `Both` questions).
 ```json
 {
   "question_text": "string",
-  "sex_filter":    "Both",   // Male | Female | Both
-  "defer_if":      "YES"     // YES | NO
+  "sex_filter":    "Both",
+  "defer_if":      "YES"
 }
 ```
 
@@ -727,90 +789,57 @@ Returns questions applicable to that sex (includes `Both` questions).
 ## Screening Endpoints
 
 ### GET /api/screenings
-**All roles**
-
----
-
 ### GET /api/screenings/donor/:donor_id
-**All roles**
-
----
-
 ### GET /api/screenings/:id
 **All roles**
-
----
 
 ### POST /api/screenings
 **All roles**
 Volunteer/Phlebotomist: requires active blood drive.
-Cross-drive: interview must belong to same drive as requester's assignment.
 
 Request:
 ```json
 {
-  "interview_id":        1,       // required
-  "hemoglobin":          14.5,    // required — positive number
-  "screening_result":    "Eligible", // required — Eligible | Deferred
-  "weight":              65,      // optional — positive number
-  "pulse_rate":          72,      // optional — positive integer
-  "blood_pressure":      "120/80",// optional — format: NNN/NN
-  "blood_type_confirmed":"O+",    // optional — valid blood type
-  "hemoglobin_status":   "Allowed"// optional — Allowed | Not Allowed
+  "interview_id":         1,
+  "hemoglobin":           14.5,
+  "screening_result":     "Eligible",
+  "weight":               65,
+  "pulse_rate":           72,
+  "blood_pressure":       "120/80",
+  "blood_type_confirmed": "O+",
+  "hemoglobin_status":    "Allowed"
 }
 ```
 
-Business rules (enforced server-side):
-- Male hemoglobin: min 13.0, max 20.0 g/dL
-- Female hemoglobin: min 12.5, max 20.0 g/dL
-- If `screening_result` is `Deferred`, a deferral record is created automatically
-
----
+Required: `interview_id`, `hemoglobin`, `screening_result`
+Business rules: Male hgb min 13.0, Female min 12.5, both max 20.0 g/dL
+If `screening_result` is `Deferred`, deferral record created automatically.
 
 ### PATCH /api/screenings/:id
 **Admin, PRC Staff only**
-Same field validation as create.
 
 ---
 
 ## Donation Endpoints
 
 ### GET /api/donations
-**All roles**
-
----
-
 ### GET /api/donations/donor/:donor_id
-**All roles**
-
----
-
 ### GET /api/donations/:id
 **All roles**
-
----
 
 ### POST /api/donations
 **All roles**
 Volunteer/Phlebotomist: requires active blood drive.
-Cross-drive: screening must belong to same drive.
 
 Request:
 ```json
 {
-  "screening_id":    1,     // required
-  "extraction_time": 10     // optional — minutes, integer
+  "screening_id":    1,
+  "extraction_time": 10
 }
 ```
 
-Business rules (enforced server-side):
-- Screening must be `Eligible`
-- Donor must have an email on record (required for post-extraction email)
-- Active deferral blocks donation
-- Same-day deferral blocks donation
-- Extraction time > 15 min → `is_qns: true` (still created, but flagged)
-
----
+Business rules: Screening must be Eligible, donor must have email, extraction > 15 min → is_qns: true
 
 ### PATCH /api/donations/:id
 **Admin, PRC Staff only**
@@ -820,36 +849,23 @@ Business rules (enforced server-side):
 ## Blood Collection Endpoints
 
 ### GET /api/blood-collections
-**Admin, PRC Staff only**
-
----
-
 ### GET /api/blood-collections/:id
-**Admin, PRC Staff only**
-
----
-
 ### GET /api/blood-collections/branch/:branch_id
 **Admin, PRC Staff only**
-
----
 
 ### POST /api/blood-collections
 **All roles**
 Volunteer/Phlebotomist: requires active blood drive.
-Cross-drive: donation must belong to same drive.
 
 Request:
 ```json
 {
-  "donation_id": 1,                  // required
-  "blood_type":  "O+",               // required — valid blood type
-  "component":   "Whole Blood",      // optional — Whole Blood | Packed Red Blood Cells | Fresh Frozen Plasma | Platelets
-  "volume_ml":   450                 // optional — positive integer
+  "donation_id": 1,
+  "blood_type":  "O+",
+  "component":   "Whole Blood",
+  "volume_ml":   450
 }
 ```
-
----
 
 ### PATCH /api/blood-collections/:id/status
 **Admin, PRC Staff only**
@@ -857,42 +873,24 @@ Request:
 Request:
 ```json
 {
-  "status": "Safe",    // required — Pending | Safe | Rejected
-  "reason": "string"  // required if status is Rejected
+  "status": "Safe",
+  "reason": "string"
 }
 ```
 
-Business rule: QNS collections (is_qns = true) cannot be marked `Safe`.
-When marked `Safe`, a blood unit is automatically created in inventory.
+Business rule: QNS collections (is_qns=true) cannot be marked Safe.
+When marked Safe, blood unit created automatically in inventory.
 
 ---
 
 ## Blood Unit Endpoints
 
 ### GET /api/blood-units
-**Admin, PRC Staff**
-
----
-
 ### GET /api/blood-units/:id
 **Admin, PRC Staff**
 
-Response `200`:
-```json
-{
-  "data": {
-    "unit_id":         1,
-    "blood_type":      "O+",
-    "component":       "Whole Blood",
-    "status":          "Available",
-    "expiration_date": "2025-11-05",
-    "branch_id":       1,
-    "drive_id":        2
-  }
-}
-```
-
----
+Response fields: `unit_id`, `blood_type`, `component`, `status`, `expiration_date`,
+`branch_id`, `drive_id`, `donation_id`, `donor_id`
 
 ### PATCH /api/blood-units/:id/status
 **Admin, PRC Staff**
@@ -900,12 +898,17 @@ Response `200`:
 Request:
 ```json
 {
-  "status": "Withdrawn",  // Available | Disposed | Withdrawn (cannot set terminal states manually in all cases)
-  "reason": "string"      // required for Disposed and Withdrawn
+  "status": "Withdrawn",
+  "reason": "string"
 }
 ```
 
-Terminal states (cannot update after reaching): `Released`, `Disposed`, `Withdrawn`
+Terminal states (no update allowed): `Released`, `Disposed`, `Withdrawn`, `Separated`, `Expired`
+
+### POST /api/blood-units/:id/separate
+**Admin, PRC Staff**
+Only for Whole Blood + Available units.
+On success: source unit → Separated (terminal), 3 new Pending collections created (PRBC, Platelets, FFP).
 
 ---
 
@@ -913,9 +916,7 @@ Terminal states (cannot update after reaching): `Released`, `Disposed`, `Withdra
 
 ### GET /api/blood-requests
 **Admin, PRC Staff, Requestor**
-Requestors only see their own requests (enforced server-side).
-
----
+Requestors only see their own requests (enforced server-side — no filter needed).
 
 ### GET /api/blood-requests/:id
 **Admin, PRC Staff, Requestor**
@@ -923,18 +924,17 @@ Requestors only see their own requests (enforced server-side).
 Response `200`:
 ```json
 {
+  "success": true,
   "data": {
-    "request_id":    1,
-    "status":        "Pending",
-    "created_at":    "...",
+    "request_id": 1,
+    "status":     "Pending",
+    "created_at": "...",
     "items": [
       { "blood_type": "O+", "component": "Whole Blood", "quantity": 2 }
     ]
   }
 }
 ```
-
----
 
 ### POST /api/blood-requests
 **Requestor only**
@@ -952,25 +952,31 @@ Request:
 
 On success: socket event `blood_request_new` emitted to branch staff rooms.
 
----
-
 ### PATCH /api/blood-requests/:id/status
 **Admin, PRC Staff**
 
 Request:
 ```json
 {
-  "status": "Approved",  // see valid transitions below
-  "reason": "string"     // optional — recommended for Rejected
+  "status": "Approved",
+  "reason": "string"
 }
 ```
 
-Valid transitions:
-- `Pending` → `Approved` or `Rejected`
-- `Approved` → `Released` or `Rejected`
-
-On `Approved`: FEFO auto-assignment of blood units (nearest expiry first).
+Valid transitions: Pending→Approved, Pending→Rejected, Approved→Released, Approved→Rejected
+On Approved: FEFO auto-assignment of blood units.
 Race condition protection: SELECT FOR UPDATE prevents double-approval.
+
+### PATCH /api/blood-requests/:id/cancel
+**Requestor only**
+No body required. Only works on own Pending requests.
+Returns 404 if not Pending or not owned by requestor.
+
+### POST /api/blood-requests/fulfillment-options
+**Requestor only**
+
+### GET /api/blood-requests/estimate/:branch_id
+**Requestor only**
 
 ---
 
@@ -979,12 +985,8 @@ Race condition protection: SELECT FOR UPDATE prevents double-approval.
 ### GET /api/deferrals
 **Admin, PRC Staff**
 
----
-
 ### GET /api/deferrals/donor/:donor_id
 **Admin, PRC Staff, Volunteer, Phlebotomist**
-
----
 
 ### GET /api/deferrals/:id
 **Admin, PRC Staff**
@@ -995,26 +997,18 @@ Race condition protection: SELECT FOR UPDATE prevents double-approval.
 
 ### GET /api/notifications
 **All authenticated roles**
-
-Response `200`: array of notifications for the current user
-
----
+Response `200`: array of notifications for current user
 
 ### GET /api/notifications/unread-count
 **All authenticated roles**
-
 Response `200`:
 ```json
-{ "data": { "count": 3 } }
+{ "success": true, "data": { "count": 3 } }
 ```
-
----
 
 ### PATCH /api/notifications/:id/read
 **All authenticated roles**
-Can only mark own notifications — scoped server-side.
-
----
+Scoped to own notifications server-side.
 
 ### PATCH /api/notifications/read-all
 **All authenticated roles**
@@ -1026,22 +1020,14 @@ Can only mark own notifications — scoped server-side.
 ### GET /api/branches
 **All authenticated roles** — reference data for dropdowns
 
----
-
 ### GET /api/branches/:id
 **All authenticated roles**
-
----
 
 ### POST /api/branches
 **Admin only**
 
----
-
 ### PATCH /api/branches/:id
 **Admin only**
-
----
 
 ### DELETE /api/branches/:id
 **Admin only**
@@ -1053,22 +1039,14 @@ Can only mark own notifications — scoped server-side.
 ### GET /api/hospitals
 **All authenticated roles** — reference data for blood request forms
 
----
-
 ### GET /api/hospitals/:id
 **All authenticated roles**
-
----
 
 ### POST /api/hospitals
 **Admin only**
 
----
-
 ### PATCH /api/hospitals/:id
 **Admin only**
-
----
 
 ### DELETE /api/hospitals/:id
 **Admin only**
@@ -1084,15 +1062,16 @@ Can only mark own notifications — scoped server-side.
 Payload:
 ```json
 {
-  "request_id": 1,
-  "status":     "Pending",
-  "created_at": "...",
-  "branch_id":  1
+  "request_id":    1,
+  "status":        "Pending",
+  "created_at":    "...",
+  "branch_id":     1,
+  "patient_name":  "...",
+  "urgency_level": "Routine"
 }
 ```
 
-Frontend action: increment notification badge, if user is on blood-requests page
-prepend the new row to the table.
+Frontend action: increment notification badge, if on blood-requests page prepend new row.
 
 ---
 
@@ -1130,32 +1109,25 @@ Payload:
 
 ---
 
-### Room assignment — server-side, not frontend-controlled
-Rooms are assigned automatically by the backend when the socket connects,
-based on `socket.handshake.auth`:
-
+### Room assignment — server-side only
 ```javascript
-// Frontend connects with auth payload — backend reads this on connect
 socket = io(url, {
   auth: { user_id, role_id, branch_id },
   withCredentials: true,
 });
 ```
 
-The backend then joins the socket to rooms server-side:
-- Requestor (`role_id === 4`) → `user_${user_id}` (private)
-- Any role with `branch_id` → `branch_${branch_id}`
-- Admin (`role_id === 1`) → also `admin_global`
+Rooms assigned by backend on connect:
+- Requestor (role_id 4) → `user_${user_id}` (private)
+- Any role with branch_id → `branch_${branch_id}`
+- Admin (role_id 1) → also `admin_global`
 
-**The frontend never calls `socket.emit('join_room', ...)`.** There is no
-`join_room` handler on the backend — emitting it has no effect. Room
-membership is determined entirely by the auth payload at connection time.
+Frontend NEVER calls `socket.emit('join_room', ...)` — no handler exists on backend.
 
 ---
 
 ## Validation Rules Summary
 
-### Formats
 | Field | Rule |
 |---|---|
 | email | valid email format |
@@ -1165,17 +1137,23 @@ membership is determined entirely by the auth payload at connection time.
 | zip_code | digits only, 4–10 digits |
 | blood_pressure | NNN/NN format e.g. 120/80 |
 | datetime fields | ISO 8601 e.g. 2025-10-01T08:00:00+08:00 |
+| answer values | exactly "YES" or "NO" (uppercase) |
 
-### Business Rules the Frontend Should Enforce (but backend also rejects)
+### Business Rules the Frontend Should Enforce (backend also rejects)
 | Rule | Where |
 |---|---|
-| Donor workflow is sequential: interview → answers → screening → donation → collection | All field operation pages |
-| Only show blood request action buttons for valid transitions | Blood requests page |
+| Donor workflow sequential: interview → answers → screening → donation → collection | All field operation pages |
+| Only show valid blood request transition buttons | Blood requests page |
 | Volunteer/Phlebotomist identity fields are read-only | Profile edit form |
-| Drive status Ended or Cancelled — no edit allowed | Drive edit form |
+| Drive status Ended/Cancelled — no edit allowed | Drive edit form |
 | Blood unit terminal states — no status update button | Blood units page |
 | QNS collections cannot be marked Safe | Collection status form |
 | Requestors cannot see blood collections or blood units | Role-based page access |
+| Only show Separate button for Whole Blood + Available | Blood units page |
+| Cancel only on Pending requests owned by current requestor | Blood requests page |
+| Donor email required | Donor registration form |
+| answer values must be uppercase YES/NO | Interview answers form |
+| Separated blood unit — hide all action buttons (terminal) | Blood units page |
 
 ---
 
@@ -1186,3 +1164,150 @@ membership is determined entirely by the auth payload at connection time.
 | Donation created | Donor | Email — post-extraction instructions |
 | Daily inventory low stock | Branch staff + all admins | Email + socket |
 | Daily inventory near expiry | Branch staff + all admins | Email + socket |
+
+# BloodSync Frontend Contract — Donor Additions
+#
+# Below contains ADDITIONS and CORRECTIONS to FRONTEND_CONTRACT.md
+# from this session. Merge these into the main contract file.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+## NEW ENDPOINT — PATCH /api/donors/:id/contact
+Volunteer + Phlebotomist only (NOT Admin/Staff — they use PATCH /api/donors/:id)
+
+WHY THIS EXISTS:
+During a blood drive, a donor may need to update their contact info —
+for example, they no longer use the phone number or email on record. Field
+staff (Volunteer/Phlebotomist) cannot edit full donor records (that is
+Admin/Staff only), but they do need to be able to correct contact details
+on the spot. This endpoint is hard-scoped to contact info only by server-side
+validation — sending any other donor field is rejected with 400.
+This endpoint is NOT gated by requireBloodDrive middleware, so field staff
+can call it regardless of whether they are currently assigned to an active drive.
+
+Request:
+```json
+{ "email": "new@email.com", "contact": "09171234567" }
+```
+At least one field required. Both optional individually.
+contact: digits only, 7–15 characters — same rule as everywhere else.
+
+Response 200:
+```json
+{ "success": true, "message": "Donor contact information updated successfully", "data": { ...full donor object... } }
+```
+
+Errors:
+- 400 — validation failure OR any field other than email/contact sent
+- 404 — donor not found
+
+Frontend behavior:
+- Volunteer/Phlebotomist donor detail modal shows email + contact as
+  inline-editable fields only (not a full edit form)
+- All other donor fields are read-only for these roles
+- Admin/Staff use the full edit flow (PATCH /api/donors/:id) — separate modal
+
+---
+
+## DONOR BUSINESS RULES — Background and Frontend Implications
+
+### Duplicate donor prevention (government ID)
+WHY: A donor who donated in a previous blood drive is already in the system.
+Re-registering them as a new donor would create duplicate records and break
+donation history tracking. The backend uses government ID (id_number on the
+donor record) to detect duplicates and rejects with 409 if the same ID is
+submitted again.
+
+FRONTEND IMPLICATION on Register Donor page (ROUTES.FIELD.REGISTER):
+- Show a search-first flow: before the registration form, prompt staff to
+  search existing donors by name or ID number
+- If a matching donor is found, offer to SELECT that existing donor rather
+  than create a new one
+- "Existing donor" selection pre-fills the interview with the selected
+  donor_id — no new donor record created
+- New registration form is only shown when no match is found OR staff
+  explicitly confirms the person is not in the system
+- On 409 from POST /api/donors, show: "This donor is already registered.
+  Please search for them and select their existing record."
+
+### Old donor — contact info may be stale
+WHY: A donor from a past blood drive may have a different phone number or
+email than what is on record. Field staff need to be able to update this
+during intake without requiring Admin/Staff involvement.
+This is why PATCH /api/donors/:id/contact exists.
+
+FRONTEND IMPLICATION:
+- When an existing donor is selected/found, show their current contact info
+  with an "Update contact info" inline option
+- This uses PATCH /api/donors/:id/contact (Volunteer/Phlebotomist) or
+  PATCH /api/donors/:id (Admin/Staff)
+
+### Donor email is required for donation
+WHY: The backend sends a post-extraction email to the donor after a donation
+is created. If the donor has no email, donationService throws a BusinessError
+before creating the donation record.
+
+FRONTEND IMPLICATION:
+- Email is required at donor registration — do not make it optional
+- On the existing donor selection flow, if the selected donor has no email,
+  prompt staff to add one via the contact update form BEFORE proceeding
+  to the donation step — otherwise the donation will fail at the last step
+  with a confusing error
+
+### Sequential workflow — frontend must guide, backend enforces
+WHY: Each step depends on the previous step's output:
+  Interview → needs a donor_id
+  Screening → needs an interview_id from a completed interview
+  Donation → needs a screening_id where result = 'Eligible'
+  Collection → needs a donation_id
+
+The backend enforces this and returns 400 if a prerequisite is missing.
+The frontend should never let staff attempt a step without completing
+the prior step — use the dropbox/select pattern to surface only valid
+options at each step.
+
+FRONTEND IMPLICATION per workflow page:
+- Register Donor: search-first, then new registration form
+- Conduct Interview: donor dropbox shows all donors registered in this drive
+  (GET /api/donors filtered by drive context, or GET /api/donor-interviews
+  to infer which donors already have interviews)
+- Conduct Screening: donor dropbox shows only donors who have a completed
+  interview in this drive but no screening yet
+- Record Donation: donor dropbox shows only donors with an Eligible screening
+  in this drive but no donation yet
+- Record Collection: donor dropbox shows donors with a completed donation
+  in this drive but no collection yet
+
+The dropbox filtering logic is frontend-side: fetch the relevant list for
+the current drive and filter by completion status of the prior step.
+The drive context comes from req.drive_id set by bloodDriveMiddleware on
+the backend — field staff are always scoped to their active drive.
+
+### Admin/Staff walk-in operations
+WHY: Admin and PRC Staff are not required to be assigned to a blood drive.
+They can register donors and run the full workflow as walk-ins. Their
+requests have drive_id = NULL in the database — this is correct and
+intentional, not an error.
+
+FRONTEND IMPLICATION:
+- Admin/Staff donor workflow pages (under /pages/admin/ and /pages/staff/)
+  do not need a "current drive" selector — they operate without drive context
+- Donor dropbox on Admin/Staff interview/screening/donation/collection pages
+  should show all donors (not filtered by drive), letting them select any
+  donor in the system
+- The sequential prerequisite logic still applies — Admin/Staff still need
+  to complete each step in order for a given donor
+
+---
+
+## CORRECTED: Donor endpoints role access
+
+| Endpoint | Roles | Notes |
+|---|---|---|
+| GET /api/donors | Admin, PRC Staff, Volunteer, Phlebotomist | All authenticated field roles |
+| GET /api/donors/search?q= | Admin, PRC Staff, Volunteer, Phlebotomist | Server-side search |
+| GET /api/donors/:id | Admin, PRC Staff, Volunteer, Phlebotomist | Read-only for field roles |
+| POST /api/donors | Admin, PRC Staff, Volunteer, Phlebotomist | Field roles need active drive |
+| PATCH /api/donors/:id | Admin, PRC Staff ONLY | Full edit — not for field roles |
+| PATCH /api/donors/:id/contact | Volunteer, Phlebotomist ONLY | Contact info only |
+| DELETE /api/donors/:id | Admin ONLY | Hard delete |

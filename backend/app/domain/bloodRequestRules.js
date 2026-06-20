@@ -9,10 +9,19 @@
 /**
  * Valid status transitions for blood requests.
  * Key = current status, Value = array of statuses it may transition to.
+ *
+ * Full flow:
+ *   Pending  → Approved  (staff approves, units reserved)
+ *   Pending  → Rejected  (staff rejects before approval)
+ *   Approved → Waiting   (staff marks units ready for pickup)
+ *   Approved → Rejected  (staff rejects after approval — frees reserved units)
+ *   Waiting  → Released  (requestor confirms receipt OR staff manually releases)
+ *   Waiting  → Rejected  (edge case: issue discovered after units prepared)
  */
 const VALID_TRANSITIONS = {
     Pending:  ['Approved', 'Rejected'],
-    Approved: ['Released', 'Rejected'],
+    Approved: ['Waiting',  'Rejected'],
+    Waiting:  ['Released', 'Rejected'],
     Released: [],
     Rejected: [],
 };

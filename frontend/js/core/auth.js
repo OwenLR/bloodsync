@@ -10,10 +10,20 @@
  * Does NOT navigate after login() or logout() — that is the caller's job.
  * Entry files call redirectByRole() after login(), and redirect after logout().
  *
- * User cache note:
- * _currentUser is an in-memory variable. It does NOT survive page navigation
- * or page reload — this is a multi-page app, not an SPA. On every new page
- * load, getCurrentUser() re-fetches from /api/auth/me via the cookie.
+ * User cache — two layers:
+ *
+ * 1. _currentUser (in-memory) — within a single page load. Fastest possible
+ *    lookup; used when getCurrentUser() is called multiple times on one page.
+ *
+ * 2. sessionStorage key 'bs_user' — survives page navigations within the tab,
+ *    cleared automatically when the tab closes. This is what eliminates the
+ *    GET /api/auth/me round-trip on every navigation. The server is still the
+ *    source of truth — if the cookie is invalid/expired, apiFetch's 401 handler
+ *    will redirect to login and logout() will clear the cache.
+ *
+ * Security note: sessionStorage is not a security boundary — the httpOnly
+ * cookie is. The cached user object only contains display data (name, role_id,
+ * branch_id). Tokens are never stored here.
  */
 
 import { apiFetch }                        from './api.js';
@@ -22,10 +32,38 @@ import { ROUTES }                          from '../constants/routes.js';
 import { API_BASE_URL, API_ENDPOINTS }     from '../constants/apiConfig.js';
 
 // ---------------------------------------------------------------------------
-// In-memory user cache — current page load only
+// Cache helpers
 // ---------------------------------------------------------------------------
 
+const SESSION_KEY = 'bs_user';
+
 let _currentUser = null;
+
+function readSessionCache() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionCache(user) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  } catch {
+    // sessionStorage quota exceeded or unavailable — fail silently,
+    // next page load will just do a fresh fetch
+  }
+}
+
+function clearSessionCache() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 // ---------------------------------------------------------------------------
 // login(email, password)
@@ -51,6 +89,7 @@ export async function login(email, password) {
   }
 
   _currentUser = body.data.user;
+  writeSessionCache(_currentUser);
   return _currentUser;
 }
 
@@ -68,17 +107,32 @@ export async function logout() {
   }
 
   _currentUser = null;
+  clearSessionCache();
 }
 
 // ---------------------------------------------------------------------------
 // getCurrentUser()
 // Returns cached user if available, otherwise fetches from /api/auth/me.
 // Returns null if unauthenticated.
+//
+// Cache hierarchy:
+//   1. _currentUser in memory (same page load)
+//   2. sessionStorage 'bs_user' (same tab, across navigations)
+//   3. GET /api/auth/me (network — first load or after tab reopen)
 // ---------------------------------------------------------------------------
 
 export async function getCurrentUser() {
+  // 1. In-memory cache — same page load
   if (_currentUser) return _currentUser;
 
+  // 2. sessionStorage cache — previous navigation within this tab
+  const cached = readSessionCache();
+  if (cached) {
+    _currentUser = cached;
+    return _currentUser;
+  }
+
+  // 3. Network fetch — tab just opened, or cache was cleared
   try {
     // Raw fetch — not apiFetch — because a 401 here means "not logged in",
     // not "session expired". apiFetch would intercept the 401, attempt a
@@ -94,6 +148,7 @@ export async function getCurrentUser() {
     if (!body.success) return null;
 
     _currentUser = body.data.user;
+    writeSessionCache(_currentUser);
     return _currentUser;
   } catch {
     return null;
@@ -101,11 +156,12 @@ export async function getCurrentUser() {
 }
 
 // ---------------------------------------------------------------------------
-// redirectByRole(roleId)
-// Sends the user to the correct dashboard for their role.
+// getDashboardHref(roleId)
+// Returns the dashboard path for a given role.
+// Used by navbar brand link and redirectByRole().
 // ---------------------------------------------------------------------------
 
-export function redirectByRole(roleId) {
+export function getDashboardHref(roleId) {
   const destinations = {
     [ROLES.ADMIN]:        ROUTES.ADMIN.DASHBOARD,
     [ROLES.PRC_STAFF]:    ROUTES.STAFF.DASHBOARD,
@@ -114,5 +170,14 @@ export function redirectByRole(roleId) {
     [ROLES.REQUESTOR]:    ROUTES.REQUESTOR.DASHBOARD,
   };
 
-  window.location.href = destinations[roleId] || ROUTES.LOGIN;
+  return destinations[roleId] || ROUTES.LOGIN;
+}
+
+// ---------------------------------------------------------------------------
+// redirectByRole(roleId)
+// Sends the user to the correct dashboard for their role.
+// ---------------------------------------------------------------------------
+
+export function redirectByRole(roleId) {
+  window.location.href = getDashboardHref(roleId);
 }

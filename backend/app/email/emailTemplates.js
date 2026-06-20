@@ -107,9 +107,41 @@ function inventoryExpiringEmail({ branch_name, items }) {
   `;
 }
 
+// Sent to newly created Admin or PRC Staff accounts.
+// Plain-text password included once — user is encouraged to change it.
+function adminWelcomeEmail({ name, email, password, role_name }) {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #c0392b;">Welcome to BloodSync</h2>
+      <p>Hi ${name},</p>
+      <p>An account has been created for you on the BloodSync system with the role of <strong>${role_name}</strong>.</p>
+      <p>Here are your login credentials:</p>
+      <table style="border-collapse: collapse; margin: 16px 0;">
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-weight: bold;">Email:</td>
+          <td style="padding: 6px 0;">${email}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 12px 6px 0; font-weight: bold;">Password:</td>
+          <td style="padding: 6px 0; font-family: monospace; font-size: 15px;">${password}</td>
+        </tr>
+      </table>
+      <p>
+        We recommend changing your password after your first login for security.
+        You can do so anytime from your account settings.
+      </p>
+      <p style="color: #888; font-size: 13px;">
+        If you did not expect this email, please contact your branch administrator immediately.
+      </p>
+      <p>— Philippine Red Cross Batangas</p>
+    </div>
+  `;
+}
+
 module.exports = {
   bloodDriveAssignmentEmail,
   donorPostExtractionEmail,
   inventoryLowEmail,
   inventoryExpiringEmail,
+  adminWelcomeEmail,
 };

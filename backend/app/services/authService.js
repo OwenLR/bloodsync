@@ -136,4 +136,25 @@ const logout = async (refreshToken) => {
     );
 };
 
-module.exports = { login, refresh, logout };
+// Self-service password change — shared by every role, since password
+// verification/hashing logic does not depend on role_id. userId comes from
+// req.user (JWT), never from request body.
+const changePassword = async (userId, currentPassword, newPassword) => {
+    const credentials = await userModel.getUserCredentialsById(userId);
+
+    if (!credentials) {
+        throw new BusinessError('User not found', 404);
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, credentials.password);
+    if (!isMatch) {
+        throw new BusinessError('Current password is incorrect', 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await userModel.updatePassword(userId, hashedPassword);
+
+    return { user_id: userId };
+};
+
+module.exports = { login, refresh, logout, changePassword };

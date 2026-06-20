@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Donors|BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/donors.css" />
+  <link rel="stylesheet" href="/assets/css/pages/admin/donors.css" />
+</head>
+<body class="app-loading">
+
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Donors</h1>
+          <p class="page-subtitle">Search, view, and manage donor records.</p>
+        </div>
+        <div class="page-header-right">
+          <button id="add-donor-btn" class="btn-primary">+ Add Donor</button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="table-toolbar">
+        <input
+          id="donor-search"
+          type="search"
+          class="search-input"
+          placeholder="Search by name or ID number…"
+          autocomplete="off"
+        />
+      </div>
+
+      <!-- Donor Table -->
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Blood Type</th>
+              <th>Sex</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="donors-table-body"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── View Modal ─────────────────────────────────────────────────────── -->
+  <div id="donor-view-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="view-modal-title">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="view-modal-title">Donor Details</h2>
+        <button class="modal-close" data-close-modal="donor-view-modal" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="modal-body">
+        <div id="donor-view-content"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="view-modal-edit-btn" class="btn-primary">Edit Donor</button>
+        <button class="btn-secondary" data-close-modal="donor-view-modal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit Modal ─────────────────────────────────────────────────────── -->
+  <div id="donor-edit-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="edit-modal-title">Edit Donor</h2>
+        <button class="modal-close" data-close-modal="donor-edit-modal" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="modal-body">
+        <form id="donor-edit-form" novalidate>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-first-name">First Name</label>
+              <input id="edit-first-name" type="text" class="form-input" autocomplete="off" />
+              <span id="edit-first-name-error" class="field-error" style="display:none"></span>
+            </div>
+            <div class="form-group">
+              <label for="edit-last-name">Last Name</label>
+              <input id="edit-last-name" type="text" class="form-input" autocomplete="off" />
+              <span id="edit-last-name-error" class="field-error" style="display:none"></span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-birthdate">Birthdate</label>
+              <input id="edit-birthdate" type="date" class="form-input" />
+              <span id="edit-birthdate-error" class="field-error" style="display:none"></span>
+            </div>
+            <div class="form-group">
+              <label for="edit-sex">Sex</label>
+              <select id="edit-sex" class="form-input">
+                <option value="">Select…</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+              <span id="edit-sex-error" class="field-error" style="display:none"></span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-blood-type">Blood Type</label>
+              <select id="edit-blood-type" class="form-input">
+                <option value="">Unknown</option>
+                <option value="A+">A+</option>
+                <option value="A-">A−</option>
+                <option value="B+">B+</option>
+                <option value="B-">B−</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB−</option>
+                <option value="O+">O+</option>
+                <option value="O-">O−</option>
+              </select>
+              <span id="edit-blood-type-error" class="field-error" style="display:none"></span>
+            </div>
+            <div class="form-group">
+              <label for="edit-contact">Contact Number</label>
+              <input id="edit-contact" type="tel" class="form-input" placeholder="09171234567" autocomplete="off" />
+              <span id="edit-contact-error" class="field-error" style="display:none"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-email">Email</label>
+            <input id="edit-email" type="email" class="form-input" autocomplete="off" />
+            <span id="edit-email-error" class="field-error" style="display:none"></span>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer modal-footer-spread">
+        <button id="donor-edit-delete-btn" class="btn-danger" style="display:none">Delete Donor</button>
+        <div class="modal-footer-actions">
+          <button class="btn-secondary" data-close-modal="donor-edit-modal">Cancel</button>
+          <button id="donor-edit-submit" class="btn-primary">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Create Modal ───────────────────────────────────────────────────── -->
+  <div id="donor-create-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-modal-title">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="create-modal-title">Add Donor</h2>
+        <button class="modal-close" data-close-modal="donor-create-modal" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Step 1: Search -->
+        <div id="create-step-search">
+          <p class="modal-hint">Search for the donor first to avoid creating duplicate records.</p>
+
+          <div class="search-row">
+            <input
+              id="create-search-input"
+              type="search"
+              class="form-input"
+              placeholder="Name or ID number…"
+              autocomplete="off"
+            />
+            <button id="create-search-btn" class="btn-primary">Search</button>
+          </div>
+          <span id="create-search-error" class="field-error" style="display:none"></span>
+
+          <div id="create-search-results" class="search-results"></div>
+
+          <div class="modal-divider">
+            <span>or</span>
+          </div>
+
+          <button id="create-register-new-btn" class="btn-secondary btn-full-width" style="display:none">
+            Register as New Donor
+          </button>
+        </div>
+
+        <!-- Step 2: Registration Form -->
+        <div id="create-step-form" style="display:none">
+          <button id="create-back-btn" class="btn-back">&#8592; Back to search</button>
+
+          <form id="donor-create-form" novalidate>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="create-first-name">First Name</label>
+                <input id="create-first-name" type="text" class="form-input" autocomplete="off" />
+                <span id="create-first-name-error" class="field-error" style="display:none"></span>
+              </div>
+              <div class="form-group">
+                <label for="create-last-name">Last Name</label>
+                <input id="create-last-name" type="text" class="form-input" autocomplete="off" />
+                <span id="create-last-name-error" class="field-error" style="display:none"></span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="create-birthdate">Birthdate</label>
+                <input id="create-birthdate" type="date" class="form-input" />
+                <span id="create-birthdate-error" class="field-error" style="display:none"></span>
+              </div>
+              <div class="form-group">
+                <label for="create-sex">Sex</label>
+                <select id="create-sex" class="form-input">
+                  <option value="">Select…</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+                <span id="create-sex-error" class="field-error" style="display:none"></span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="create-blood-type">Blood Type</label>
+                <select id="create-blood-type" class="form-input">
+                  <option value="">Unknown</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A−</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B−</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB−</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O−</option>
+                </select>
+                <span id="create-blood-type-error" class="field-error" style="display:none"></span>
+              </div>
+              <div class="form-group">
+                <label for="create-contact">Contact Number</label>
+                <input id="create-contact" type="tel" class="form-input" placeholder="09171234567" autocomplete="off" />
+                <span id="create-contact-error" class="field-error" style="display:none"></span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="create-email">Email <span class="required-mark">*</span></label>
+              <input id="create-email" type="email" class="form-input" autocomplete="off" />
+              <span class="field-hint">Required - used for post-donation notifications.</span>
+              <span id="create-email-error" class="field-error" style="display:none"></span>
+            </div>
+
+            <div id="donor-create-form-error" class="form-error" style="display:none"></div>
+
+          </form>
+        </div>
+
+      </div>
+      <div class="modal-footer" id="create-modal-footer">
+        <button class="btn-secondary" data-close-modal="donor-create-modal">Cancel</button>
+        <button id="donor-create-submit" class="btn-primary" style="display:none">Register Donor</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/entry/admin/donors.js"></script>
+</body>
+</html>

@@ -45,12 +45,14 @@ async function notifyNewBloodRequest(request) {
 async function notifyRequestStatusChange({ request_id, user_id, new_status, patient_name, reason }) {
     const messages = {
         Approved: `Your blood request for patient ${patient_name} has been approved. Units are being reserved.`,
-        Released: `Your blood request for patient ${patient_name} has been fulfilled. Blood units are ready.`,
+        Waiting:  `Your blood request for patient ${patient_name} is ready for pickup. Please proceed to the branch.`,
+        Released: `Your blood request for patient ${patient_name} has been fulfilled. Blood units have been released.`,
         Rejected: `Your blood request for patient ${patient_name} has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
     };
 
     const titles = {
         Approved: 'Blood Request Approved',
+        Waiting:  'Blood Units Ready for Pickup',
         Released: 'Blood Request Fulfilled',
         Rejected: 'Blood Request Rejected',
     };

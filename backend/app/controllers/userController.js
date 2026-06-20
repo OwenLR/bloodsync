@@ -60,10 +60,28 @@ const deleteUser = async (req, res) => {
     }
 };
 
+// PATCH /api/users/me/profile-img — Admin + PRC Staff self-service
+// Multipart upload via uploadMiddleware — req.file.buffer from multer memoryStorage
+// user_id comes from req.user (JWT) — never from request body
+const updateMyProfileImg = async (req, res) => {
+    try {
+        if (!req.file) return response.badRequest(res, 'No file uploaded');
+
+        const profile = await userService.updateOwnProfileImg(
+            req.user.user_id,
+            req.file.buffer
+        );
+        return response.success(res, profile, 'Profile photo updated successfully');
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 module.exports = {
     getAllUsers,
     getUserById,
     createUser,
     updateUser,
     deleteUser,
+    updateMyProfileImg,
 };

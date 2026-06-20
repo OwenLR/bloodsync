@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blood Drives|BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+  <link rel="stylesheet" href="/assets/css/pages/admin/bloodDrives.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1>Blood Drives</h1>
+        <a href="/pages/admin/bloodDriveCreate.html" class="btn-primary">+ New Drive</a>
+      </div>
+
+      <div id="drives-table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Branch</th>
+              <th>Location</th>
+              <th>Date Range</th>
+              <th>Slots</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="drives-tbody"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Cancel modal -->
+  <div id="cancel-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="cancel-modal-title">Cancel Blood Drive</h2>
+        <button id="cancel-modal-close" class="modal-close-btn" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>You are about to cancel <span id="cancel-drive-name" class="modal-drive-name"></span>. This cannot be undone.</p>
+        <div class="form-group">
+          <label for="cancel-reason">Cancellation Reason <span aria-hidden="true">*</span></label>
+          <textarea id="cancel-reason" rows="3" placeholder="State the reason for cancellation…"></textarea>
+          <div id="cancel-error" class="field-error" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-submit-btn" class="btn-danger">Confirm Cancel</button>
+        <button id="cancel-modal-close-footer" class="btn-secondary">Go Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Participant panel overlay -->
+  <div id="panel-overlay" class="panel-overlay"></div>
+
+  <!-- Participant side panel -->
+  <aside id="participant-panel" class="participant-panel" aria-label="Participant Assignment">
+    <div class="panel-header">
+      <div>
+        <h3>Participants</h3>
+        <p id="panel-drive-name" class="panel-drive-name"></p>
+      </div>
+      <button id="panel-close-btn" class="panel-close-btn" aria-label="Close panel">&times;</button>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- Current participants -->
+      <section>
+        <p class="panel-section-title">Assigned</p>
+        <div id="current-participants-list"></div>
+      </section>
+
+      <!-- Add participants -->
+      <section>
+        <p class="panel-section-title">Add Participants</p>
+
+        <div class="panel-filters">
+          <select id="panel-role-filter">
+            <option value="">All roles</option>
+            <option value="5">Volunteer</option>
+            <option value="6">Phlebotomist</option>
+          </select>
+          <input
+            id="panel-municipality-filter"
+            type="text"
+            placeholder="Filter by municipality…"
+          />
+        </div>
+
+        <div id="available-volunteers-list"></div>
+
+        <div class="panel-assign-bar">
+          <label for="panel-assign-count">Auto-assign</label>
+          <input id="panel-assign-count" type="number" min="1" value="1" />
+          <button id="panel-assign-btn" class="btn-primary btn-sm">Auto-assign</button>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <script type="module" src="/js/entry/admin/bloodDrives.js"></script>
+</body>
+</html>

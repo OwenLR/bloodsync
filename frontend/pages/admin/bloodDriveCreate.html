@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Blood Drive|BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/admin/bloodDriveCreate.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <div class="page-header-left">
+          <a id="back-link" href="/pages/admin/bloodDrives.html" class="back-link">← Blood Drives</a>
+          <h1 id="page-title">New Blood Drive</h1>
+        </div>
+      </div>
+
+      <div id="form-error-boundary"></div>
+
+      <form id="drive-form" novalidate>
+
+        <!-- Basic Info -->
+        <section class="form-section">
+          <h2 class="form-section-title">Basic Info</h2>
+
+          <div class="form-row">
+            <div class="form-group form-group--full">
+              <label for="name">Drive Name <span class="required-mark">*</span></label>
+              <input id="name" name="name" type="text" placeholder="e.g. Batangas City Blood Drive 2025" />
+              <div id="name-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group form-group--full">
+              <label for="description">Description</label>
+              <textarea id="description" name="description" rows="3" placeholder="Optional details about this drive…"></textarea>
+              <div id="description-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="branch_id">Branch <span class="required-mark">*</span></label>
+              <select id="branch_id" name="branch_id">
+                <option value="">Select branch…</option>
+              </select>
+              <div id="branch_id-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="slots_available">Slots Available</label>
+              <input id="slots_available" name="slots_available" type="number" min="1" placeholder="e.g. 50" />
+              <div id="slots_available-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="start_datetime">Start Date &amp; Time <span class="required-mark">*</span></label>
+              <input id="start_datetime" name="start_datetime" type="datetime-local" />
+              <div id="start_datetime-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="end_datetime">End Date &amp; Time <span class="required-mark">*</span></label>
+              <input id="end_datetime" name="end_datetime" type="datetime-local" />
+              <div id="end_datetime-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Venue -->
+        <section class="form-section">
+          <h2 class="form-section-title">Venue</h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="venue_name">Venue Name</label>
+              <input id="venue_name" name="venue_name" type="text" placeholder="e.g. Batangas State University" />
+              <div id="venue_name-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="venue_type">Venue Type</label>
+              <select id="venue_type" name="venue_type">
+                <option value="">Select type…</option>
+                <option value="School">School</option>
+                <option value="Hospital">Hospital</option>
+                <option value="Community Center">Community Center</option>
+                <option value="Church">Church</option>
+                <option value="Government">Government</option>
+                <option value="Other">Other</option>
+              </select>
+              <div id="venue_type-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="building">Building</label>
+              <input id="building" name="building" type="text" placeholder="e.g. Main Building" />
+              <div id="building-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="floor_room">Floor / Room</label>
+              <input id="floor_room" name="floor_room" type="text" placeholder="e.g. 2nd Floor, Room 201" />
+              <div id="floor_room-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group form-group--full">
+              <label for="street_address">Street Address</label>
+              <input id="street_address" name="street_address" type="text" placeholder="e.g. P. Burgos Street" />
+              <div id="street_address-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="city">City / Municipality</label>
+              <input id="city" name="city" type="text" placeholder="e.g. Batangas City" />
+              <div id="city-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="province">Province</label>
+              <input id="province" name="province" type="text" placeholder="e.g. Batangas" />
+              <div id="province-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group form-group--narrow">
+              <label for="postal_code">Postal Code</label>
+              <input id="postal_code" name="postal_code" type="text" placeholder="e.g. 4200" />
+              <div id="postal_code-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Contact -->
+        <section class="form-section">
+          <h2 class="form-section-title">Contact</h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="contact_person">Contact Person</label>
+              <input id="contact_person" name="contact_person" type="text" placeholder="e.g. Maria Santos" />
+              <div id="contact_person-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="contact_number">Contact Number</label>
+              <input id="contact_number" name="contact_number" type="tel" placeholder="e.g. 09171234567" />
+              <div id="contact_number-error" class="field-error" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="contact_email">Contact Email</label>
+              <input id="contact_email" name="contact_email" type="email" placeholder="e.g. contact@example.com" />
+              <div id="contact_email-error" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="form-actions">
+          <button id="submit-btn" type="button" class="btn-primary" disabled>Create Drive</button>
+          <a id="cancel-link" href="/pages/admin/bloodDrives.html" class="btn-secondary">Cancel</a>
+          <div id="submit-error" class="field-error" aria-live="polite"></div>
+        </div>
+
+      </form>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/admin/bloodDriveCreate.js"></script>
+</body>
+</html>

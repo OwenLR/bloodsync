@@ -15,15 +15,19 @@
  *   throw new BusinessError('Blood drive not found', 404);           // 404
  *
  * Usage in controllers:
+ *   Always use response.handleError(res, error) in the catch block —
+ *   never classify BusinessError vs plain Error manually in a controller,
+ *   and never call response.error(res, error.message) directly in a catch
+ *   block (it silently forces statusCode 500 for every error, including
+ *   ones that should be 400/403/404, and spams GlitchTip with expected,
+ *   non-infrastructure failures).
+ *
  *   } catch (error) {
- *       if (error instanceof BusinessError) {
- *           return res.status(error.statusCode).json({
- *               status: 'error',
- *               message: error.message,
- *           });
- *       }
- *       return response.error(res, error.message); // unexpected 500
+ *       return response.handleError(res, error);
  *   }
+ *
+ *   handleError() does the BusinessError-vs-plain-Error classification for
+ *   you — see responseHelper.js for the implementation.
  */
 
 class BusinessError extends Error {

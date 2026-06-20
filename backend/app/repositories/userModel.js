@@ -106,6 +106,27 @@ const updateLastLogin = async (id) => {
     );
 };
 
+// Used by userService.changeOwnPassword — needs the password hash to verify
+// current_password, which getUserById intentionally excludes from its SELECT.
+const getUserCredentialsById = async (id) => {
+    const result = await pool.query(
+        'SELECT user_id, password FROM users WHERE user_id = $1',
+        [id]
+    );
+    return result.rows[0];
+};
+
+// Used by PATCH /api/users/me/password — self-service password change
+// Caller (userService) handles bcrypt hashing before calling this
+const updatePassword = async (id, hashedPassword) => {
+    const result = await pool.query(
+        `UPDATE users SET password = $1 WHERE user_id = $2
+         RETURNING user_id`,
+        [hashedPassword, id]
+    );
+    return result.rows[0];
+};
+
 const deleteUser = async (id) => {
     const result = await pool.query(
         'DELETE FROM users WHERE user_id = $1 RETURNING *',
@@ -114,13 +135,41 @@ const deleteUser = async (id) => {
     return result.rows[0];
 };
 
+// ─── staff_profiles (Admin + PRC Staff profile_img — see volunteer_profiles
+//     for the equivalent table covering Volunteer/Phlebotomist roles) ───────
+
+const getStaffProfileByUserId = async (userId) => {
+    const result = await pool.query(
+        'SELECT profile_id, user_id, profile_img FROM staff_profiles WHERE user_id = $1',
+        [userId]
+    );
+    return result.rows[0];
+};
+
+// Upsert — staff_profiles row may not exist yet for a given user
+const upsertStaffProfileImg = async (userId, profileImgUrl) => {
+    const result = await pool.query(
+        `INSERT INTO staff_profiles (user_id, profile_img)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id)
+         DO UPDATE SET profile_img = $2, updated_at = NOW()
+         RETURNING profile_id, user_id, profile_img`,
+        [userId, profileImgUrl]
+    );
+    return result.rows[0];
+};
+
 module.exports = {
     getAllUsers,
     getUserById,
     getUserByEmail,
+    getUserCredentialsById,
     createUser,
     createPendingUser,
     updateUser,
     updateLastLogin,
+    updatePassword,
     deleteUser,
+    getStaffProfileByUserId,
+    upsertStaffProfileImg,
 };

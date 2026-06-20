@@ -6,14 +6,27 @@
  *
  * Usage in entry files:
  *   import { getSidebarItems } from '../constants/sidebarItems.js';
- *   renderSidebar(getSidebarItems(user.role_id, 'operations'));
+ *   renderSidebar(getSidebarItems(user.role_id, 'operations'), 'Operations');
+ *
+ * Item shape:
+ *   Flat item:   { label: string, href: string }
+ *   Group item:  { label: string, group: true, children: [{ label, href }] }
+ *
+ * Group items render as a collapsible <details>/<summary> block in sidebar.js.
+ * The group is open by default — field roles navigate between steps constantly.
  *
  * Sections per role:
- *   Admin        — operations, management
- *   PRC Staff    — operations, management
- *   Volunteer    — operations, drive
- *   Phlebotomist — operations, drive
- *   Requestor    — requests
+ *   Admin        — general, management
+ *   PRC Staff    — general, management
+ *   Volunteer    — general, workflow, drive
+ *   Phlebotomist — general, workflow, drive
+ *   Requestor    — general
+ *
+ * Field role note:
+ *   Both Volunteer and Phlebotomist see all five workflow steps and share the
+ *   same /pages/field/ pages. The backend enforces what each user can do —
+ *   the sidebar does not restrict by role label. This allows cooperation:
+ *   any assigned user can perform any step during an active blood drive.
  */
 
 import { ROLES }  from './roles.js';
@@ -22,56 +35,84 @@ import { ROUTES } from './routes.js';
 const SIDEBAR_DEFINITIONS = {
 
   [ROLES.ADMIN]: {
-    operations: [
-      { label: 'Donors',         href: ROUTES.ADMIN.DONORS         },
-      { label: 'Blood Drives',   href: ROUTES.ADMIN.BLOOD_DRIVES   },
-      { label: 'Blood Units',    href: ROUTES.ADMIN.BLOOD_UNITS    },
-      { label: 'Blood Requests', href: ROUTES.ADMIN.BLOOD_REQUESTS },
+    general: [
+      { label: 'Dashboard',     href: ROUTES.ADMIN.DASHBOARD     },
+      { label: 'Donors',        href: ROUTES.ADMIN.DONORS        },
+      { label: 'Blood Drives',  href: ROUTES.ADMIN.BLOOD_DRIVES  },
+      { label: 'Blood Units',   href: ROUTES.ADMIN.BLOOD_UNITS   },
+      { label: 'Blood Requests',href: ROUTES.ADMIN.BLOOD_REQUESTS},
     ],
     management: [
-      { label: 'Users',   href: ROUTES.ADMIN.USERS   },
-      { label: 'Reports', href: ROUTES.ADMIN.REPORTS },
+      { label: 'Users',    href: ROUTES.ADMIN.USERS    },
+      { label: 'Reports',  href: ROUTES.ADMIN.REPORTS  },
+      { label: 'Settings', href: ROUTES.ADMIN.SETTINGS },
     ],
   },
 
   [ROLES.PRC_STAFF]: {
-    operations: [
-      { label: 'Donors',         href: ROUTES.STAFF.DONORS         },
-      { label: 'Blood Drives',   href: ROUTES.STAFF.BLOOD_DRIVES   },
-      { label: 'Blood Units',    href: ROUTES.STAFF.BLOOD_UNITS    },
-      { label: 'Blood Requests', href: ROUTES.STAFF.BLOOD_REQUESTS },
+    general: [
+      { label: 'Dashboard',     href: ROUTES.STAFF.DASHBOARD     },
+      { label: 'Donors',        href: ROUTES.STAFF.DONORS        },
+      { label: 'Blood Drives',  href: ROUTES.STAFF.BLOOD_DRIVES  },
+      { label: 'Blood Units',   href: ROUTES.STAFF.BLOOD_UNITS   },
+      { label: 'Blood Requests',href: ROUTES.STAFF.BLOOD_REQUESTS},
     ],
     management: [
-      { label: 'Reports', href: ROUTES.STAFF.REPORTS },
+      { label: 'Reports',  href: ROUTES.STAFF.REPORTS  },
+      { label: 'Settings', href: ROUTES.STAFF.SETTINGS },
     ],
   },
 
+  // Volunteer and Phlebotomist share identical sidebar structure.
+  // Both roles can perform all five donor workflow steps — the backend
+  // enforces access via bloodDriveMiddleware, not by role label.
   [ROLES.VOLUNTEER]: {
-    operations: [
-      { label: 'Register Donor',    href: ROUTES.VOLUNTEER.REGISTER  },
-      { label: 'Conduct Interview', href: ROUTES.VOLUNTEER.INTERVIEW  },
+    general: [
+      { label: 'Dashboard', href: ROUTES.VOLUNTEER.DASHBOARD },
+    ],
+    workflow: [
+      {
+        label:    'Blood Drive Workflow',
+        group:    true,
+        children: [
+          { label: 'Register Donor',    href: ROUTES.FIELD.REGISTER   },
+          { label: 'Conduct Interview', href: ROUTES.FIELD.INTERVIEW  },
+          { label: 'Conduct Screening', href: ROUTES.FIELD.SCREENING  },
+          { label: 'Record Donation',   href: ROUTES.FIELD.DONATION   },
+          { label: 'Record Collection', href: ROUTES.FIELD.COLLECTION },
+        ],
+      },
     ],
     drive: [
-      { label: 'My Assignment',  href: ROUTES.VOLUNTEER.DRIVE  },
-      { label: 'Drive Schedule', href: ROUTES.VOLUNTEER.DRIVE  },
+      { label: 'My Assignment', href: ROUTES.VOLUNTEER.DRIVE },
     ],
   },
 
   [ROLES.PHLEBOTOMIST]: {
-    operations: [
-      { label: 'Register Donor',     href: ROUTES.PHLEBOTOMIST.REGISTER   },
-      { label: 'Conduct Screening',  href: ROUTES.PHLEBOTOMIST.SCREENING  },
-      { label: 'Record Donation',    href: ROUTES.PHLEBOTOMIST.DONATION   },
-      { label: 'Record Collection',  href: ROUTES.PHLEBOTOMIST.COLLECTION },
+    general: [
+      { label: 'Dashboard', href: ROUTES.PHLEBOTOMIST.DASHBOARD },
+    ],
+    workflow: [
+      {
+        label:    'Blood Drive Workflow',
+        group:    true,
+        children: [
+          { label: 'Register Donor',    href: ROUTES.FIELD.REGISTER   },
+          { label: 'Conduct Interview', href: ROUTES.FIELD.INTERVIEW  },
+          { label: 'Conduct Screening', href: ROUTES.FIELD.SCREENING  },
+          { label: 'Record Donation',   href: ROUTES.FIELD.DONATION   },
+          { label: 'Record Collection', href: ROUTES.FIELD.COLLECTION },
+        ],
+      },
     ],
     drive: [
-      { label: 'My Assignment',  href: ROUTES.PHLEBOTOMIST.DRIVE },
-      { label: 'Drive Schedule', href: ROUTES.PHLEBOTOMIST.DRIVE },
+      { label: 'My Assignment', href: ROUTES.PHLEBOTOMIST.DRIVE },
     ],
   },
 
   [ROLES.REQUESTOR]: {
-    requests: [
+    general: [
+      { label: 'Dashboard',         href: ROUTES.REQUESTOR.DASHBOARD    },
       { label: 'Submit Request',    href: ROUTES.REQUESTOR.REQUESTS     },
       { label: 'My Requests',       href: ROUTES.REQUESTOR.REQUESTS     },
       { label: 'Blood Availability',href: ROUTES.REQUESTOR.AVAILABILITY },
@@ -87,8 +128,8 @@ const SIDEBAR_DEFINITIONS = {
  * Returns an empty array if the role or section doesn't exist.
  *
  * @param {number} roleId  — user.role_id
- * @param {string} section — e.g. 'operations', 'management', 'drive', 'requests'
- * @returns {Array<{ label: string, href: string }>}
+ * @param {string} section — e.g. 'general', 'management', 'workflow', 'drive'
+ * @returns {Array<{ label: string, href?: string, group?: boolean, children?: Array }>}
  */
 export function getSidebarItems(roleId, section) {
   return SIDEBAR_DEFINITIONS[roleId]?.[section] ?? [];
@@ -98,7 +139,6 @@ export function getSidebarItems(roleId, section) {
  * getSidebarSections(roleId)
  *
  * Returns all section keys available for a given role.
- * Useful when an entry file needs to render multiple sections.
  *
  * @param {number} roleId
  * @returns {string[]}

@@ -151,6 +151,40 @@ const cancelRequest = async (req, res) => {
     }
 };
 
+/**
+ * PATCH /api/blood-requests/:id/ready
+ * Staff marks units as ready for pickup — Approved → Waiting.
+ * Requestor is notified via socket so they see the status change in real time.
+ */
+const markReadyForPickup = async (req, res) => {
+    try {
+        const result = await bloodRequestService.markReadyForPickup(
+            req.params.id,
+            req.user.user_id
+        );
+        return response.success(res, result, 'Request marked as ready for pickup');
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+/**
+ * PATCH /api/blood-requests/:id/received
+ * Requestor confirms they received the blood units — Waiting → Released.
+ * Units flip to Released. Logged as requestor action.
+ */
+const markReceived = async (req, res) => {
+    try {
+        const result = await bloodRequestService.markReceived(
+            req.params.id,
+            req.user.user_id
+        );
+        return response.success(res, result, 'Receipt confirmed. Thank you.');
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 module.exports = {
     getAllRequests,
     getRequestById,
@@ -160,4 +194,6 @@ module.exports = {
     getFulfillmentOptions,
     getWaitingTimeEstimate,
     cancelRequest,
+    markReadyForPickup,
+    markReceived,
 };

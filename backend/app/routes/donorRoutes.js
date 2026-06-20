@@ -38,11 +38,22 @@ router.post('/',
     donorController.createDonor
 );
 
-// Update/delete — staff only
+// Update — full update, staff only
 router.patch('/:id',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]),
     donorController.updateDonor
+);
+
+// Update — contact info only (email/contact), Volunteer + Phlebotomist.
+// Narrower than the full update above — see donorContactValidator.js for
+// why this is a separate route rather than adding these roles to PATCH /:id.
+// No route-shadowing risk vs PATCH /:id — different path shape (:id only
+// captures a single segment, not /:id/contact's two segments).
+router.patch('/:id/contact',
+    verifyToken,
+    checkRole([ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]),
+    donorController.updateDonorContact
 );
 
 router.delete('/:id',

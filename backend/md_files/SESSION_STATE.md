@@ -299,3 +299,93 @@ PORT=3000
 - Donor login and self-service
 - SMS notifications
 - Refresh token family detection (reuse detection)
+
+
+# Patch for SESSION_STATE.MD (backend root-level file)
+# Apply to your actual SESSION_STATE.MD.
+
+## ADD new entry to "Completed This Session (Full History)" — new subsection
+
+### Self-Service Password Change + Admin/Staff Profile Photo — COMPLETE
+- Migration run on Neon: new table `staff_profiles`
+  (profile_id PK, user_id FK UNIQUE → users ON DELETE CASCADE, profile_img,
+  created_at, updated_at) — mirrors volunteer_profiles pattern, scoped to
+  Admin (role_id 1) and PRC Staff (role_id 2) only.
+- validators/authValidator.js — NEW FILE — validateChangePassword()
+  (current_password required, new_password required min 8 chars, must
+  differ from current_password)
+- app/services/authService.js — changePassword(userId, currentPassword,
+  newPassword) added. Shared by ALL roles — verifies current password via
+  bcrypt.compare, hashes new password, calls userModel.updatePassword().
+- app/controllers/authController.js — changePassword controller added.
+  Reads req.user.user_id from JWT, never from request body.
+- app/routes/authRoutes.js — PATCH /me/password added (verifyToken only,
+  no checkRole — every authenticated role can change their own password)
+- app/repositories/userModel.js — added:
+  - getUserCredentialsById(id) — returns {user_id, password} only, separate
+    from getUserById() which intentionally excludes the password hash
+  - updatePassword(id, hashedPassword) — caller must hash before calling
+  - getStaffProfileByUserId(userId)
+  - upsertStaffProfileImg(userId, profileImgUrl) — INSERT ... ON CONFLICT
+    (user_id) DO UPDATE, safe to call repeatedly
+- app/services/userService.js — updateOwnProfileImg(userId, fileBuffer)
+  added. Uploads to Cloudinary (same 'profile_images' folder as
+  volunteer/phlebotomist uploads), then upserts URL into staff_profiles.
+- app/controllers/userController.js — updateMyProfileImg added. Reads
+  req.user.user_id from JWT, req.file.buffer from multer.
+- app/routes/userRoutes.js — PATCH /me/profile-img added (Admin + PRC Staff
+  only, via upload.single('profile_img') middleware). Registered BEFORE
+  /:id route to avoid Express route shadowing — same fix pattern as
+  GET /api/volunteers/available vs /volunteers/:id/profile earlier this
+  project.
+
+IMPORTANT ARCHITECTURAL DECISION — password change placement:
+Password change was deliberately NOT placed under /api/users (which is
+Admin-only management of OTHER users' accounts — POST /api/users,
+PATCH /api/users/:id, DELETE /api/users/:id are all Admin-only by design).
+Self-service "change MY OWN password" doesn't fit that access model for
+non-Admin roles. It now lives under /api/auth/me/password instead, next to
+the existing GET /api/auth/me, since password verification/hashing logic
+is identical regardless of role_id. This also means Volunteer, Phlebotomist,
+and Requestor ALL gained password-change capability as a side effect, with
+zero additional role-specific code — they simply call the same shared
+endpoint. Profile photo upload, by contrast, legitimately stays split by
+role (staff_profiles vs volunteer_profiles are different tables), so that
+part correctly stays under /api/users and /api/volunteers respectively.
+
+An earlier draft of this work mistakenly placed changeOwnPassword() inside
+userService.js and a raw pool.query() call leaked directly into that
+service — caught and corrected before being finalized. The corrected
+version has zero SQL in userService.js; the missing repository function
+(getUserCredentialsById) was added to userModel.js instead, where it
+belongs per the layer-isolation rules in AI_RULES.MD.
+
+## ADD to "File Responsibility Contract (do not violate)" section
+
+- validators/authValidator.js → validateChangePassword() only (NEW)
+- app/repositories/userModel.js → added getUserCredentialsById(),
+  updatePassword(), getStaffProfileByUserId(), upsertStaffProfileImg() —
+  still SQL queries only, no business logic
+- app/services/userService.js → added updateOwnProfileImg() — Cloudinary
+  call + repository call only, no SQL
+- app/services/authService.js → added changePassword() — bcrypt +
+  repository calls only, no business logic beyond credential verification
+
+## ADD to "Known Limitations" or "Post-UAT Improvements" (whichever section you track these in)
+- Profile photo replacement does not call deleteFromCloudinary() on the old
+  image when a new one is uploaded — old images become orphaned in
+  Cloudinary storage over time. Not a correctness bug, just unmanaged
+  storage growth. Applies to both the new staff_profiles flow and the
+  pre-existing volunteer_profiles flow (neither cleans up). Low priority,
+  flagged for awareness — fix by calling deleteFromCloudinary(oldPublicId)
+  before/after the new upload if pursuing this later.
+- authService.js login() still does inline technical validation
+  (`if (!email || !password) throw ...`) rather than using a validator
+  function, even though authValidator.js now exists. Not a bug — just a
+  stylistic inconsistency within the file. Optional cleanup only; do not
+  treat as broken.
+
+## ADD to "Environment Variables" section — no new env vars needed
+(Confirms no .env changes were required for this work — staff_profiles
+uses the existing DATABASE_URL connection, profile photo upload reuses
+existing CLOUDINARY_* vars.)

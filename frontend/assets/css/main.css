@@ -80,7 +80,16 @@ a {
   margin-top: 8px;
 }
 
+/* Modifier — applied alongside .btn-primary or .btn-secondary */
+.btn-full-width {
+  width: 100%;
+  display: block;
+  text-align: center;
+}
+
 /* ── Shared form elements ────────────────────────────────────────── */
+
+/* Legacy pattern (.field > label + input) — kept for existing pages */
 .field {
   margin-bottom: 16px;
 }
@@ -110,12 +119,58 @@ a {
   outline-offset: 1px;
 }
 
-/* ── Feedback (feedback.js) ──────────────────────────────────────── */
+/* Current pattern (.form-group > .form-label + .form-input) */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.form-input:focus {
+  outline: 2px solid #c00;
+  outline-offset: 1px;
+}
+
+/* ── Field errors ────────────────────────────────────────────────── */
+/*
+ * .field-error is visible by default — pair with .field-error-hidden to hide.
+ * JS toggles .field-error-hidden on/off to show/hide errors.
+ * Same pattern as .notif-badge / .notif-badge-hidden.
+ */
 .field-error {
-  display: none;
+  display: block;
   font-size: 12px;
   color: #c00;
   margin-top: 4px;
+}
+
+.field-error-hidden {
+  display: none;
+}
+
+/* ── Page header ─────────────────────────────────────────────────── */
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111;
 }
 
 /* ── Toast (toast.js) ────────────────────────────────────────────── */
@@ -286,10 +341,13 @@ a {
 }
 
 /* ── Navbar (navbar.js) ──────────────────────────────────────────── */
+/* Identity-only navbar — no feature nav links here. All page navigation
+   lives in the sidebar (see sidebarItems.js). Navbar renders: brand,
+   notifications link + badge, username, logout button. */
 #navbar {
   display: flex;
   align-items: center;
-  gap: 24px;
+  justify-content: space-between;
   padding: 12px 24px;
   background: #fff;
   border-bottom: 1px solid #ddd;
@@ -300,20 +358,19 @@ a {
   font-size: 16px;
 }
 
-.navbar-links {
+.navbar-right {
   display: flex;
-  list-style: none;
-  gap: 16px;
-  flex: 1;
+  align-items: center;
+  gap: 20px;
 }
 
-.navbar-links a {
+.navbar-notif-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
-}
-
-.navbar-links a.nav-active {
-  font-weight: 700;
-  text-decoration: underline;
+  color: #111;
 }
 
 .notif-badge {
@@ -334,7 +391,6 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-left: auto;
 }
 
 .navbar-username {
@@ -388,6 +444,54 @@ a {
   background: #f0f0f0;
 }
 
+/* ── Sidebar collapsible groups (field role workflow) ────────────── */
+/* Used by Volunteer and Phlebotomist for the Blood Drive Workflow
+   section. Rendered via <details>/<summary> in sidebar.js when an
+   item has { group: true, children: [] }. Open by default. */
+
+.sidebar-group-item {
+  list-style: none;
+}
+
+.sidebar-group-label {
+  display: block;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  color: #444;
+}
+
+/* Remove default disclosure triangle */
+.sidebar-group-label::-webkit-details-marker { display: none; }
+.sidebar-group-label::marker                 { display: none; }
+
+/* Highlight group label when a child is the active page */
+.sidebar-group-active > .sidebar-group-label {
+  color: #c00;
+}
+
+.sidebar-group-links {
+  list-style: none;
+  padding-left: 12px;
+  margin-top: 2px;
+}
+
+.sidebar-group-links a {
+  display: block;
+  padding: 5px 8px;
+  font-size: 13px;
+  border-radius: 4px;
+  color: #333;
+}
+
+.sidebar-group-links a.sidebar-active {
+  font-weight: 700;
+  background: #f0f0f0;
+}
+
 /* ── Page layout shell ───────────────────────────────────────────── */
 .page-shell {
   display: flex;
@@ -396,4 +500,25 @@ a {
 .page-content {
   flex: 1;
   padding: 24px;
+}
+
+/* ── App shell reveal pattern ────────────────────────────────────── */
+/* Prevents static HTML (table headers, page buttons, etc.) from flashing
+   on screen before JS has rendered the navbar/sidebar shell. Every
+   protected page's <body> starts with class="app-loading" in the HTML.
+   The entry file adds class="app-ready" to <body> immediately after
+   renderNavbar() + renderSidebar() complete (see "Required Page Loading
+   Order" in FRONTEND_AI_RULES.md). #navbar, #sidebar, and .page-content
+   are invisible (not unrendered — visibility, not display) until then,
+   so the user never sees raw, chrome-less HTML before the shell exists. */
+body.app-loading #navbar,
+body.app-loading #sidebar,
+body.app-loading .page-content {
+  visibility: hidden;
+}
+
+body.app-ready #navbar,
+body.app-ready #sidebar,
+body.app-ready .page-content {
+  visibility: visible;
 }

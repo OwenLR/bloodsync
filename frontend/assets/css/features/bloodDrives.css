@@ -1,0 +1,218 @@
+/* ── Blood Drives Feature Styles ── */
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-badge--upcoming  { background: #e8f0fe; color: #1a56c4; }
+.status-badge--ongoing   { background: #e6f4ea; color: #1e7e34; }
+.status-badge--ended     { background: #f1f3f4; color: #5f6368; }
+.status-badge--cancelled { background: #fce8e6; color: #c5221f; }
+
+/* Table actions */
+.table-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.82rem;
+}
+
+.btn-xs {
+  padding: 2px 8px;
+  font-size: 0.78rem;
+}
+
+/* ── Participant panel ── */
+
+.panel-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 200;
+}
+
+.panel-overlay--visible {
+  display: block;
+}
+
+.participant-panel {
+  position: fixed;
+  top: 0;
+  right: -480px;
+  width: 460px;
+  max-width: 95vw;
+  height: 100vh;
+  background: #fff;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.25s ease;
+  overflow: hidden;
+}
+
+.participant-panel.panel--open {
+  right: 0;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.panel-drive-name {
+  font-size: 0.85rem;
+  color: #555;
+  margin: 0;
+}
+
+.panel-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: #555;
+  line-height: 1;
+  padding: 4px;
+}
+
+.panel-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.panel-section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  margin: 0 0 10px;
+}
+
+/* Auto-assign bar */
+.panel-assign-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.panel-assign-bar label {
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.panel-assign-bar input[type="number"] {
+  width: 60px;
+}
+
+/* Filters */
+.panel-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.panel-filters select,
+.panel-filters input {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* Participant / volunteer rows */
+.participant-row,
+.volunteer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.participant-row:last-child,
+.volunteer-row:last-child {
+  border-bottom: none;
+}
+
+.participant-info,
+.volunteer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.participant-name,
+.volunteer-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.participant-meta,
+.volunteer-meta {
+  font-size: 0.78rem;
+  color: #777;
+}
+
+.panel-empty {
+  font-size: 0.88rem;
+  color: #888;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.panel-error {
+  font-size: 0.88rem;
+  color: #c5221f;
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* Cancel modal */
+.modal-drive-name {
+  font-weight: 600;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: #666;
+}
+
+.empty-state h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
+}

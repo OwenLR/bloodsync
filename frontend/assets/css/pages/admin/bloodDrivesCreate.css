@@ -1,0 +1,97 @@
+/* Admin — Blood Drive Create / Edit page */
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.back-link {
+  font-size: 0.85rem;
+  color: #555;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* Form sections */
+.form-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+.form-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Form rows */
+.form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.form-row:last-child {
+  margin-bottom: 0;
+}
+
+.form-group {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group--full {
+  flex-basis: 100%;
+}
+
+.form-group--narrow {
+  flex: 0 0 140px;
+  min-width: 120px;
+}
+
+.required-mark {
+  color: #c00;
+}
+
+/* Actions row */
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 24px;
+}
+
+#submit-error {
+  margin-left: 4px;
+}
+
+/* Edit-mode loading state — while drive details are being fetched, before
+   populateForm() fills the fields. Dims the form and disables interaction
+   without hiding it entirely (the user still sees the form structure). */
+#drive-form.form-loading {
+  opacity: 0.5;
+  pointer-events: none;
+}

@@ -45,6 +45,14 @@ router.patch('/:id/cancel',
     bloodRequestController.cancelRequest
 );
 
+// Confirm receipt of blood units — Waiting → Released
+// Logged as requestor action in request_status_logs
+router.patch('/:id/received',
+    verifyToken,
+    checkRole([ROLES.REQUESTOR]),
+    bloodRequestController.markReceived
+);
+
 // ── Staff / Admin ─────────────────────────────────────────────
 
 router.get('/',
@@ -63,6 +71,14 @@ router.patch('/:id/status',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]),
     bloodRequestController.updateRequestStatus
+);
+
+// Mark units ready for pickup — Approved → Waiting
+// Notifies the requestor via socket that units are prepared
+router.patch('/:id/ready',
+    verifyToken,
+    checkRole([ROLES.ADMIN, ROLES.PRC_STAFF]),
+    bloodRequestController.markReadyForPickup
 );
 
 module.exports = router;

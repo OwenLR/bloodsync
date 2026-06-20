@@ -27,14 +27,13 @@ JavaScript has zero visibility. The browser sends it automatically on every requ
 ### Every fetch call must include
 ```javascript
 fetch('/api/...', {
-  credentials: 'include', // REQUIRED — sends the httpOnly cookie
+  credentials: 'include',
   headers: { 'Content-Type': 'application/json' }
 });
 ```
 
 ### Never do this on web
 ```javascript
-// WRONG — there is no token to read
 headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
 ```
 
@@ -42,29 +41,23 @@ headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
 ```
 POST /api/auth/login
 Body: { email, password }
-// No x-client-type header
 ```
-Response sets two httpOnly cookies. The user object is in `body.data.user`.
-`first_name`, `last_name`, `email`, `role_id`, `branch_id` are all available at login,
-and also on every subsequent GET /api/auth/me call (see section 3) — both include
-name fields, so the navbar display name works consistently after page reloads.
+Response sets two httpOnly cookies. User object in body.data.user.
 
 ### Logout (web)
 ```
 POST /api/auth/logout
-// No body — refresh token cookie sent automatically
 ```
 
 ### Refresh (web)
 ```
 POST /api/auth/refresh
-// No body — refresh token cookie sent automatically
-// Response body.data is null — this is correct, do not error on null
+// Response body.data is null — correct, new cookie set silently
 ```
 
 ### 15-minute access token — 401 handling
-apiFetch intercepts 401, calls refresh, retries once. If refresh fails, redirects to login
-and throws Error('Session expired'). Never use apiFetch() inside tryRefresh() — infinite loop.
+apiFetch intercepts 401, calls refresh, retries once. If refresh fails, redirects to login.
+Never use apiFetch() inside tryRefresh() — infinite loop.
 
 ---
 
@@ -82,31 +75,15 @@ POST /api/auth/login
 Headers: { x-client-type: mobile }
 Body: { email, password }
 ```
-Response includes `access_token` and `refresh_token` in body.data.
-Store both in expo-secure-store — never AsyncStorage (not encrypted).
-
-### Refresh (mobile)
-```
-POST /api/auth/refresh
-Headers: { x-client-type: mobile }
-Body: { refresh_token: "<stored>" }
-```
-Returns new access_token and refresh_token. Old refresh token is invalidated immediately.
-Replace both in secure storage.
-
-### Logout (mobile)
-```
-POST /api/auth/logout
-Headers: { x-client-type: mobile, Authorization: Bearer <token> }
-Body: { refresh_token: "<stored>" }
-```
+Response includes access_token and refresh_token in body.data.
+Store both in expo-secure-store — never AsyncStorage.
 
 ---
 
 ## 3. GET /api/auth/me — Current User
 
-Returns JWT payload fields plus first_name/last_name from a DB lookup
-(userModel.getUserById()).
+Does a DB lookup (not just JWT decode) to include first_name/last_name for navbar.
+In-memory cache resets on every page navigation (multi-page app).
 
 Response:
 ```json
@@ -114,22 +91,16 @@ Response:
   "success": true,
   "data": {
     "user": {
-      "user_id": 1,
-      "email": "...",
-      "role_id": 2,
-      "branch_id": 1,
+      "user_id":    1,
+      "email":      "...",
+      "role_id":    2,
+      "branch_id":  1,
       "first_name": "Juan",
-      "last_name": "dela Cruz"
+      "last_name":  "dela Cruz"
     }
   }
 }
 ```
-
-This endpoint is the source of truth for navbar display name on every page.
-The in-memory `_currentUser` cache in auth.js does NOT survive page reload
-(multi-page app, not SPA) — every new page calls requireAuth() → getCurrentUser()
-→ GET /api/auth/me, and the name fields come from this DB lookup, not from a
-stored login response.
 
 ---
 
@@ -145,7 +116,11 @@ stored login response.
 { "success": false, "message": "Human-readable error" }
 ```
 
-Always check both `res.ok` AND `body.success`:
+CRITICAL: `success` is a boolean — NEVER check `body.status === 'success'`.
+The backend responseHelper.js was fixed to use boolean success field.
+Old responses used `status: 'success'` (string) — that shape is wrong and was patched.
+
+Always check both:
 ```javascript
 const res  = await apiFetch('/api/donors');
 const body = await res.json();
@@ -156,9 +131,6 @@ if (!res.ok || !body.success) {
 // use body.data
 ```
 
-`body.message` is safe to show for 4xx errors.
-For 500, show generic message only — never expose raw server error.
-
 ---
 
 ## 5. Common Error Codes Reference
@@ -167,7 +139,7 @@ For 500, show generic message only — never expose raw server error.
 |---|---|---|
 | 400 | Validation failed or business rule violated | Show body.message |
 | 401 | Token expired or missing | apiFetch auto-refreshes → redirect if fails |
-| 403 | Wrong role OR no active drive (field roles) | Show specific message — see below |
+| 403 | Wrong role OR no active drive (field roles) | Show specific message |
 | 404 | Resource not found | Show not found state |
 | 409 | Conflict (duplicate, already exists) | Show body.message |
 | 422 | Semantic error (date in past, end before start) | Show body.message |
@@ -181,7 +153,7 @@ Show: "You are not assigned to an active blood drive. Please contact your coordi
 
 ### 429 specifics
 - General API: 100 requests / 15 min / IP
-- Login: 5 attempts / 15 min / IP → "Too many login attempts. Please wait 15 minutes."
+- Login: 5 attempts / 15 min / IP
 
 ---
 
@@ -192,19 +164,30 @@ Show: "You are not assigned to an active blood drive. Please contact your coordi
 | 1 | Admin | Web | Full access, no branch restriction |
 | 2 | PRC Staff | Web | Branch-scoped — cannot manage other branches |
 | 3 | Donor | — | Not a login role, no frontend page |
-| 4 | Requestor | Mobile (+ web fallback) | Self-register, submit requests |
+| 4 | Requestor | Mobile (+ web) | Self-register, submit requests |
 | 5 | Volunteer | Web | Field ops, requires active drive |
 | 6 | Phlebotomist | Web | Field ops, requires active drive |
 
-ROLES.DONOR (3) has no frontend login path — redirectByRole() falls back to login for role 3.
+ROLES.DONOR (3) has no frontend login path — redirectByRole() falls back to login.
 
 ---
 
 ## 7. Blood Drive Rules
 
 ### Status — never recompute on frontend
-Drive status is computed from PHT time on every backend read. Display what the API returns.
+Drive status computed from PHT time on every backend read. Display what the API returns.
 Valid statuses: `Upcoming`, `Ongoing`, `Ended`, `Cancelled`
+
+### Blood drive actual fields (from bloodDriveModel.js)
+The contract originally had incomplete field documentation. Actual fields:
+`drive_id`, `name`, `description`, `status`, `branch_id`, `branch_name`,
+`start_datetime`, `end_datetime`, `slots_available`,
+`venue_name`, `venue_type`, `building`, `floor_room`,
+`street_address`, `city`, `province`, `postal_code`,
+`contact_person`, `contact_number`, `contact_email`,
+`created_by`, `created_by_first`, `created_by_last`,
+`cancelled_by`, `cancelled_by_first`, `cancelled_by_last`,
+`cancellation_reason`, `cancelled_at`
 
 ### Field role gate
 Volunteers and Phlebotomists need an active drive assignment to perform field operations.
@@ -214,25 +197,17 @@ Backend sets req.drive_id via bloodDriveMiddleware. 403 = no active drive.
 On interviews, screenings, donations, collections — NULL drive_id means walk-in (Admin/Staff).
 This is correct. Do not show an error.
 
-### drive_id propagation
-Frontend never sends drive_id. It is set automatically by bloodDriveMiddleware from the
-server-side assignment lookup. Never include drive_id in POST bodies for field operations.
-
 ### PRC Staff branch scope
 PRC Staff can only create/manage drives for their own branch.
 Backend returns 403 if they try to manage another branch's drive.
 
 ### Confirm/decline links (email)
 `GET /api/blood-drives/confirm?token=xxx&action=confirm` returns HTML, not JSON.
-This is a browser link from email — the frontend never calls it programmatically.
+Frontend never calls it programmatically.
 
 ---
 
 ## 8. Sequential Medical Workflow
-
-Strictly enforced server-side. A 400 on any step usually means the prior step is
-incomplete or did not pass — do not show generic error, guide the user to check the
-previous step.
 
 ```
 Donor Registration
@@ -248,76 +223,24 @@ Donation (POST /api/donations) — requires Eligible screening + donor email on 
 Blood Collection (POST /api/blood-collections)
 ```
 
-### Critical field name: interview_id
-`POST /api/interview-answers` body uses `interview_id` — NOT `screening_id`.
-This was a bug that was fixed architecturally. Using screening_id returns 400.
-
-### Interview answers format
-```json
-{
-  "interview_id": 1,
-  "donor_id": 1,
-  "answers": [
-    { "question_id": 1, "answer": "YES" },
-    { "question_id": 2, "answer": "NO" }
-  ]
-}
-```
+A 400 on any step usually means the prior step is incomplete.
 `answer` must be exactly `"YES"` or `"NO"` — uppercase, backend rejects lowercase.
-
-### Deferral
-If screening_result is `Deferred`, a deferral record is created automatically.
-Frontend does not create deferrals manually — just display what the API returns.
-
-### Donor email required
-Required at donor registration (frontend validation + backend validation).
-Also enforced at donation time — if donor has no email, POST /api/donations returns 400.
-Both frontend and backend enforce this. Do not allow donor registration without email.
-
-### Same-day deferral blocking
-A deferred donor cannot donate on the same day — enforced server-side.
-
-### Active deferral blocking
-An active deferral blocks donation regardless of other eligibility — checked server-side.
 
 ---
 
 ## 9. Blood Request Rules
 
-### Status transitions — only show valid buttons
+### Status transitions
 ```
 Pending  → Approved  (staff only)
 Pending  → Rejected  (staff only)
 Approved → Released  (staff only)
 Approved → Rejected  (staff only)
 ```
-Never show Approve on an already-Approved request.
-Never show Cancel unless status is Pending (backend scopes cancelRequest to status=Pending).
 
-### FEFO auto-assignment
-On Approved, blood units are auto-assigned by nearest expiry date (First Expired, First Out).
-Frontend never controls which units are assigned.
-
-### Race condition protection
-SELECT FOR UPDATE prevents two staff members double-approving the same request.
-The second approval returns 400 with a clear message.
-
-### cancelRequest scoping
-Backend scopes cancel to user_id AND status=Pending. If the request is not Pending
-or does not belong to the requestor, backend returns 404. Only show Cancel on
-Pending requests that belong to the current requestor.
-
-### Requestors see only own requests
-GET /api/blood-requests is scoped server-side — no filter parameter needed.
-
-### Socket: blood_request_new
-Fired to branch staff rooms when a requestor submits a request.
-On blood-requests page: prepend new row to table.
-Always: increment notification badge.
-
-### Socket: blood_request_status
-Fired to requestor's private room (user_${user_id}) on status change.
-Mobile only — requestors use mobile.
+`Cancelled` — set only by `PATCH /:id/cancel` (requestor self-cancel, Pending only).
+Never show Cancelled as a staff action option.
+Only show Cancel button on Pending requests owned by the current requestor.
 
 ---
 
@@ -325,39 +248,21 @@ Mobile only — requestors use mobile.
 
 ### Separate action
 Show "Separate" button only when: `component === 'Whole Blood'` AND `status === 'Available'`
-After separation: source unit status becomes `Separated` — terminal, hide all action buttons.
-Three new Pending collections are created automatically (PRBC, Platelets, FFP).
+After separation: source unit → Separated (terminal), 3 new Pending collections created.
 
 ### Terminal statuses — hide all action buttons
 `Released`, `Disposed`, `Withdrawn`, `Separated`, `Expired`
-No status update is allowed after reaching these. Backend rejects with 400.
-
-### Collection → unit creation
-When a collection is marked `Safe`, a blood unit is automatically created in inventory.
-Frontend does not create units manually.
 
 ### QNS collections
-If `is_qns: true` on a collection, hide the Safe button. Backend rejects Safe for QNS with 400.
+If `is_qns: true`, hide Safe button. Backend rejects Safe for QNS with 400.
 
 ---
 
 ## 11. File Uploads
 
-- Allowed MIME types: image/jpeg, image/png, image/jpg, application/pdf
-- Max size: 5MB
-- Use FormData — do NOT set Content-Type manually (browser sets multipart boundary)
+- Allowed: image/jpeg, image/png, image/jpg, application/pdf — max 5MB
+- Use FormData — do NOT set Content-Type manually
 - apiFetch detects FormData and skips Content-Type header automatically
-
-```javascript
-const formData = new FormData();
-formData.append('profile_img', fileInput.files[0]);
-
-const res = await apiFetch('/api/volunteers/register', {
-  method: 'POST',
-  body: formData,
-  // do NOT set Content-Type here
-});
-```
 
 ---
 
@@ -365,19 +270,11 @@ const res = await apiFetch('/api/volunteers/register', {
 
 ### REST endpoints
 ```
-GET    /api/notifications              — all notifications for current user
-GET    /api/notifications/unread-count — { data: { count: 3 } }
-PATCH  /api/notifications/:id/read    — mark one read (scoped to own)
-PATCH  /api/notifications/read-all    — mark all read
+GET    /api/notifications
+GET    /api/notifications/unread-count  → { data: { count: 3 } }
+PATCH  /api/notifications/:id/read
+PATCH  /api/notifications/read-all
 ```
-
-### Socket rooms (assigned server-side from handshake.auth)
-- Admin → `branch_${branch_id}` + `admin_global`
-- PRC Staff → `branch_${branch_id}`
-- Volunteer/Phlebotomist → `branch_${branch_id}`
-- Requestor → `user_${user_id}` (private)
-
-Frontend never emits join_room — rooms are assigned server-side on connect.
 
 ### Socket connection (web)
 ```javascript
@@ -387,19 +284,11 @@ socket = io(url, {
 });
 ```
 
-### Socket events
-| Event | Received by | Trigger | Frontend action |
-|---|---|---|---|
-| `blood_request_new` | Admin, PRC Staff | Requestor submits request | Increment badge, prepend row if on page |
-| `blood_request_status` | Requestor (mobile) | Staff approves/rejects/releases | Update request card status |
-| `inventory_low` | Admin, PRC Staff | Daily cron 8AM PHT | Increment badge |
-| `inventory_expiring` | Admin, PRC Staff | Daily cron 8AM PHT | Increment badge |
-
-`blood_drive_assigned` and `donor_post_extraction` are email-only — no socket event for frontend.
+Frontend never emits join_room — rooms assigned server-side on connect.
 
 ### Notification badge ownership
-- navbar.js owns the `#notif-badge` DOM element placeholder
-- features/notifications/notificationUI.js owns the updateBadge() function
+- navbar.js owns #notif-badge DOM element — ALWAYS rendered, hidden via .notif-badge-hidden when count is 0
+- features/notifications/notificationUI.js owns updateBadge()
 - Entry files fetch unread count from notificationApi.js, pass to renderNavbar(user, count)
 
 ---
@@ -417,20 +306,11 @@ socket = io(url, {
 | datetime fields | ISO 8601 e.g. 2025-10-01T08:00:00+08:00 |
 | answer values | exactly "YES" or "NO" (uppercase) |
 
-### Business rules the frontend must enforce (backend also rejects)
-| Rule | Where |
-|---|---|
-| Donor workflow is sequential | All field operation pages |
-| Only show valid blood request transition buttons | Blood requests page |
-| Volunteer/Phlebotomist identity fields are read-only | Profile edit form |
-| Drive status Ended/Cancelled — no edit allowed | Drive edit form |
-| Blood unit terminal states — no status update button | Blood units page |
-| QNS collections cannot be marked Safe | Collection status form |
-| Requestors cannot see blood collections or blood units | Role-based page access |
-| Only show Separate button for Whole Blood + Available | Blood units page |
-| Cancel only on Pending requests | Blood requests page |
-| Donor email required | Donor registration form |
-| answer values must be uppercase YES/NO | Interview answers form |
+### Forgiving input formatting
+- Phone numbers: strip non-digits before sending to backend
+  Display with formatting but send raw digits to API
+  Formatting helpers in utils.js
+- Never reject input because of formatting — format it for the user
 
 ---
 
@@ -444,8 +324,9 @@ socket = io(url, {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Page Title — BloodSync</title>
-  <link rel="stylesheet" href="../../assets/css/main.css" />
-  <link rel="stylesheet" href="../../assets/css/pages/pageName.css" />
+  <!-- ALWAYS use absolute paths starting with / -->
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/admin/pageName.css" />
 </head>
 <body>
   <nav id="navbar"></nav>
@@ -456,31 +337,30 @@ socket = io(url, {
     </main>
   </div>
   <!-- Only on pages needing real-time: -->
-  <!-- <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script> -->
-  <script type="module" src="../../js/entry/pageName.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <!-- ALWAYS use absolute path -->
+  <script type="module" src="/js/entry/admin/pageName.js"></script>
 </body>
 </html>
 ```
 
-### Entry file pattern
+### Entry file pattern (role subfolder — uses ../../ for imports)
 ```javascript
-import { requireAuth }        from '../../core/guards/authGuard.js';
-import { requireRole }        from '../../core/guards/roleGuard.js';
-import { renderNavbar }       from '../../layouts/navbar.js';
+import { requireAuth }       from '../../core/guards/authGuard.js';
+import { requireRole }       from '../../core/guards/roleGuard.js';
+import { renderNavbar }      from '../../layouts/navbar.js';
 import { renderSidebar,
-         clearSidebar }       from '../../layouts/sidebar.js';
-import { getSidebarItems }    from '../../constants/sidebarItems.js';
-import { ROLES }              from '../../constants/roles.js';
-import { getUnreadCount }     from '../notifications/notificationApi.js';
-// import { initSocket }      from '../../core/socket.js'; // only if real-time needed
+         clearSidebar }      from '../../layouts/sidebar.js';
+import { getSidebarItems }   from '../../constants/sidebarItems.js';
+import { ROLES }             from '../../constants/roles.js';
 
 async function init() {
   const user = await requireAuth();
   if (!user) return;
 
-  if (!requireRole(user, [ROLES.ADMIN, ROLES.PRC_STAFF])) return;
+  if (!requireRole(user, [ROLES.ADMIN])) return;
 
-  const unreadCount = await getUnreadCount();
+  const unreadCount = 0; // replace with notificationApi.getUnreadCount() when built
   renderNavbar(user, unreadCount);
 
   clearSidebar();
@@ -491,44 +371,63 @@ async function init() {
 }
 
 init();
-
-### Component Pattern
-.btn-full-width modifier class exists in login.css — use this pattern for any page that needs a full-width button variant instead of overriding .btn-primary directly.
-
 ```
 
-### Feature folder pattern
-```
-features/donors/
-├── donorApi.js         — apiFetch calls only, no DOM
-├── donorUI.js          — DOM rendering only, no apiFetch
-└── donorValidation.js  — input validation only
-```
+### Why ../../ not ../
+Entry files in role subfolders (js/entry/admin/, js/entry/staff/, etc.) are two levels
+deep from js/. Use ../../ to reach core/, layouts/, constants/.
+loginPage.js and notFoundPage.js at js/entry/ root use ../ (one level deep).
 
 ---
 
-## 15. Environment and Hosting
+## 15. CSS Pattern Rules
 
-- Backend local: `http://localhost:3000`
-- Frontend local: Live Server (VS Code) on `frontend/` folder
-- Production: Railway — Express serves frontend via `express.static`
-- Mobile: Expo — separate from Railway
-
-```javascript
-// constants/apiConfig.js
-export const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3000'
-  : ''; // empty string = same origin on Railway
+### Never override shared classes in page CSS
+Wrong:
+```css
+/* login.css */
+.btn-primary { width: 100%; } /* overrides shared class — leaks to other pages */
 ```
 
-Empty string in production means all `apiFetch('/api/...')` calls resolve to the
-Railway domain automatically — no hardcoded production URL needed.
+Right:
+```css
+/* login.css */
+.btn-full-width { width: 100%; padding: 10px; } /* modifier class — isolated */
+```
 
-Hostinger retained for DNS only — do not use it for file hosting.
+```html
+<!-- index.html -->
+<button class="btn-primary btn-full-width">Sign in</button>
+```
+
+### Modifier classes in main.css
+- `.btn-full-width` — full-width button variant
+- `.notif-badge-hidden` — hides notification badge when count is 0
 
 ---
 
-## 16. Things That Look Wrong But Are Intentional
+## 16. Serving Architecture
+
+- Local dev: `npm run dev` in backend/ → visit http://localhost:3000
+- Express serves frontend via `express.static('../frontend')`
+- All non-API unmatched routes serve index.html (fallback middleware)
+- Production: Railway — same origin, no CORS needed between frontend and backend
+- ALLOWED_ORIGINS in .env must include http://localhost:3000 for local dev
+
+---
+
+## 17. Helmet CSP Configuration
+
+Configured in server.js to allow:
+- Socket.io CDN scripts: `https://cdn.socket.io`
+- WebSocket connections: `ws://localhost:3000`, `wss://localhost:3000`
+- Cloudinary images: `https://res.cloudinary.com`
+- `upgradeInsecureRequests` removed — Railway handles HTTPS at infrastructure level
+- Configuration is production-safe as-is
+
+---
+
+## 18. Things That Look Wrong But Are Intentional
 
 1. No token in login response body (web) — correct, token is in cookie
 2. Token in login response body (mobile) — correct, no cookie on native
@@ -548,8 +447,121 @@ Hostinger retained for DNS only — do not use it for file hosting.
 16. drive_id never sent in POST body — correct, bloodDriveMiddleware sets req.drive_id server-side
 17. Deferral created automatically on Deferred screening — correct, frontend never creates deferrals
 18. Blood unit created automatically when collection marked Safe — correct, frontend never creates units
-19. Requestor GET /api/blood-requests shows only own requests — correct, scoped server-side, no filter needed
-20. FEFO unit assignment on Approved — correct, backend picks units by nearest expiry, frontend never controls this
-21. GET /api/auth/me does a DB lookup (not pure JWT decode) — correct, added
-    deliberately so first_name/last_name are available on every page load for
-    navbar display, since the in-memory cache resets on navigation
+19. Requestor GET /api/blood-requests shows only own requests — correct, scoped server-side
+20. FEFO unit assignment on Approved — correct, backend picks units by nearest expiry
+21. GET /api/auth/me does a DB lookup — correct, added for navbar name fields on every page load
+22. success is boolean not string — correct, responseHelper.js was fixed; old shape was wrong
+23. CANCELLED in BLOOD_REQUEST_STATUS is for display only — correct, never a staff action option
+24. GET /api/volunteers/available registered before /volunteers/:id/profile — correct, prevents route shadowing
+
+
+### 19. App Shell Reveal Pattern (flash prevention)
+
+Every protected page <body> must start with class="app-loading" in the HTML.
+Entry files must call revealAppShell() immediately after renderSidebar() completes,
+before any async feature work.
+
+javascriptimport { revealAppShell } from '../../layouts/appShell.js';
+
+renderNavbar(user, 0);
+clearSidebar();
+renderSidebar(getSidebarItems(user.role_id, 'general'), 'General');
+revealAppShell();  // ← immediately here, before any await
+
+await renderFeatureContent(user);  // skeleton handles loading inside here
+
+CSS in main.css keeps #navbar, #sidebar, .page-content as visibility:hidden
+under app-loading. revealAppShell() swaps body class to app-ready → visible.
+Uses visibility (not display:none) to avoid layout shift.
+
+### 20. sessionStorage User Cache
+
+auth.js caches the current user in sessionStorage key 'bs_user' after the
+first successful fetch. Subsequent page navigations read from cache — no
+GET /api/auth/me network round-trip on every navigation.
+
+Cache is cleared on logout(). Tab close clears it automatically (sessionStorage).
+Stored object: display data only (user_id, name, role_id, branch_id). No tokens.
+
+Known tradeoff: role/branch changes by an Admin won't reflect until tab closes.
+Acceptable for thesis UAT. Fix: logout() + re-login.
+
+### 21. Sidebar Section Names (CURRENT — as of this session)
+
+'operations' was renamed to 'general'. All entry files must use current names:
+
+RoleSectionsAdmin'general', 'management'PRC Staff'general', 'management'Volunteer'general', 'workflow', 'drive'Phlebotomist'general', 'workflow', 'drive'Requestor'general'
+
+Do not use 'operations' — it no longer exists in sidebarItems.js.
+
+### 22. Collapsible Sidebar Groups
+
+sidebar.js supports group items with children:
+
+javascript{
+  label:    'Blood Drive Workflow',
+  group:    true,
+  children: [
+    { label: 'Register Donor',  href: ROUTES.FIELD.REGISTER },
+    ...
+  ]
+}
+
+Rendered as <details>/<summary>, open by default. CSS in main.css under
+"Sidebar collapsible groups" section.
+
+### 23. FIELD Shared Routes
+
+Donor workflow pages live under /pages/field/ and are shared between
+Volunteer and Phlebotomist. Both roles have identical access.
+
+javascriptROUTES.FIELD.REGISTER    // /pages/field/donorRegistration.html
+ROUTES.FIELD.INTERVIEW   // /pages/field/donorInterview.html
+ROUTES.FIELD.SCREENING   // /pages/field/donorScreening.html
+ROUTES.FIELD.DONATION    // /pages/field/donorDonation.html
+ROUTES.FIELD.COLLECTION  // /pages/field/donorCollection.html
+
+Entry files for field pages go in js/entry/field/ and use requireRole
+with both [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST].
+
+### 24. Donor Workflow Cooperation Model
+
+WHY: Volunteer and Phlebotomist assigned to the same blood drive can
+cooperate freely. One can register all donors while another runs interviews.
+One person can also do everything sequentially. The system does not restrict
+which assigned user performs which step — the backend only checks that the
+user is assigned to an active drive (bloodDriveMiddleware), not their role label.
+
+This is why the sidebar shows all 5 workflow steps to both roles identically.
+Do not add role-based step restrictions in the frontend — they don't exist
+in the backend either.
+
+### 25. Donor Registration — Search-First Flow
+
+WHY: Donors who donated in past blood drives are already in the system.
+Re-registering them creates duplicate records and breaks donation history.
+The backend prevents duplicates via government ID check and returns 409.
+
+The registration page must show a search box FIRST. Only if no matching donor
+is found should the new registration form appear. If a donor is found, offer
+to select them (pre-fills their donor_id for the interview step).
+
+On 409 from POST /api/donors: "This donor is already registered. Please search
+for them and select their existing record."
+
+### 26. Donor Email — Required, Blocks Donation if Missing
+
+A donor without an email on record will cause the donation step to fail with
+a BusinessError from the backend ("Donor has no email on record.").
+
+On the existing donor selection flow: if the selected donor has no email,
+prompt field staff to add one via PATCH /api/donors/:id/contact BEFORE
+allowing them to proceed to the donation step. Do not let them get all the
+way to donation only to fail there.
+
+### 27. Navbar Brand Link
+
+navbar.js brand link now uses getDashboardHref(user.role_id) — goes directly
+to the user's correct dashboard. Previously pointed to '/' which caused a
+two-hop redirect (index.html → loginPage.js → redirectByRole). Never point
+the brand link to '/' or '/index.html'.
