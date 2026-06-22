@@ -97,3 +97,35 @@ export async function getBranches() {
   if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load branches.');
   return body.data;
 }
+
+// GET /api/blood-drives/:id/participants/suggestions?role_id=5&limit=20
+export async function getSuggestedParticipants(driveId, roleId = '', limit = 20) {
+  const params = new URLSearchParams();
+  if (roleId) params.set('role_id', roleId);
+  params.set('limit', limit);
+  const res = await apiFetch(`/api/blood-drives/${driveId}/participants/suggestions?${params.toString()}`);
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load suggestions.');
+  return body.data;
+}
+
+// POST /api/blood-drives/:id/participants/bulk
+// Mode A — manual selection: { user_ids: [1, 2, 3] }
+// Mode B — auto-assign:      { target_count: 10, role_id: 5 }
+export async function bulkAssign(driveId, payload) {
+  const res = await apiFetch(`/api/blood-drives/${driveId}/participants/bulk`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to bulk assign participants.');
+  return body.data;
+}
+
+// GET /api/blood-drives/:id/stats
+export async function getDriveStats(driveId) {
+  const res = await apiFetch(`/api/blood-drives/${driveId}/stats`);
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load drive stats.');
+  return body.data;
+}

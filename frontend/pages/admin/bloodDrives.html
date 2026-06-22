@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blood Drives|BloodSync</title>
+  <title>Blood Drives | BloodSync</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
   <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
   <link rel="stylesheet" href="/assets/css/pages/admin/bloodDrives.css" />
@@ -18,10 +18,16 @@
 
       <div class="page-header">
         <h1>Blood Drives</h1>
-        <a href="/pages/admin/bloodDriveCreate.html" class="btn-primary">+ New Drive</a>
+        <a id="new-drive-link" href="/pages/admin/bloodDriveCreate.html" class="btn-primary">+ New Drive</a>
       </div>
 
-      <div id="drives-table-container">
+      <!-- Skeleton shown while drives load, hidden after -->
+      <div id="drives-skeleton"></div>
+
+      <!-- Error boundary if load fails -->
+      <div id="drives-error"></div>
+
+      <div id="drives-table-container" style="display:none;">
         <table class="data-table">
           <thead>
             <tr>
@@ -39,28 +45,6 @@
       </div>
 
     </main>
-  </div>
-
-  <!-- Cancel modal -->
-  <div id="cancel-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="cancel-modal-title">Cancel Blood Drive</h2>
-        <button id="cancel-modal-close" class="modal-close-btn" aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p>You are about to cancel <span id="cancel-drive-name" class="modal-drive-name"></span>. This cannot be undone.</p>
-        <div class="form-group">
-          <label for="cancel-reason">Cancellation Reason <span aria-hidden="true">*</span></label>
-          <textarea id="cancel-reason" rows="3" placeholder="State the reason for cancellation…"></textarea>
-          <div id="cancel-error" class="field-error" aria-live="polite"></div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="cancel-submit-btn" class="btn-danger">Confirm Cancel</button>
-        <button id="cancel-modal-close-footer" class="btn-secondary">Go Back</button>
-      </div>
-    </div>
   </div>
 
   <!-- Participant panel overlay -->
@@ -84,12 +68,12 @@
         <div id="current-participants-list"></div>
       </section>
 
-      <!-- Add participants -->
-      <section>
+      <!-- Add participants — hidden for Ended/Cancelled drives -->
+      <section id="panel-add-section">
         <p class="panel-section-title">Add Participants</p>
 
         <div class="panel-filters">
-          <select id="panel-role-filter">
+          <select id="panel-role-filter" aria-label="Filter by role">
             <option value="">All roles</option>
             <option value="5">Volunteer</option>
             <option value="6">Phlebotomist</option>
@@ -98,16 +82,28 @@
             id="panel-municipality-filter"
             type="text"
             placeholder="Filter by municipality…"
+            aria-label="Filter by municipality"
           />
         </div>
 
         <div id="available-volunteers-list"></div>
 
         <div class="panel-assign-bar">
-          <label for="panel-assign-count">Auto-assign</label>
-          <input id="panel-assign-count" type="number" min="1" value="1" />
+          <button id="panel-assign-selected-btn" class="btn-secondary btn-sm" disabled>
+            Assign Selected
+          </button>
+          <span class="panel-assign-hint">Check volunteers above to select</span>
+        </div>
+
+        <div class="panel-assign-divider"><span>or</span></div>
+
+        <div class="panel-assign-bar">
+          <label for="panel-assign-count" class="panel-assign-label">Auto-assign nearest</label>
+          <input id="panel-assign-count" type="number" min="1" max="100" value="1" />
           <button id="panel-assign-btn" class="btn-primary btn-sm">Auto-assign</button>
         </div>
+        <p class="panel-assign-note">Role filter above applies to both actions.</p>
+
       </section>
 
     </div>

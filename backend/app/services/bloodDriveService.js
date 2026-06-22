@@ -277,6 +277,26 @@ const confirmParticipation = async (token, action) => {
     };
 };
 
+/**
+ * getDriveStats(drive_id)
+ * Returns aggregate counts for the drive monitoring dashboard.
+ * Read-only — no mutations.
+ */
+const getDriveStats = async (drive_id) => {
+    const drive = await getDriveWithCurrentStatus(drive_id);
+    if (!drive) throw new BusinessError('Blood drive not found', 404);
+
+    const raw = await bloodDriveModel.getDriveStats(drive_id);
+
+    // pg returns COUNT columns as strings — convert to plain integers here
+    // in the service, not the repository (repositories return raw data only)
+    const stats = Object.fromEntries(
+        Object.entries(raw).map(([k, v]) => [k, v === null ? 0 : parseInt(v, 10)])
+    );
+
+    return { drive_id: Number(drive_id), ...stats };
+};
+
 module.exports = {
     getAllDrives,
     getDriveById,
@@ -289,4 +309,5 @@ module.exports = {
     removeParticipant,
     updateParticipantStatus,
     confirmParticipation,
+    getDriveStats,
 };

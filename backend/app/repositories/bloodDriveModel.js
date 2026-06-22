@@ -300,6 +300,94 @@ const clearConfirmationToken = async (drive_id, user_id) => {
     );
 };
 
+// ── Drive Stats ─────────────────────────────────────────────
+
+/**
+ * Aggregate drive statistics for the monitoring dashboard.
+ * Joins blood_drives inline to get the drive time window for
+ * new vs returning donor classification.
+ *
+ * Donor breakdown:
+ *   - total_donors     — all distinct donors with an interview in this drive
+ *   - new_donors       — donors whose donors.created_at falls within the
+ *                        drive window (registered for the first time here)
+ *   - returning_donors — donors who existed before the drive started
+ *
+ * Interview breakdown:
+ *   - interviews_total   — all interview records for this drive
+ *   - interviews_passed  — interview_result = 'Pass'
+ *   - interviews_failed  — interview_result = 'Fail' (deferred at interview)
+ *   - interviews_pending — interview_result IS NULL (not yet completed)
+ *
+ * Screening breakdown:
+ *   - screenings_total    — screenings linked to this drive's interviews
+ *   - screenings_eligible — screening_result = 'Eligible'
+ *   - screenings_deferred — screening_result = 'Deferred'
+ *
+ * Donation breakdown:
+ *   - donations_total — all donations for this drive
+ *   - donations_qns   — is_qns = true (extraction too slow)
+ *   - donations_valid — is_qns = false (successful extraction)
+ *
+ * Collection breakdown:
+ *   - collections_total    — all collection records for this drive
+ *   - collections_pending  — awaiting testing
+ *   - collections_safe     — passed testing, moved to inventory
+ *   - collections_rejected — failed testing
+ *
+ * Returns raw pg row — integer conversion done in service layer.
+ */
+const getDriveStats = async (drive_id) => {
+    const result = await pool.query(
+        `SELECT
+            COUNT(DISTINCT di.donor_id)
+                                                                              AS total_donors,
+            COUNT(DISTINCT di.donor_id) FILTER (
+                WHERE d.created_at >= bd.start_datetime
+                  AND d.created_at <= bd.end_datetime
+            )                                                                 AS new_donors,
+            COUNT(DISTINCT di.donor_id) FILTER (
+                WHERE d.created_at < bd.start_datetime
+            )                                                                 AS returning_donors,
+
+            COUNT(di.interview_id)                                            AS interviews_total,
+            COUNT(di.interview_id) FILTER (WHERE di.interview_result = 'Pass')  AS interviews_passed,
+            COUNT(di.interview_id) FILTER (WHERE di.interview_result = 'Fail')  AS interviews_failed,
+            COUNT(di.interview_id) FILTER (WHERE di.interview_result IS NULL)   AS interviews_pending,
+
+            COUNT(s.screening_id)                                             AS screenings_total,
+            COUNT(s.screening_id) FILTER (WHERE s.screening_result = 'Eligible') AS screenings_eligible,
+            COUNT(s.screening_id) FILTER (WHERE s.screening_result = 'Deferred') AS screenings_deferred,
+
+            COUNT(dn.donation_id)                                             AS donations_total,
+            COUNT(dn.donation_id) FILTER (WHERE dn.is_qns = true)            AS donations_qns,
+            COUNT(dn.donation_id) FILTER (WHERE dn.is_qns = false)           AS donations_valid,
+
+            COUNT(bc.collection_id)                                           AS collections_total,
+            COUNT(bc.collection_id) FILTER (WHERE bc.status = 'Pending')     AS collections_pending,
+            COUNT(bc.collection_id) FILTER (WHERE bc.status = 'Safe')        AS collections_safe,
+            COUNT(bc.collection_id) FILTER (WHERE bc.status = 'Rejected')    AS collections_rejected
+
+         FROM donor_interviews di
+         JOIN blood_drives bd
+                ON bd.drive_id    = di.drive_id
+         JOIN donors d
+                ON d.donor_id     = di.donor_id
+         LEFT JOIN screening s
+                ON s.interview_id = di.interview_id
+         LEFT JOIN donations dn
+                ON dn.drive_id    = di.drive_id
+               AND dn.donor_id    = di.donor_id
+         LEFT JOIN blood_collections bc
+                ON bc.drive_id    = di.drive_id
+               AND bc.donor_id    = di.donor_id
+         WHERE di.drive_id = $1`,
+        [drive_id]
+    );
+
+    return result.rows[0];
+};
+
 module.exports = {
     getAllDrives,
     getDriveById,
@@ -317,4 +405,5 @@ module.exports = {
     setConfirmationToken,
     getParticipantByToken,
     clearConfirmationToken,
+    getDriveStats,
 };

@@ -133,24 +133,29 @@ export async function getCurrentUser() {
   }
 
   // 3. Network fetch — tab just opened, or cache was cleared
+  // Uses apiFetch (not raw fetch) so the 401→refresh→retry flow fires
+  // when the access token has expired. The refresh token (7-day cookie)
+  // transparently issues a new access token and retries the request.
+  // If the refresh token is also expired or missing, apiFetch redirects
+  // to login — which is the correct behavior.
+  //
+  // Safe to use apiFetch here because:
+  // - apiFetch's tryRefresh() uses raw fetch internally (no loop)
+  // - The login page uses raw fetch for login() itself (no loop)
+  // - authGuard only redirects to login if apiFetch throws 'Session expired',
+  //   meaning refresh genuinely failed — not on the first 401
   try {
-    // Raw fetch — not apiFetch — because a 401 here means "not logged in",
-    // not "session expired". apiFetch would intercept the 401, attempt a
-    // refresh, then redirect to login — causing an infinite loop on the
-    // login page itself. This is a session probe, not an authenticated request.
-    const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH_ME}`, {
-      credentials: 'include',
-    });
-
-    if (!res.ok) return null;
-
+    const res  = await apiFetch(API_ENDPOINTS.AUTH_ME);
     const body = await res.json();
-    if (!body.success) return null;
+
+    if (!res.ok || !body.success) return null;
 
     _currentUser = body.data.user;
     writeSessionCache(_currentUser);
     return _currentUser;
   } catch {
+    // apiFetch already redirected to login if refresh failed —
+    // return null here so the caller's guard fires cleanly too
     return null;
   }
 }

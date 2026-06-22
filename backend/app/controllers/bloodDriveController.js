@@ -210,6 +210,18 @@ const confirmParticipation = async (req, res) => {
     }
 };
 
+// GET /api/blood-drives/:id/stats
+// Returns aggregate counts: donors (total/new/returning), interviews,
+// screenings, donations, collections — all scoped to the drive.
+const getDriveStats = async (req, res) => {
+    try {
+        const stats = await bloodDriveService.getDriveStats(req.params.id);
+        return response.success(res, stats);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 // GET /api/blood-drives/:id/participants/suggestions
 // Returns active volunteers/phlebotomists sorted by distance from drive venue.
 // Already-assigned participants are excluded from results.
@@ -267,4 +279,5 @@ module.exports = {
     confirmParticipation,
     getSuggestedParticipants,
     bulkAddParticipants,
+    getDriveStats,
 };

@@ -81,6 +81,23 @@
         <section class="form-section">
           <h2 class="form-section-title">Venue</h2>
 
+          <!-- Map pin — coordinates stored in hidden inputs, address auto-filled -->
+          <div class="form-row">
+            <div class="form-group form-group--full">
+              <label>Venue Location</label>
+              <div class="map-pin-bar">
+                <button id="pin-location-btn" type="button" class="btn-secondary">
+                  📍 Pin Location
+                </button>
+                <span id="pin-location-status" class="pin-status"></span>
+              </div>
+              <p class="form-hint">Pin the location on the map to auto-fill address fields and enable distance-based volunteer suggestions.</p>
+              <!-- Hidden coordinate inputs — populated by pin action -->
+              <input type="hidden" id="venue_latitude"  name="venue_latitude" />
+              <input type="hidden" id="venue_longitude" name="venue_longitude" />
+            </div>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
               <label for="venue_name">Venue Name</label>

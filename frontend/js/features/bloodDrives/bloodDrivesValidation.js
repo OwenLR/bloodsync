@@ -91,3 +91,15 @@ export function validateCancelForm(fields) {
 
   return { valid: true };
 }
+
+// Validates the auto-assign count input before calling bulkAssign
+export function validateAutoAssignCount(count) {
+  const n = parseInt(count, 10);
+  if (!n || isNaN(n) || n < 1) {
+    return { valid: false, message: 'Enter a valid number (at least 1) to auto-assign.' };
+  }
+  if (n > 100) {
+    return { valid: false, message: 'Auto-assign limit is 100 at a time.' };
+  }
+  return { valid: true, count: n };
+}

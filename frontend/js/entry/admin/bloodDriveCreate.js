@@ -27,8 +27,48 @@ function getEditId() {
 
 // ─── Branch dropdown ──────────────────────────────────────────────────────────
 
-async function populateBranches(selectedId = null) {
+// Admin: shows full branch dropdown.
+// PRC Staff: branch is auto-set to their own branch (bloodsync.md item 4) —
+// Staff cannot pick a different branch when creating a drive.
+async function populateBranches(user, selectedId = null) {
   const select = document.getElementById('branch_id');
+
+  if (user.role_id === ROLES.PRC_STAFF) {
+    // Staff: hide the dropdown, show their branch as read-only text,
+    // set the hidden value so it gets submitted correctly.
+    select.value = user.branch_id;
+
+    // Visually replace the select with a read-only display
+    const wrapper = select.parentElement;
+    select.style.display = 'none';
+
+    const readOnly = document.createElement('p');
+    readOnly.id = 'branch-readonly';
+    readOnly.className = 'form-readonly-value';
+    readOnly.textContent = 'Loading branch…';
+    wrapper.appendChild(readOnly);
+
+    // Still fetch branches to show the branch name
+    try {
+      const branches = await getBranches();
+      const branch = branches.find(b => b.branch_id === user.branch_id);
+      readOnly.textContent = branch ? (branch.branch_name || branch.name) : `Branch #${user.branch_id}`;
+      // Pre-set the select value even though it's hidden — it will be read by readFormValues()
+      const opt = document.createElement('option');
+      opt.value = user.branch_id;
+      opt.selected = true;
+      select.appendChild(opt);
+    } catch {
+      readOnly.textContent = `Branch #${user.branch_id}`;
+      const opt = document.createElement('option');
+      opt.value = user.branch_id;
+      opt.selected = true;
+      select.appendChild(opt);
+    }
+    return;
+  }
+
+  // Admin: full branch dropdown
   try {
     const branches = await getBranches();
     branches.forEach(b => {
@@ -39,7 +79,6 @@ async function populateBranches(selectedId = null) {
       select.appendChild(opt);
     });
   } catch {
-    // non-critical — user will see empty dropdown and required validation will catch it
     showToast('Could not load branches. Please refresh.', 'error');
   }
 }
@@ -83,6 +122,9 @@ function readFormValues() {
   const rawContact = get('contact_number');
   const contact_number = rawContact ? rawContact.replace(/\D/g, '') : '';
 
+  const lat = get('venue_latitude');
+  const lon = get('venue_longitude');
+
   return {
     name:             get('name').trim(),
     description:      get('description').trim() || undefined,
@@ -101,6 +143,8 @@ function readFormValues() {
     contact_person:   get('contact_person').trim() || undefined,
     contact_number:   contact_number || undefined,
     contact_email:    get('contact_email').trim() || undefined,
+    venue_latitude:   lat ? parseFloat(lat) : undefined,
+    venue_longitude:  lon ? parseFloat(lon) : undefined,
   };
 }
 
@@ -127,6 +171,19 @@ function populateForm(drive) {
   set('contact_person',  drive.contact_person);
   set('contact_number',  drive.contact_number);
   set('contact_email',   drive.contact_email);
+
+  // Venue coordinates — set hidden inputs so they are included in updates
+  if (drive.venue_latitude)  set('venue_latitude',  drive.venue_latitude);
+  if (drive.venue_longitude) set('venue_longitude', drive.venue_longitude);
+
+  // Show pinned status if coordinates exist
+  if (drive.venue_latitude && drive.venue_longitude) {
+    const statusEl = document.getElementById('pin-location-status');
+    if (statusEl) {
+      statusEl.textContent = `📍 Pinned (${Number(drive.venue_latitude).toFixed(5)}, ${Number(drive.venue_longitude).toFixed(5)})`;
+      statusEl.classList.add('pin-status--set');
+    }
+  }
 
   // datetime-local expects "YYYY-MM-DDTHH:mm"
   if (drive.start_datetime) {
@@ -167,6 +224,10 @@ async function handleSubmit(editId, user) {
     Object.entries(values).filter(([, v]) => v !== undefined)
   );
 
+  const drivesRoute = user.role_id === ROLES.ADMIN
+    ? ROUTES.ADMIN.BLOOD_DRIVES
+    : ROUTES.STAFF.BLOOD_DRIVES;
+
   try {
     if (editId) {
       await updateDrive(editId, payload);
@@ -177,7 +238,7 @@ async function handleSubmit(editId, user) {
       clearForm(FORM_KEY);
       showToast('Blood drive created.', 'success');
     }
-    window.location.href = ROUTES.ADMIN.BLOOD_DRIVES;
+    window.location.href = drivesRoute;
   } catch (err) {
     showError('submit-error', err.message);
     btn.disabled = false;
@@ -192,7 +253,8 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
 
-  if (!requireRole(user, [ROLES.ADMIN])) return;
+  // Both Admin and PRC Staff can create/edit blood drives (bloodsync.md item 1)
+  if (!requireRole(user, [ROLES.ADMIN, ROLES.PRC_STAFF])) return;
 
   const unreadCount = 0;
   renderNavbar(user, unreadCount);
@@ -203,6 +265,14 @@ async function init() {
 
   revealAppShell();
 
+  // Set back/cancel links to the correct role's blood drives page
+  const drivesRoute = user.role_id === ROLES.ADMIN
+    ? ROUTES.ADMIN.BLOOD_DRIVES
+    : ROUTES.STAFF.BLOOD_DRIVES;
+
+  document.getElementById('back-link').href   = drivesRoute;
+  document.getElementById('cancel-link').href = drivesRoute;
+
   const editId = getEditId();
 
   if (editId) {
@@ -211,16 +281,12 @@ async function init() {
     document.getElementById('submit-btn').disabled = true;
     document.title = 'Edit Blood Drive — BloodSync';
 
-    // Loading indicator while drive details fetch — form fields stay
-    // empty/disabled until populateForm() fills them in below
     document.getElementById('drive-form').classList.add('form-loading');
 
-    // Load drive data for edit mode — branches first so select is populated
     try {
-      await populateBranches();
+      await populateBranches(user);
       const drive = await getDriveById(editId);
 
-      // Guard: cannot edit Ended or Cancelled drives
       if (drive.status === 'Ended' || drive.status === 'Cancelled') {
         showErrorBoundary('form-error-boundary',
           `This drive is ${drive.status} and cannot be edited.`);
@@ -238,7 +304,7 @@ async function init() {
     }
   } else {
     // Create mode — populate branches then restore draft
-    await populateBranches();
+    await populateBranches(user);
     restoreForm(FORM_KEY);
     updateSubmitState();
 
@@ -252,6 +318,47 @@ async function init() {
   }
 
   attachRequiredListeners();
+
+  // Pin location button — uses browser geolocation.
+  // TODO: replace with Google Maps picker when API key is available.
+  document.getElementById('pin-location-btn')?.addEventListener('click', () => {
+    const btn    = document.getElementById('pin-location-btn');
+    const status = document.getElementById('pin-location-status');
+
+    if (!navigator.geolocation) {
+      status.textContent = 'Geolocation is not supported by your browser.';
+      status.classList.remove('pin-status--set');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Getting location…';
+    status.textContent = '';
+    status.classList.remove('pin-status--set');
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        document.getElementById('venue_latitude').value  = lat;
+        document.getElementById('venue_longitude').value = lon;
+
+        status.textContent = `📍 Pinned (${lat.toFixed(5)}, ${lon.toFixed(5)})`;
+        status.classList.add('pin-status--set');
+        btn.disabled = false;
+        btn.textContent = '📍 Pin Location';
+
+        if (!getEditId()) saveForm(FORM_KEY);
+      },
+      () => {
+        status.textContent = 'Could not get your location. Please enter the address manually.';
+        btn.disabled = false;
+        btn.textContent = '📍 Pin Location';
+      },
+      { timeout: 10000 }
+    );
+  });
 
   document.getElementById('submit-btn').addEventListener('click', () => {
     handleSubmit(editId, user);

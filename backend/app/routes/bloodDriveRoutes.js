@@ -25,6 +25,14 @@ router.get('/',
     bloodDriveController.getAllDrives
 );
 
+// Drives by branch — staff only
+// MUST be registered BEFORE /:id to prevent 'branch' being matched as id
+router.get('/branch/:branch_id',
+    verifyToken,
+    checkRole(ADMIN_STAFF),
+    bloodDriveController.getDrivesByBranch
+);
+
 // Volunteers/Phlebotomists can view a single drive (e.g. to see their assignment)
 router.get('/:id',
     verifyToken,
@@ -32,11 +40,11 @@ router.get('/:id',
     bloodDriveController.getDriveById
 );
 
-// Drives by branch — staff only
-router.get('/branch/:branch_id',
+// Drive stats — units collected, donors registered, pass/fail counts per step
+router.get('/:id/stats',
     verifyToken,
     checkRole(ADMIN_STAFF),
-    bloodDriveController.getDrivesByBranch
+    bloodDriveController.getDriveStats
 );
 
 // Create — Admin and PRC Staff

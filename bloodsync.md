@@ -30,6 +30,11 @@
     building name(if not extracted by map picker) and floor number
 15. Volunteers/Phlebotomist can also use pin location
 16. The system can give the distance(km) of each volunteer/phlebotomist on the assigning in blood drive
+17. The volunteer/phlebotomist can view all upcoming or ongoing blood drive and apply to that blood drive.
+18. During the creation of blood drive, there will be a switch button that will make the blood drive public(can be viewed by all active vol/phleb) or private(participants are 
+    only from assigning by the staff)
+19. All active volunteer/phlebotomist can browse upcoming/ongoing blood drives in one of their section in the web app
+20. Volunteer/Phlebotomist cannot join in two separate blood drive with same timeline but allowed if end time of one drive is not intersecting the start time of the other drive
 
 ## Blood Donation
 1. Admin, Staff, Volunteer, Phlebotomist are all allowed to do the whole blood donation flow
