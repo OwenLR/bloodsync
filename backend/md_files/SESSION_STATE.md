@@ -232,6 +232,8 @@ Mobile app for requestors is IN SCOPE for this phase.
 - donationService checks donor.email before creating donation
 - BusinessError if no email: "Donor has no email on record. Please update
   the donor's profile before recording a donation."
+- POST /api/donors now rejects duplicate donors by national ID, email, or contact with 409 Conflict.
+- GET /api/donors/search supports query parameter `q` and matches name, contact, email, and national ID.
 
 ## File Responsibility Contract (do not violate)
 - constants/inventoryRulesConstant.js → fixed values only

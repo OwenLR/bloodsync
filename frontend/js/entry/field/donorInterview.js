@@ -8,8 +8,9 @@ import { getSidebarItems }    from '../../constants/sidebarItems.js';
 import { ROLES }              from '../../constants/roles.js';
 import { showToast }          from '../../components/toast.js';
 import {
-  searchDonors,
+  getAllDonors,
   getDonorById,
+  getAllInterviews,
   getInterviewsByDonor,
   createInterview,
   getQuestionsBySex,
@@ -19,13 +20,15 @@ import {
   validateInterview,
   validateAnswers,
 } from '../../features/fieldWorkflow/fieldWorkflowValidation.js';
+import { initSearchableDropdown } from '../../components/searchableDropdown.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let _user            = null;
-let _selectedDonor   = null;
+let _user             = null;
+let _selectedDonor    = null;
 let _createdInterview = null;   // interview record after createInterview()
-let _questions       = [];      // loaded questions for the selected donor's sex
+let _questions        = [];      // loaded questions for the selected donor's sex
+let _dropdown         = null;    // searchableDropdown instance
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -33,7 +36,7 @@ async function init() {
   _user = await requireAuth();
   if (!_user) return;
 
-  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST])) return;
+  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.ADMIN, ROLES.PRC_STAFF])) return;
 
   renderNavbar(_user, 0);
   clearSidebar();
@@ -43,75 +46,84 @@ async function init() {
 
   revealAppShell();
 
-  await _loadDonorSelector();
-  _setupDonorSelector();
+  await _initDonorDropdown();
   _setupInterviewForm();
 }
 
-// ─── Donor Selector ───────────────────────────────────────────────────────────
+// ─── Donor Selector (searchable dropdown) ────────────────────────────────────
 
-async function _loadDonorSelector() {
-  const select  = document.getElementById('donor-select');
+async function _initDonorDropdown() {
   const errorEl = document.getElementById('donor-load-error');
-  if (!select) return;
 
   try {
-    // Load all donors — backend scopes to drive context for field roles
-    // We use searchDonors with empty-like broad fetch via getAllDonors path
-    // Actually: use the search endpoint with a space to get broad results,
-    // or better — load the full list via the donors endpoint
-    const res  = await fetch('/api/donors', { credentials: 'include' });
-    const body = await res.json();
+    // Load all donors and existing interviews in parallel
+    const [allDonors, allInterviews] = await Promise.all([
+      getAllDonors(),
+      getAllInterviews(),
+    ]);
 
-    if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load donors.');
+    // Determine eligible donors for the dropdown based on role:
+    //
+    // Field roles (Volunteer/Phlebotomist):
+    //   The backend scopes GET /api/donor-interviews to their active drive.
+    //   Build the set of donor_ids that already have an interview in this drive,
+    //   then exclude them — leaving only donors registered here but not yet interviewed.
+    //   Contract rule: "Interview page: show donors registered in this drive
+    //   who have no interview yet."
+    //
+    // Admin/Staff (walk-in, drive_id = null):
+    //   Show all donors unfiltered.
+    //   Contract rule: "Admin/Staff walk-in: show all donors in the system unfiltered."
+    const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
 
-    const donors = body.data;
-
-    select.innerHTML = '<option value="">Select a donor...</option>';
-
-    if (!donors || donors.length === 0) {
-      select.innerHTML = '<option value="">No donors registered yet.</option>';
-      return;
+    let eligibleDonors;
+    if (isFieldRole) {
+      const completedInterviewIds = new Set(
+        allInterviews
+          .filter(iv => iv.interview_result !== null)
+          .map(iv => iv.donor_id)
+      );
+      eligibleDonors = allDonors.filter(d => !completedInterviewIds.has(d.donor_id));
+    } else {
+      eligibleDonors = allDonors;
     }
 
-    donors.forEach(donor => {
-      const opt   = document.createElement('option');
-      opt.value   = donor.donor_id;
-      opt.textContent = `${donor.last_name}, ${donor.first_name}`;
-      select.appendChild(opt);
+    _dropdown = initSearchableDropdown({
+      inputId:      'donor-select-input',
+      listId:       'donor-select-list',
+      items:         eligibleDonors,
+      displayFn:    (d) => `${d.last_name}, ${d.first_name}`,
+      subDisplayFn: (d) => [d.blood_type, d.sex, d.birthdate].filter(Boolean).join(' · '),
+      filterFn:     (d, q) =>
+        `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
+        (d.id_number || '').toLowerCase().includes(q),
+      onSelect:     _handleDonorSelected,
+      placeholder:  isFieldRole
+        ? 'Click to browse donors registered in this drive…'
+        : 'Click to browse or type to filter donors…',
+      emptyMessage: isFieldRole
+        ? 'No donors available for interview. All registered donors may already have an interview, or none have been registered yet for this drive.'
+        : 'No donors found matching your search.',
     });
 
-    // Pre-select donor from registration page if sessionStorage has one
+    // Pre-select donor passed from registration page via sessionStorage
     try {
       const storedId = sessionStorage.getItem('field_donor_id');
       if (storedId) {
-        select.value = storedId;
-        // Trigger change to load donor info
-        select.dispatchEvent(new Event('change'));
+        _dropdown.selectByPredicate(d => String(d.donor_id) === String(storedId));
       }
-    } catch (_e) {
-      // sessionStorage unavailable
-    }
+    } catch (_e) { /* sessionStorage unavailable */ }
+
   } catch (err) {
     if (errorEl) {
       errorEl.textContent = err.message || 'Failed to load donors. Please refresh the page.';
       _showEl(errorEl);
     }
-    select.innerHTML = '<option value="">Failed to load donors</option>';
   }
 }
 
-function _setupDonorSelector() {
-  const select = document.getElementById('donor-select');
-  if (!select) return;
-  select.addEventListener('change', _handleDonorChange);
-}
-
-async function _handleDonorChange() {
-  const select   = document.getElementById('donor-select');
-  const donorId  = select ? select.value : '';
-
-  // Reset everything below
+async function _handleDonorSelected(donor) {
+  // Reset everything below the selector
   _selectedDonor    = null;
   _createdInterview = null;
   _questions        = [];
@@ -121,16 +133,13 @@ async function _handleDonorChange() {
   _hideEl(document.getElementById('proceed-section'));
   _hideEl(document.getElementById('interview-already-done'));
 
-  if (!donorId) return;
-
   try {
-    const donor = await getDonorById(donorId);
-    _selectedDonor = donor;
-    _renderDonorInfo(donor);
+    // Fetch full donor details — list may not include all fields (e.g. sex needed for questions)
+    const fullDonor = await getDonorById(donor.donor_id);
+    _selectedDonor  = fullDonor;
+    _renderDonorInfo(fullDonor);
     _showEl(document.getElementById('donor-info-panel'));
-
-    // Check if donor already has an interview in this drive
-    await _checkExistingInterview(donor);
+    await _checkExistingInterview(fullDonor);
   } catch (err) {
     showToast('Failed to load donor details. Please try again.', 'error');
   }
@@ -167,28 +176,41 @@ async function _checkExistingInterview(donor) {
   try {
     const interviews = await getInterviewsByDonor(donor.donor_id);
 
-    // Check if there is already an interview for this donor
-    // (backend scopes by drive — any result means this drive already has one)
     if (interviews && interviews.length > 0) {
-      // Show already-done message, hide the form
-      _showEl(document.getElementById('interview-form-section'));
-      _showEl(document.getElementById('interview-already-done'));
+      // Prefer a pending interview session if one exists.
+      const pendingInterview = interviews.find(iv => iv.interview_result === null);
+      const completedInterview = interviews.find(iv => iv.interview_result !== null);
 
-      const submitSection = document.getElementById('interview-submit-section');
-      if (submitSection) _hideEl(submitSection);
+      if (pendingInterview) {
+        _createdInterview = pendingInterview;
+        await _initInterviewForm(donor);
+        return;
+      }
 
-      const questionList = document.getElementById('question-list');
-      if (questionList) questionList.innerHTML = '';
+      if (completedInterview) {
+        _createdInterview = completedInterview;
 
-      // Store the existing interview for reference
-      _createdInterview = interviews[interviews.length - 1];
+        // Store the completed interview so Screening can preselect this donor.
+        try {
+          sessionStorage.setItem('field_interview_id', _createdInterview.interview_id);
+          sessionStorage.setItem('field_interview_donor_id', donor.donor_id);
+        } catch (_e) { /* ignore */ }
 
-      // Show proceed section directly
-      _showEl(document.getElementById('proceed-section'));
-      return;
+        _showEl(document.getElementById('interview-form-section'));
+        _showEl(document.getElementById('interview-already-done'));
+
+        const submitSection = document.getElementById('interview-submit-section');
+        if (submitSection) _hideEl(submitSection);
+
+        const questionList = document.getElementById('question-list');
+        if (questionList) questionList.innerHTML = '';
+
+        _showEl(document.getElementById('proceed-section'));
+        return;
+      }
     }
 
-    // No existing interview — show the form and load questions
+    // No pending or completed interview — show the form and load questions
     await _initInterviewForm(donor);
   } catch (err) {
     showToast('Failed to check existing interviews. Please try again.', 'error');
@@ -198,12 +220,14 @@ async function _checkExistingInterview(donor) {
 // ─── Interview Form ───────────────────────────────────────────────────────────
 
 async function _initInterviewForm(donor) {
-  const formSection = document.getElementById('interview-form-section');
+  const formSection   = document.getElementById('interview-form-section');
   const submitSection = document.getElementById('interview-submit-section');
   _showEl(formSection);
   if (submitSection) _showEl(submitSection);
 
-  // Load questions based on donor sex
+  // Load questions based on donor sex.
+  // getDonorById() is called before this so donor.sex should be populated.
+  // Fall back to 'Male' if sex is missing — questions with sex_filter='Both' still load.
   await _loadQuestions(donor.sex);
 }
 
@@ -214,8 +238,12 @@ async function _loadQuestions(sex) {
 
   list.innerHTML = '<p class="search-status">Loading questions...</p>';
 
+  // Normalise sex value — backend expects exactly 'Male' or 'Female'
+  const normalised = (sex || '').trim();
+  const safeSex    = (normalised === 'Male' || normalised === 'Female') ? normalised : 'Male';
+
   try {
-    const questions = await getQuestionsBySex(sex || 'Male');
+    const questions = await getQuestionsBySex(safeSex);
     _questions = questions;
     list.innerHTML = '';
 
@@ -260,7 +288,7 @@ async function _loadQuestions(sex) {
   } catch (err) {
     list.innerHTML = '';
     if (errorEl) {
-      errorEl.textContent = 'Failed to load interview questions. Please refresh and try again.';
+      errorEl.textContent = `Failed to load interview questions for ${safeSex} donors. Please refresh and try again.`;
       _showEl(errorEl);
     }
   }
@@ -279,45 +307,44 @@ async function _handleInterviewSubmit(e) {
   const formError = document.getElementById('interview-form-error');
   if (formError) _hideEl(formError);
 
-  // Step 1: Create the interview record
   const submitBtn = document.getElementById('interview-submit-btn');
-
   if (submitBtn) {
     submitBtn.disabled    = true;
     submitBtn.textContent = 'Submitting...';
   }
 
   try {
-    // Create interview first
-    const interviewData = {
-      donor_id:  _selectedDonor.donor_id,
-      branch_id: _user.branch_id,
-    };
+    // Step 1: Create or reuse the interview record
+    let interview = _createdInterview;
+    if (!interview || !interview.interview_id) {
+      const interviewData = {
+        donor_id:  _selectedDonor.donor_id,
+        branch_id: _user.branch_id,
+      };
 
-    const { valid: ivValid, errors: ivErrors } = validateInterview(interviewData);
-    if (!ivValid) {
-      const errEl = document.getElementById('donor-select-error');
-      if (errEl) {
-        errEl.textContent = ivErrors.donor_id || 'Select a donor to continue.';
-        errEl.classList.remove('field-error-hidden');
+      const { valid: ivValid, errors: ivErrors } = validateInterview(interviewData);
+      if (!ivValid) {
+        const errEl = document.getElementById('donor-select-error');
+        if (errEl) {
+          errEl.textContent = ivErrors.donor_id || 'Select a donor to continue.';
+          errEl.classList.remove('field-error-hidden');
+        }
+        return;
       }
-      return;
+
+      interview = await createInterview(interviewData);
+      _createdInterview = interview;
     }
 
-    const interview = await createInterview(interviewData);
-    _createdInterview = interview;
-
-    // Step 2: Collect answers
+    // Step 2: Collect and validate answers
     const answers = _collectAnswers();
 
-    const { valid: ansValid, errors: ansErrors } = validateAnswers(answers);
+    const { valid: ansValid } = validateAnswers(answers);
     if (!ansValid) {
       if (formError) {
         formError.textContent = 'Please answer all questions before submitting.';
         _showEl(formError);
       }
-      // Delete the interview we just created? No — backend handles this.
-      // Just show the error and let staff fix it.
       return;
     }
 
@@ -340,24 +367,18 @@ async function _handleInterviewSubmit(e) {
 
     // Store interview_id for screening page
     try {
-      sessionStorage.setItem('field_interview_id',  interview.interview_id);
+      sessionStorage.setItem('field_interview_id',       interview.interview_id);
       sessionStorage.setItem('field_interview_donor_id', _selectedDonor.donor_id);
     } catch (_e) { /* ignore */ }
 
   } catch (err) {
     const msg = err.message || 'Failed to submit interview. Please try again.';
-
-    // 403 means no active drive assignment
-    if (err.status === 403) {
-      if (formError) {
-        formError.textContent = 'You are not assigned to an active blood drive. Please contact your coordinator.';
-        _showEl(formError);
-      }
-    } else {
-      if (formError) {
-        formError.textContent = msg;
-        _showEl(formError);
-      }
+    if (formError) {
+      // 403 means no active drive assignment for field roles
+      formError.textContent = err.status === 403
+        ? 'You are not assigned to an active blood drive. Please contact your coordinator.'
+        : msg;
+      _showEl(formError);
     }
   } finally {
     if (submitBtn) {

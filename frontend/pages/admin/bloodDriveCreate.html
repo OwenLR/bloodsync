@@ -6,6 +6,8 @@
   <title>Create Blood Drive|BloodSync</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
   <link rel="stylesheet" href="/assets/css/pages/admin/bloodDriveCreate.css" />
+  <!-- Leaflet — map picker for venue location -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body class="app-loading">
   <nav id="navbar"></nav>
@@ -81,18 +83,40 @@
         <section class="form-section">
           <h2 class="form-section-title">Venue</h2>
 
-          <!-- Map pin — coordinates stored in hidden inputs, address auto-filled -->
+          <!-- Map picker — click to drop a pin, coordinates auto-saved -->
           <div class="form-row">
             <div class="form-group form-group--full">
               <label>Venue Location</label>
-              <div class="map-pin-bar">
-                <button id="pin-location-btn" type="button" class="btn-secondary">
-                  📍 Pin Location
-                </button>
-                <span id="pin-location-status" class="pin-status"></span>
+              <p class="form-hint">
+                Click anywhere on the map to pin the venue location.
+                Address fields below will be filled in automatically.
+              </p>
+
+              <!-- Section C: address search bar — type to fly map to location -->
+              <div class="map-search-row">
+                <input
+                  id="map-search-input"
+                  type="text"
+                  class="map-search-input"
+                  placeholder="Search Venue Address"
+                  autocomplete="off"
+                />
+                <button id="map-search-btn" type="button" class="btn-secondary map-search-btn">Search</button>
               </div>
-              <p class="form-hint">Pin the location on the map to auto-fill address fields and enable distance-based volunteer suggestions.</p>
-              <!-- Hidden coordinate inputs — populated by pin action -->
+              <div id="map-search-error" class="map-search-error"></div>
+
+              <div class="map-header-row">
+                <span class="map-label-text">Map</span>
+                <button type="button" id="map-expand-btn" class="map-expand-btn" title="Expand map">⛶ Expand</button>
+              </div>
+
+              <!-- Map container — Leaflet renders inside this div -->
+              <div id="venue-map"></div>
+
+              <!-- Status line shown after a pin is dropped -->
+              <p id="map-pin-status" class="map-pin-status"></p>
+
+              <!-- Hidden inputs — populated when pin is dropped -->
               <input type="hidden" id="venue_latitude"  name="venue_latitude" />
               <input type="hidden" id="venue_longitude" name="venue_longitude" />
             </div>
@@ -200,6 +224,8 @@
     </main>
   </div>
 
+  <!-- Leaflet JS — must load before the entry module so window.L is available -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="/js/entry/admin/bloodDriveCreate.js"></script>
 </body>
 </html>

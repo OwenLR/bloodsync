@@ -1,35 +1,40 @@
 const donorInterviewModel = require('../repositories/donorInterviewModel');
 const donorModel          = require('../repositories/donorModel');
 const response            = require('../../utils/responseHelper');
+const BusinessError       = require('../../utils/businessError');
 const { validateCreateInterview } = require('../../validators/donorInterviewValidator');
 
 const getAllInterviews = async (req, res) => {
     try {
-        const interviews = await donorInterviewModel.getAllInterviews();
+        const interviews = await donorInterviewModel.getAllInterviews(req.drive_id);
         return response.success(res, interviews);
     } catch (error) {
-        return response.error(res, error.message);
+        return response.handleError(res, error);
     }
 };
 
 const getInterviewById = async (req, res) => {
     try {
-        const interview = await donorInterviewModel.getInterviewById(req.params.id);
+        const interview = await donorInterviewModel.getInterviewById(
+            req.params.id,
+            req.drive_id
+        );
         if (!interview) return response.notFound(res, 'Interview not found');
         return response.success(res, interview);
     } catch (error) {
-        return response.error(res, error.message);
+        return response.handleError(res, error);
     }
 };
 
 const getInterviewsByDonor = async (req, res) => {
     try {
         const interviews = await donorInterviewModel.getInterviewsByDonor(
-            req.params.donor_id
+            req.params.donor_id,
+            req.drive_id
         );
         return response.success(res, interviews);
     } catch (error) {
-        return response.error(res, error.message);
+        return response.handleError(res, error);
     }
 };
 
@@ -40,6 +45,22 @@ const createInterview = async (req, res) => {
 
         const donor = await donorModel.getDonorById(req.body.donor_id);
         if (!donor) return response.notFound(res, 'Donor not found');
+
+        const existingInterview = await donorInterviewModel.getInterviewByDonorAndDrive(
+            req.body.donor_id,
+            req.drive_id
+        );
+
+        if (existingInterview) {
+            if (existingInterview.interview_result === null) {
+                return response.success(
+                    res,
+                    existingInterview,
+                    'Existing interview session resumed'
+                );
+            }
+            throw new BusinessError('Interview already exists for this donor', 409);
+        }
 
         const interview = await donorInterviewModel.createInterview({
             donor_id:     req.body.donor_id,
@@ -52,7 +73,7 @@ const createInterview = async (req, res) => {
 
         return response.created(res, interview, 'Interview session created successfully');
     } catch (error) {
-        return response.error(res, error.message);
+        return response.handleError(res, error);
     }
 };
 

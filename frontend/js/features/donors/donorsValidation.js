@@ -19,16 +19,24 @@ export function validateDonorForm(data, { requireAll = true } = {}) {
     }
   }
 
-  // birthdate — required, YYYY-MM-DD, not in the future
+  // birthdate — required, YYYY-MM-DD, not in the future, minimum age 18
   if (requireAll || data.birthdate !== undefined) {
     if (!data.birthdate) {
       errors.birthdate = 'Birthdate is required.';
     } else {
       const date = new Date(data.birthdate);
+      const today = new Date();
       if (isNaN(date.getTime())) {
         errors.birthdate = 'Enter a valid date (YYYY-MM-DD).';
-      } else if (date > new Date()) {
+      } else if (date > today) {
         errors.birthdate = 'Birthdate cannot be in the future.';
+      } else {
+        // Minimum age: 18 years old
+        const minAge = new Date(today);
+        minAge.setFullYear(minAge.getFullYear() - 18);
+        if (date > minAge) {
+          errors.birthdate = 'Donor must be at least 18 years old.';
+        }
       }
     }
   }

@@ -1,32 +1,41 @@
 # BloodSync Frontend — Session State
 
 ## Status
-Phase 2 in progress — Dashboards complete, Blood Drives complete, Settings
-(Admin/PRC Staff) backend complete, frontend not yet built.
+Phase 2 in progress — Dashboards complete, Blood Drives complete (admin),
+Settings complete (admin/staff), Donors feature complete (admin),
+Field workflow: ALL 5 STEPS COMPLETE.
+Next: Blood Units.
 
 ## Current Phase
 Phase 2 — Features / Web
 
 ## Current Task
-- Update sidebarItems.js — Donors collapsible group for Admin/Staff (Option B)
-- Then: donorScreening, donorDonation, donorCollection pages
+- Blood Units page (Admin + PRC Staff)
+- After Blood Units: Blood Requests, Notifications
 
-### Backend endpoints added this session:
+---
 
-GET /api/volunteers/available (for blood drive participant panel)
-PATCH /api/auth/me/password (self-service password change, ALL roles)
-PATCH /api/users/me/profile-img (Admin + PRC Staff profile photo, NEW staff_profiles table)
+## DEVELOPMENT APPROACH — ADMIN FIRST (CONFIRMED THIS SESSION)
 
-## PENDING FEATURES
-- User guide / help page — not optional given real UAT users (PRC staff,
-volunteers, phlebotomists unfamiliar with the system). At minimum, a
-basic /pages/help.html with role-specific workflow steps should exist
-before UAT ends. Build once core Phase 2 features are stable.
-- Requestor self-profile endpoint (no photo, no contact update currently
-possible for Requestor role) — backend work, not yet scoped but high possibility.
-- Volunteer/Phlebotomist/Requestor Settings frontend UI — backend mostly
-ready (see Settings Feature section above), frontend not built. Lower
-priority than Admin/Staff Settings and Donors.
+All features are built and validated on the Admin role before being
+replicated for other roles (PRC Staff, Volunteer, Phlebotomist, Requestor).
+
+Rationale: avoids rebuilding the same thing multiple times for bugs found
+late. Validate logic once on Admin, then replicate to other roles cleanly.
+
+The field workflow pages (/pages/field/) are an exception — they are shared
+by ALL roles (Admin, PRC Staff, Volunteer, Phlebotomist) from day one because
+the backend does not restrict by role label, only by active drive assignment
+for field roles.
+
+---
+
+## PENDING FEATURES (backlog — not blocking current work)
+- User guide / help page — needed before UAT. Build once all Phase 2 features stable.
+- Requestor self-profile endpoint — backend not scoped yet, backlog.
+- Volunteer/Phlebotomist Settings frontend UI — backend ready, frontend not built.
+- Requestor Settings frontend UI — backend partial (password change only).
+- Staff/Admin/Volunteer/Phlebotomist per-role pages for all features (replicate after admin validated).
 
 ---
 
@@ -41,17 +50,20 @@ priority than Admin/Staff Settings and Donors.
 - [x] `js/constants/notificationTypes.js` — NOTIFICATION_TYPES
 - [x] `js/constants/permissions.js` — PERMISSIONS (role arrays per action)
 - [x] `js/constants/socketEvents.js` — SOCKET_EVENTS
-- [x] `js/constants/navItems.js` — NAV_ITEMS (imports from roles + routes)
 - [x] `js/constants/sidebarItems.js` — SIDEBAR_DEFINITIONS, getSidebarItems(), getSidebarSections()
+
+NOTE: constants/navItems.js was DELETED — navbar no longer renders nav links.
+All page navigation lives in sidebar only.
 
 ### Core
 - [x] `js/core/api.js` — apiFetch wrapper
-- [x] `js/core/auth.js` — login(), logout(), getCurrentUser(), redirectByRole()
+- [x] `js/core/auth.js` — login(), logout(), getCurrentUser(), redirectByRole(), getDashboardHref()
 - [x] `js/core/utils.js` — pure utility functions only
 - [x] `js/core/socket.js` — Socket.io init, socket instance export
 - [x] `js/core/formPersist.js` — saveForm(), restoreForm(), clearForm()
 - [x] `js/core/guards/authGuard.js` — requireAuth()
 - [x] `js/core/guards/roleGuard.js` — requireRole()
+- [x] `js/layouts/appShell.js` — revealAppShell()
 
 ### Layouts
 - [x] `js/layouts/navbar.js` — renderNavbar(user, unreadCount)
@@ -65,6 +77,7 @@ priority than Admin/Staff Settings and Donors.
 - [x] `js/components/errorBoundary.js` — showErrorBoundary(), clearErrorBoundary()
 - [x] `js/components/infiniteScroll.js` — initInfiniteScroll(), destroyInfiniteScroll()
 - [x] `js/components/search.js` — initSearch(), clearSearch()
+- [x] `js/components/searchableDropdown.js` — initSearchableDropdown() — NEW THIS SESSION
 
 ### Pages
 - [x] `index.html` — login page
@@ -75,15 +88,12 @@ priority than Admin/Staff Settings and Donors.
 - [x] `js/entry/notFoundPage.js`
 
 ### CSS
-- [x] `assets/css/main.css` — global reset, shared buttons, form elements, all component styles, navbar, sidebar
-- [x] `assets/css/pages/login.css` — login page layout only
-- [x] `assets/css/pages/404.css` — 404 page layout only
+- [x] `assets/css/main.css` — global reset, shared buttons, form elements, all component styles,
+      navbar (fixed), sidebar (fixed), page shell (offset for fixed nav/sidebar)
 
 ### Backend changes made during Phase 1
-- [x] `authController.js` — me() now does a DB lookup via userModel.getUserById()
-      to include first_name and last_name in GET /api/auth/me response
-- [x] `utils/responseHelper.js` — fixed response shape from `status:'success'` to `success:true`
-      This was a critical bug — all API responses were returning the wrong shape
+- [x] `authController.js` — me() now does a DB lookup to include first_name/last_name
+- [x] `utils/responseHelper.js` — fixed success field from string to boolean
 
 ---
 
@@ -115,145 +125,228 @@ priority than Admin/Staff Settings and Donors.
 - [x] `pages/volunteer/dashboard.html` + `js/entry/volunteer/dashboard.js`
 - [x] `pages/phlebotomist/dashboard.html` + `js/entry/phlebotomist/dashboard.js`
 - [x] `pages/requestor/dashboard.html` + `js/entry/requestor/dashboard.js`
-- [x] `assets/css/pages/admin/dashboard.css` (and all role variants)
+- [x] `assets/css/pages/[role]/dashboard.css` — all 5 roles
 
-### Blood Drives (COMPLETE ✅)
-- [x] pages/admin/bloodDrives.html + js/entry/admin/bloodDrives.js
-- [x] pages/staff/bloodDrives.html + js/entry/staff/bloodDrives.js
-- [x]  pages/admin/bloodDriveCreate.html + js/entry/admin/bloodDriveCreate.js
-- [x]  pages/staff/bloodDriveCreate.html + js/entry/staff/bloodDriveCreate.js
-- [x]  js/features/bloodDrives/bloodDrivesApi.js
-- [x]  js/features/bloodDrives/bloodDrivesUI.js
-- [x]  js/features/bloodDrives/bloodDrivesValidation.js
-- [x]  assets/css/pages/admin/bloodDrives.css
-- [x]  assets/css/pages/admin/bloodDriveCreate.css
-- [x]  assets/css/pages/staff/bloodDrives.css
-- [x]  assets/css/pages/staff/bloodDriveCreate.css
-- [x]  assets/css/features/bloodDrives.css
+### Blood Drives — Admin + PRC Staff (COMPLETE ✅)
+- [x] `pages/admin/bloodDrives.html` + `js/entry/admin/bloodDrives.js`
+- [x] `pages/admin/bloodDriveCreate.html` + `js/entry/admin/bloodDriveCreate.js`
+- [x] `pages/staff/bloodDrives.html` + `js/entry/staff/bloodDrives.js` (shares admin JS)
+- [x] `pages/staff/bloodDriveCreate.html`
+- [x] `js/features/bloodDrives/bloodDrivesApi.js`
+- [x] `js/features/bloodDrives/bloodDrivesUI.js`
+- [x] `js/features/bloodDrives/bloodDrivesValidation.js`
+- [x] `assets/css/pages/admin/bloodDriveCreate.css`
+- [x] `assets/css/pages/admin/bloodDrives.css`
+- [x] `assets/css/features/bloodDrives.css`
 
+#### Map Picker — ALL SECTIONS COMPLETE ✅
+- Section A: Leaflet map, click to drop pin, coordinates saved to hidden inputs
+- Section B: Nominatim reverse geocode on pin drop → auto-fills address fields.
+  ALWAYS overwrites — map is source of truth, not "only if empty".
+- Section C: Address search bar above map. Forward geocode → map flies to result
+  → pin drops → address auto-fills. Search input does NOT clear after result.
+- Section D: Expand button opens map in fullscreen modal. Two separate Leaflet
+  instances (inline + modal) — Leaflet cannot be moved between DOM containers.
+  Both stay in sync via shared hidden inputs. Closing modal pans inline map to pin.
 
-NOTE: All file names use camelCase, not kebab-case (renamed mid-session —
-see "Naming Rules" decision below). If any older session summary or chat
-referenced kebab-case names like blood-drives.html, those are stale —
-the camelCase versions above are current.
+#### Map Picker Implementation Details
+- Nominatim reverse geocode priority: city_district > municipality > city > town > village > suburb
+- Nominatim User-Agent: browser Referer header sent automatically — sufficient for thesis UAT
+- CSP: server.js updated — unpkg.com in scriptSrc, styleSrc, imgSrc, connectSrc;
+  nominatim.openstreetmap.org in connectSrc; *.tile.openstreetmap.org in imgSrc
+- Drag marker on inline map → saves coords + reverse geocodes
+- Drag marker on modal map → syncs to inline marker + saves + reverse geocodes
+- Edit mode: marker pre-placed, no reverse geocode on open (address already known)
 
-Known implementation detail: bloodDrivesUI.js participant panel includes
-auto-assign by count (fills from getAvailableVolunteers() results, filtered
-by role + municipality). Cancel modal requires a cancellation_reason
-(validated client-side via bloodDrivesValidation.js before submit).
+### Settings — Admin + PRC Staff (COMPLETE ✅)
+- [x] `js/features/settings/settingsApi.js`
+- [x] `js/features/settings/settingsValidation.js`
+- [x] `js/features/settings/settingsUI.js`
+- [x] `pages/admin/settings.html` + `js/entry/admin/settings.js`
+- [x] `pages/staff/settings.html` + `js/entry/staff/settings.js`
+- [x] `assets/css/features/settings.css`
+- Password change: PATCH /api/auth/me/password (works for ALL roles)
+- Profile photo: PATCH /api/users/me/profile-img (Admin + PRC Staff only → staff_profiles table)
 
+### Donors — Admin (COMPLETE ✅)
+- [x] `js/features/donors/donorsApi.js`
+- [x] `js/features/donors/donorsValidation.js`
+- [x] `js/features/donors/donorsUI.js`
+- [x] `pages/admin/donors.html`
+- [x] `js/entry/admin/donors.js`
+- [x] `assets/css/features/donors.css`
+- [x] `assets/css/pages/admin/donors.css` (placeholder)
 
-### Blood Drives — Design Decisions (old) - (made before creation of blood drives)
-- List page: table with Name, Branch, Location (city/province), Date range, Slots, Status badge, Actions
-- Actions per row: View Participants (side panel), Edit, Cancel
-- Create page: separate page with formPersist (not a modal)
-  Reason: user can navigate away mid-form and return without losing input
-- Participant panel: side panel (not modal, not separate page)
-  Shows available volunteers/phlebotomists with name, role, municipality
-  Filters by address_municipality matching drive city
-  Count-based auto-assign: staff sets number, system picks nearest N and calls POST for each
-  Backend endpoint: GET /api/volunteers/available?role=5&municipality=Batangas City
-- Create form field groups:
-  Basic Info: name, description, branch_id (dropdown), start_datetime, end_datetime, slots_available
-  Venue: venue_name, venue_type (dropdown), building, floor_room, street_address, city, province, postal_code
-  Contact: contact_person, contact_number, contact_email
+#### Donors Implementation Details
+- Search-first flow: search bar before registration form
+- Inline duplicate detection: last name + first name + birthdate (all three must match)
+  OR government ID match. Debounced 600ms. Yellow warning banner + "View existing donor" button.
+- Double-check confirmation modal on Register if duplicate warning is visible (bloodsync item 16)
+- Age 18+ minimum enforced in donorsValidation.js
+- Birthdate max = today set on modal open (create + edit)
+- 409 from backend → "already registered, search for them" message
+- donors.css uses raw hex values only — no CSS variables (main.css has none defined)
+- PRC Staff page (pages/staff/donors.html + js/entry/staff/donors.js) NOT built yet — admin first
 
-### Settings Feature — Admin + PRC Staff (BACKEND COMPLETE ✅ — FRONTEND NOT STARTED)
+### Field Workflow Foundation (COMPLETE ✅)
+- [x] `js/features/fieldWorkflow/fieldWorkflowApi.js`
+- [x] `js/features/fieldWorkflow/fieldWorkflowValidation.js` — age 18+ added this session
+- [x] `assets/css/features/fieldWorkflow.css` — includes searchableDropdown styles (.sd-*)
+- [x] `js/components/searchableDropdown.js` — NEW reusable component
 
-Backend complete this session:
+#### searchableDropdown.js — Component Details
+Location: js/components/searchableDropdown.js
+HTML structure required:
+  <div class="sd-wrapper">
+    <input id="X-input" type="text" class="form-input sd-input" />
+    <ul   id="X-list"               class="sd-list"></ul>
+  </div>
 
- Migration: staff_profiles table (user_id FK unique, profile_img, timestamps)
- authValidator.js — NEW file — validateChangePassword()
- authService.js — changePassword() added (shared by ALL roles, not staff-only)
- authController.js — changePassword controller added
- authRoutes.js — PATCH /me/password added
- userModel.js — getUserCredentialsById(), updatePassword(),
-getStaffProfileByUserId(), upsertStaffProfileImg() added
- userService.js — updateOwnProfileImg() added (Cloudinary + staff_profiles upsert)
- userController.js — updateMyProfileImg added
- userRoutes.js — PATCH /me/profile-img added (registered BEFORE /:id —
-route shadowing risk, same pattern as GET /api/volunteers/available)
+API: initSearchableDropdown({ inputId, listId, items, displayFn, subDisplayFn,
+  filterFn, onSelect, placeholder, emptyMessage })
+Returns: { setItems, selectByPredicate, clear, destroy }
 
-### Frontend Settings — Admin + PRC Staff (COMPLETE ✅)
+Behaviour:
+- Click input → list opens, shows all items
+- Type → filters in real time (case-insensitive via filterFn)
+- Click item → selected, list closes, onSelect fires
+- Click outside → list closes, input cleared if no selection
+- Escape → list closes
+- Arrow keys → navigate list items
+- mousedown on list items preventDefault() → prevents input blur before click
 
+CSS: .sd-wrapper, .sd-list, .sd-item, .sd-item-primary, .sd-item-sub
+     all in assets/css/features/fieldWorkflow.css
 
- js/features/settings/settingsApi.js
- js/features/settings/settingsValidation.js
- js/features/settings/settingsUI.js
- pages/admin/settings.html + js/entry/admin/settings.js
- pages/staff/settings.html + js/entry/staff/settings.js
- assets/css/features/settings.css
- assets/css/pages/admin/settings.css (placeholder)
- assets/css/pages/staff/settings.css (placeholder)
+Used by: donorRegistration (search existing donor), donorInterview (select donor).
+ALL remaining workflow pages (screening, donation, collection) must use this
+component from day one — no plain <select> on any workflow page.
 
+### Field Workflow Pages — Step 1: donorRegistration (COMPLETE ✅)
+- [x] `pages/field/donorRegistration.html`
+- [x] `js/entry/field/donorRegistration.js`
 
-### Settings page scope (CONFIRMED):
+#### donorRegistration Implementation Details
+- Roles: Volunteer, Phlebotomist, Admin, PRC Staff
+- Sidebar: field roles → general/workflow/drive; Admin/Staff → general/management
+- Search dropdown: loads ALL donors on page load, filters client-side via searchableDropdown
+- Inline duplicate detection on form: blur on last_name, first_name, birthdate fields
+  → debounced 400ms → search → exact match check → yellow warning inline
+- Government ID field: separate duplicate check on blur → yellow warning inline
+- On existing donor select: form read-only, contact update section shown,
+  toast if donor has no email, proceed section shown
+- On new registration: 409 → "already registered, search above" message
+- Birthdate max = today set on page load
+- Age 18+ enforced via fieldWorkflowValidation.validateDonorRegistration()
+- Cross-page context: sessionStorage keys field_donor_id, field_donor_name
 
-Password change — calls PATCH /api/auth/me/password (works for ANY role,
-not just Admin/Staff, since it lives in auth not users)
-Profile photo upload — calls PATCH /api/users/me/profile-img
-(Admin + PRC Staff ONLY — writes to staff_profiles, multipart/form-data,
-same file constraints as elsewhere: jpeg/png/jpg/pdf, 5MB max via
-uploadMiddleware.js)
-NOT in scope yet: system configuration settings (would be Admin-only,
-lower priority, undefined scope — revisit only if requested)
+### Field Workflow Pages — Step 2: donorInterview (COMPLETE ✅)
+- [x] `pages/field/donorInterview.html`
+- [x] `js/entry/field/donorInterview.js`
 
+#### donorInterview Implementation Details
+- Roles: Volunteer, Phlebotomist, Admin, PRC Staff
+- Sidebar: same conditional as donorRegistration (field vs admin/staff)
+- Donor selector: searchableDropdown — loads all donors via apiFetch (NOT raw fetch)
+  displayFn: "Last, First"; subDisplayFn: blood type · sex · birthdate
+  filterFn: matches first+last name OR id_number
+- SessionStorage restore: selectByPredicate by donor_id after dropdown init
+- On donor select: fetch full donor via getDonorById, render info panel
+- Existing interview check: if interviews found for this donor → prefer pending interview session and load form; if completed interview exists, show "already done", show proceed section, hide form.
+- Questions loaded by sex via getQuestionsBySex(donor.sex)
+- Answer values must be exactly "YES" or "NO" (uppercase) — backend rejects lowercase
+- Submit: createInterview first, then submitAnswers with interview_id (NOT screening_id)
+- 403 on submit: "not assigned to active drive" message (field roles only)
+- SessionStorage set after success: field_interview_id, field_interview_donor_id
 
-### Settings for OTHER roles — explicitly backlogged, not blocking:
+### Field Workflow Pages — Step 3: donorScreening (COMPLETE ✅)
+- [x] `pages/field/donorScreening.html`
+- [x] `js/entry/field/donorScreening.js`
 
-Volunteer/Phlebotomist: profile photo already possible via existing
-PATCH /api/volunteers/me/profile (writes to volunteer_profiles.profile_img).
-Password change now ALSO possible via the new shared
-PATCH /api/auth/me/password — no additional backend work needed for them.
-Frontend Settings UI for these roles is NOT built yet — only Admin/Staff
-Settings UI is being built this round.
-Requestor: NO self-profile endpoint of any kind exists yet (no photo, no
-contact info update). Password change IS available via the shared
-PATCH /api/auth/me/password. Full requestor self-service profile is
-backend work not yet scoped — backlog item, not urgent.
+#### donorScreening Implementation Details
+- Roles: Volunteer, Phlebotomist, Admin, PRC Staff
+- Sidebar: field roles → general/workflow/drive; Admin/Staff → general/management
+- Donor selector: cross-references getAllInterviews() vs getAllScreenings() to show
+  only donors with a completed interview but no screening yet
+- hemoglobin_status: AUTO-COMPUTED from hemoglobin value + donor sex — never manually selected
+  Male min 13.0 g/dL, Female min 12.5 g/dL, max 20.0 g/dL
+- screening_result: AUTO-COMPUTED from hemoglobin_status — Allowed → Eligible, Not Allowed → Deferred
+- blood_type_confirmed: REQUIRED (not optional) — pre-filled from donor's registered blood type
+- Live preview: hemoglobin input fires _updateResultPreview() showing computed result inline
+- Hemoglobin hint: shows correct min threshold for donor's sex
+- If Deferred: backend creates deferral record automatically — frontend never does
+- Existing screening check: shows already-done message + proceed section, hides form
+- validateScreening updated: screening_result checked as auto-computed (not required presence),
+  blood_type_confirmed now required
+- 403 on submit: "not assigned to active drive" message
+- SessionStorage set after success: field_screening_id, field_screening_donor_id
+- SessionStorage cleared: field_interview_id, field_interview_donor_id
 
-### Known architectural decision from this work: 
-password change was DELIBERATELY NOT placed under /api/users (which is Admin-only management of
-OTHER users' accounts) — it lives under /api/auth/me/password instead,
-shared by every authenticated role, since password verification/hashing
-logic doesn't depend on role_id. Profile photo upload IS role-specific
-(different DB table per role-group: staff_profiles vs volunteer_profiles)
-so that legitimately stays split by role under /api/users and
-/api/volunteers respectively.
+### Field Workflow Pages — Step 4: donorDonation (COMPLETE ✅)
+- [x] `pages/field/donorDonation.html`
+- [x] `js/entry/field/donorDonation.js`
 
-### Donors (NOT STARTED — next task)
-See "Current Task" section above.
-- [ ] Admin/Staff donor list page
-- [ ] Donor registration page (Admin/Staff/Volunteer/Phlebotomist)
+#### donorDonation Implementation Details
+- Roles: Volunteer, Phlebotomist, Admin, PRC Staff
+- Sidebar: field roles → general/workflow/drive; Admin/Staff → general/management
+- Donor selector: cross-references getAllScreenings() (Eligible only) vs getAllDonations()
+  to show only donors with an Eligible screening but no donation yet
+- Email guard: after donor select, checks fullDonor.email — if missing, shows warning
+  banner with link back to Registration page, blocks form entirely. Double-checked on submit.
+  Missing email shown in red in donor info panel.
+- QNS warning: fires live when extraction_time > 15 min. Does NOT block submit —
+  backend sets is_qns: true automatically. Warning hides if user edits back below 15.
+- Performed By: shows logged-in user's name as read-only display. Not submitted in POST
+  body — backend reads conducted_by from JWT.
+- POST body: screening_id + extraction_time only
+- Existing donation check: shows already-done message + proceed, hides form
+- 403 on submit: "not assigned to active drive" message
+- SessionStorage set after success: field_donation_id, field_donation_donor_id
+- SessionStorage cleared: field_screening_id, field_screening_donor_id
 
-### Donor Workflow (not started)
-Pages under /pages/field/ — both Volunteer and Phlebotomist can access all steps.
- pages/field/donorRegistration.html + js/entry/field/donorRegistration.js
- pages/field/donorInterview.html + js/entry/field/donorInterview.js
- pages/field/donorScreening.html + js/entry/field/donorScreening.js
- pages/field/donorDonation.html + js/entry/field/donorDonation.js
- pages/field/donorCollection.html + js/entry/field/donorCollection.js
+### Field Workflow Pages — Step 5: donorCollection (COMPLETE ✅)
+- [x] `pages/field/donorCollection.html`
+- [x] `js/entry/field/donorCollection.js`
 
-### Blood Units (not started)
+#### donorCollection Implementation Details
+- Roles: Volunteer, Phlebotomist, Admin, PRC Staff
+- Sidebar: field roles → general/workflow/drive; Admin/Staff → general/management
+- Donor selector: cross-references getAllDonations() vs getAllCollections() to show
+  only donors with a completed donation but no collection yet
+- getAllCollections() is Admin/PRC Staff only — for field roles it returns 403,
+  caught silently with .catch(() => []), giving empty set (no pre-filtering).
+  Backend enforces uniqueness and rejects duplicates with a clear error.
+- Blood type: pre-filled from screening record's blood_type_confirmed; falls back
+  to donor.blood_type. Staff confirm before submitting.
+- Component options: Whole Blood, Packed Red Blood Cells, Platelets, Fresh Frozen Plasma
+- Volume: 50–600 mL (validated client and server side)
+- No proceed link — last step. Shows "Register Another Donor" → Registration page.
+- POST body: donation_id, blood_type, component, volume_ml
+- SessionStorage cleared: field_donation_id, field_donation_donor_id
+- SessionStorage writes: nothing (last step)
+
+### Blood Units (NOT STARTED)
 - [ ] Blood units list with status badges
-- [ ] Separate action for Whole Blood + Available units
-- [ ] Status update (Disposed, Withdrawn)
+- [ ] Separate action: Whole Blood + Available only
+- [ ] Status update (Disposed, Withdrawn) — confirm modal required
+- [ ] Terminal states (Released, Disposed, Withdrawn, Separated, Expired) — hide all actions
+- [ ] QNS collections — hide Safe button
 
-### Blood Requests + real-time socket (not started)
+### Blood Requests + real-time socket (NOT STARTED)
 - [ ] Requestor submit request page
 - [ ] Requestor my requests page with live status
 - [ ] Staff/Admin blood requests management page
 - [ ] Socket: blood_request_new → increment badge, prepend row
 
-### Notifications (not started)
+### Notifications (NOT STARTED)
 - [ ] Notification list page (all roles)
 - [ ] updateBadge() in notificationUI.js
 - [ ] Mark read / mark all read
 
-### Reports (not started)
+### Reports (NOT STARTED)
 - [ ] Aggregate data display (read-only, build last)
 
-### Drive pages — Volunteer + Phlebotomist (not started)
+### Drive pages — Volunteer + Phlebotomist (NOT STARTED)
 - [ ] `pages/volunteer/drive.html` — my assignment view
 - [ ] `pages/phlebotomist/drive.html` — my assignment view
 
@@ -274,380 +367,208 @@ Pages under /pages/field/ — both Volunteer and Phlebotomist can access all ste
 
 ## Phase 4 — Design Pass (not started)
 - [ ] `assets/css/main.css` — full design tokens, typography, colors
-- [ ] `.btn-primary` and `.btn-danger` currently identical (both #c00) — MUST give distinct
-      visual identities in Phase 4. Danger = destructive/irreversible, must not look like primary action.
-- [ ] `assets/css/layouts/navbar.css`
-- [ ] `assets/css/layouts/sidebar.css`
-- [ ] `assets/css/components/toast.css`
-- [ ] `assets/css/components/modal.css`
-- [ ] `assets/css/components/skeleton.css`
-- [ ] `assets/css/components/errorBoundary.css`
-- [ ] `assets/css/components/feedback.css`
-- [ ] `assets/css/components/search.css`
-- [ ] `assets/css/pages/login.css` — full design
-- [ ] `assets/css/pages/404.css` — full design
-- [ ] `assets/css/features/` — per feature styles
+- [ ] `.btn-primary` and `.btn-danger` currently identical (both #c00) — MUST give
+      distinct visual identities. Danger = destructive/irreversible.
+- [ ] All layout/component/feature CSS files — full design pass
 - [ ] Responsive adjustments
-- [ ] `js/core/socket.js` — remove or gate console.log statements behind DEBUG flag before deployment
-
----
-## Design pagg
-.btn-primary and .btn-danger currently identical (#c00) — MUST give distinct
-visual identities. Danger = destructive, must not look like primary action.
-Skeleton flash on navigation: acceptable at Phase 2. Phase 4 CSS transitions
-will smooth the skeleton→content swap. Also improves on Railway vs localhost.
-Remove or gate console.log in socket.js behind DEBUG flag before deploy.
----
-
-## Known Issues
-Loop on dashboard redirect when dashboard page doesn't exist — expected,
-resolves as pages are built
-401 auto-refresh and refresh token expiry not yet confirmed — test naturally
-during Phase 2
-Skeleton flash on page navigation: visible on localhost, acceptable, will
-improve on Railway and with Phase 4 CSS transitions
-Blood Drive entry files still use old section name in renderSidebar calls —
-FIXED this session ('operations' → 'general')
-- sidebarItems.js not yet updated for Admin/Staff Donors collapsible group
-- donorScreening, donorDonation, donorCollection pages not yet built
+- [ ] `js/core/socket.js` — remove or gate console.log behind DEBUG flag before deploy
 
 ---
 
-## Decisions Made
+## Decisions Made This Session
 
-### Architecture
-- Vanilla JS for web — no React (real-time handled via Socket.io + DOM)
-- React Native for mobile (requestors only)
-- Functionality first, design last — no design CSS until Phase 4
-- No duplicate filenames across the project regardless of folder depth
-sessionStorage user cache (auth.js)
-- getCurrentUser() now checks: in-memory → sessionStorage 'bs_user' → network.
-On login, user is written to sessionStorage. On logout, cleared.
-Eliminates GET /api/auth/me network round-trip on every page navigation —
-was the primary cause of the navbar/sidebar flash between pages.
-Security note: stored object is display data only (name, role_id, branch_id).
-Tokens are never in sessionStorage. httpOnly cookie is still the security layer.
-Known tradeoff: if an admin changes a user's role mid-session, the cached
-object won't reflect it until the tab closes. Acceptable for thesis UAT.
+### Admin-First Development (CONFIRMED)
+Every feature is built for Admin first, then replicated for other roles once
+validated. This is the explicit project approach going forward. The field
+workflow pages (/pages/field/) are the only exception — they are shared by
+all roles from day one by design.
 
-- Brand link fix (navbar.js)
-brandLink.href now calls getDashboardHref(user.role_id) instead of '/'.
-Clicking BloodSync goes directly to the correct dashboard — eliminates the
-index.html → loginPage.js → redirectByRole() two-hop that caused a visible flash.
+### Navbar + Sidebar Fixed Positioning (DONE — main.css)
+#navbar: position fixed, top 0, height 52px, z-index 200
+#sidebar: position fixed, top 52px (below navbar), bottom 0, overflow-y auto, z-index 100
+.page-shell: padding-top 52px (clears navbar)
+.page-content: margin-left 200px (clears sidebar), min-width 0
+Scrolling the page content no longer scrolls the navbar or sidebar.
 
-- App shell reveal pattern (appShell.js + main.css)
-Every protected page <body> starts with class="app-loading". Entry files call
-revealAppShell() immediately after renderNavbar() + renderSidebar() complete.
-CSS keeps #navbar, #sidebar, .page-content as visibility:hidden (not
-display:none — avoids layout shift) under app-loading. Swap to app-ready
-makes them visible. Applied to all dashboard and settings pages this session.
-Blood Drives pages already had this pattern from a previous session.
+### searchableDropdown.js — Universal Donor Selector Pattern
+All 5 field workflow pages use initSearchableDropdown from
+js/components/searchableDropdown.js. No plain <select> on any workflow page.
+The component loads all items once, filters client-side in real time.
+mousedown preventDefault prevents blur-before-click race condition.
+CSS classes: .sd-wrapper, .sd-list, .sd-item, .sd-item-primary, .sd-item-sub
+all live in assets/css/features/fieldWorkflow.css.
 
-- Sidebar restructure
-Section name 'operations' renamed to 'general' across all roles
-Dashboard added as first item in every role's 'general' section
-Volunteer and Phlebotomist now have identical sidebar structure —
-both see all 5 donor workflow steps (Register, Interview, Screening,
-Donation, Collection) under a collapsible 'Blood Drive Workflow' group
-REASON: backend bloodDriveMiddleware gates on active drive assignment,
-not on role label. Either role can perform any workflow step. Sidebar
-restriction would artificially block cooperation between field staff.
-sidebar.js extended to support group items: { label, group: true, children: [] }
-Rendered as <details>/<summary>, open by default.
+### Map Auto-fill Overwrites (FIXED)
+autofillField() previously only wrote if field was empty. Fixed: always
+overwrites. Dropping a new pin always updates all four address fields to
+match the new location. Map is source of truth.
 
-- FIELD shared routes
-New ROUTES.FIELD section added to routes.js for the 5 donor workflow pages.
-Pages live under /pages/field/ (not /pages/volunteer/ or /pages/phlebotomist/)
-to reflect that both roles share them equally.
-Old per-role workflow routes (VOLUNTEER.REGISTER, VOLUNTEER.INTERVIEW,
-PHLEBOTOMIST.SCREENING etc.) removed — no longer needed.
+### Field Workflow Role Access (CONFIRMED)
+All 5 donor workflow pages accept: ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST,
+ROLES.ADMIN, ROLES.PRC_STAFF.
+Sidebar renders differently per role:
+- Field roles (Vol/Phleb): general, workflow, drive sections
+- Admin/Staff: general, management sections
+Backend gate: field roles need active drive assignment (403 = no active drive).
+Admin/Staff: no drive required, drive_id = null (walk-in), this is correct.
 
-- Admin/Staff Donors sidebar: collapsible group (Option B) — Donor List +
-  all 5 field workflow steps under one Donors group. Same routes as field
-  roles (ROUTES.FIELD.*) — Admin/Staff can also perform walk-in donor
-  workflow outside of a blood drive (drive_id = NULL for them).
-- fieldWorkflow CSS uses raw hex values only — no CSS variables, matches
-  main.css which has no CSS variable definitions.
-- SessionStorage used for cross-page donor context passing in field
-  workflow — field_donor_id, field_donor_name, field_interview_id,
-  field_interview_donor_id.
+### fieldWorkflow CSS — No CSS Variables
+fieldWorkflow.css (and all feature CSS) uses raw hex values only. main.css
+has no CSS variable definitions. Using var(--color-*) silently falls back.
+Rule: never use CSS variables in any feature CSS file until Phase 4 defines
+them in main.css.
 
-### File Naming Convention (decided this session)
-ALL file names use camelCase — including HTML and CSS files, not just JS.
-This was a correction mid-session: Blood Drives feature files were
-originally created kebab-case (blood-drives.html, blood-drive-create.css)
-and were renamed to camelCase (bloodDrives.html, bloodDriveCreate.css)
-partway through. Every reference (routes.js, <link>/<script> tags inside
-HTML files, entry file imports) was updated to match at the same time.
-Going forward: every new file (HTML, CSS, JS — no exceptions) must be
-camelCase from the start. Folder names under pages/ and assets/css/pages/
-(admin, staff, volunteer, phlebotomist, requestor) stay lowercase — those
-are role names, not "files" in the naming-rule sense.
+### Duplicate Detection Rules (bloodsync.md items 12-16)
+Registration page inline detection:
+- last_name + first_name + birthdate ALL must match (partial name alone = no warning)
+- OR government ID exact match
+- Debounced 400ms on blur
+- Shows yellow warning with "View existing donor" button
+- Double-check confirmation modal fires on Register button if warning is visible
+- Age 18+ minimum in both donorsValidation.js AND fieldWorkflowValidation.js
 
-### Navigation Architecture
-Navbar is identity-only: brand/logo, current user's display name,
-notifications link + badge, logout button. NO feature/page navigation
-links in the navbar.
-Sidebar is the single source of page navigation for the entire app —
-every navigable page lives in constants/sidebarItems.js and nowhere else.
-Reason: original navbar (NAV_ITEMS) and sidebar both listed the same
-pages — redundant, two click-paths to the same destination, would worsen
-as more pages were added in Phase 2.
-constants/navItems.js DELETED — only consumer was navbar.js, which no
-longer renders a nav-links list.
-Contextual/in-page actions (e.g. "+ New Drive" button, row-level
-Edit/Cancel/Participants buttons) stay inline within the page — never
-added to the sidebar. Sidebar only ever lists pages, not actions.
+### getCurrentUserSilent() — Login Page Auth Check Pattern
+Login page must use getCurrentUserSilent() (raw fetch, no apiFetch) for the
+already-logged-in check. Using getCurrentUser() (which uses apiFetch) causes:
+401 → tryRefresh → 401 → apiFetch redirects to ROUTES.LOGIN → page reloads
+→ init() runs again → infinite loop → 429 rate limit.
+getCurrentUserSilent() is exported from auth.js and must ONLY be used in
+loginPage.js. Every other page uses getCurrentUser() via authGuard normally.
 
-### Folder Structure
-- `js/entry/` organized in role subfolders: admin/, staff/, volunteer/, phlebotomist/, requestor/
-  loginPage.js and notFoundPage.js stay at js/entry/ root (not role-specific)
-- Entry files in role subfolders use ../../ to reach core/, layouts/, constants/
-- `js/constants/` — one file per concern, all frozen with Object.freeze()
-- `js/core/guards/` — auth and role guards separate files
-- `js/core/formPersist.js` — client-state persistence (sessionStorage), lives in core/ not components/
-- `js/components/` — reusable UI components with DOM rendering responsibility
-- `js/layouts/` — navbar and sidebar renderers
-- `js/features/` — feature-folder pattern: featureApi.js + featureUI.js + featureValidation.js
-- `assets/css/` mirrors JS folder structure
+### Field Workflow Donor Filtering — Cross-Reference Pattern
+All workflow steps filter the donor dropdown client-side by cross-referencing
+two API lists. Pattern per step:
+- Interview:   getAllDonors() ∩ getAllInterviews() donors NOT yet interviewed
+- Screening:   getAllDonors() ∩ getAllInterviews() donors WITH interview, NOT yet screened
+- Donation:    getAllDonors() ∩ getAllScreenings(Eligible) donors NOT yet donated
+- Collection:  getAllDonors() ∩ getAllDonations() donors NOT yet collected
+Field roles: backend scopes GET /api/donor-interviews and GET /api/screenings
+to their active drive automatically. Admin/Staff get all records (walk-in scope).
+getAllCollections() is Admin/Staff only — field roles get 403, caught with
+.catch(() => []) to give empty set. Backend rejects duplicate POSTs anyway.
 
-### Page Loading Pattern
+### Contact Update Role Branching
+PATCH /api/donors/:id/contact — Volunteer/Phlebotomist only
+PATCH /api/donors/:id          — Admin/PRC Staff only
+donorRegistration.js branches on role_id before calling updateDonorContact()
+or updateDonorFull(). Sending the wrong endpoint for the role → 403 from backend.
+updateDonorFull() lives in fieldWorkflowApi.js (not donorsApi.js) because it is
+called from a field workflow entry file.
 
-Every protected page entry file follows this fixed order: requireAuth() →
-requireRole() → renderNavbar(user, 0) → clearSidebar()/renderSidebar() →
-showSkeleton() on content area → fetch feature data → hideSkeleton() + render.
-Non-critical data (unread notification count, profile images) never blocks
-shell render — navbar renders with unreadCount=0 immediately; once
-notificationApi.js exists, getUnreadCount().then(count => updateBadge(count))
-updates it afterward without blocking anything.
-Full pattern documented in FRONTEND_AI_RULES.md under "Required Page Loading
-Order — Every Protected Page". js/entry/admin/bloodDrives.js and
-js/entry/staff/bloodDrives.js already follow this pattern correctly — use
-them as the reference implementation for the next entry files (Settings,
-then Donors).
+### Screening Auto-Computation
+hemoglobin_status and screening_result are NEVER manually selected on the
+screening page. Both are computed in donorScreening.js:
+  hemoglobin_status = hgb in range for sex ? 'Allowed' : 'Not Allowed'
+  screening_result  = hgbStatus === 'Allowed' ? 'Eligible' : 'Deferred'
+Thresholds: Male 13.0–20.0, Female 12.5–20.0 g/dL.
+validateScreening() updated to match: treats screening_result as auto-computed
+(only validates it is a valid string if present), blood_type_confirmed required.
 
-CONFIRMED non-issues (no action needed, do not revisit without new evidence)
-Full page reload on every navigation — expected for this multi-page
-architecture (chosen deliberately for multiple field staff working
-simultaneously without UI interference). Not a bug. Address visual
-jarring (if any) with CSS transitions in Phase 4 only.
-15-minute access token expiry — correct as configured. If testers report
-unexpected logouts, treat as a refresh-flow bug to debug, not a reason to
-extend token lifetime.
+### SessionStorage Chain — Complete (All 5 Steps)
+field_donor_id            set by donorRegistration, read + cleared by donorInterview
+field_donor_name          set by donorRegistration, cleared by donorInterview
+field_interview_id        set by donorInterview, read + cleared by donorScreening
+field_interview_donor_id  set by donorInterview, read + cleared by donorScreening
+field_screening_id        set by donorScreening, read + cleared by donorDonation
+field_screening_donor_id  set by donorScreening, read + cleared by donorDonation
+field_donation_id         set by donorDonation, read + cleared by donorCollection
+field_donation_donor_id   set by donorDonation, read + cleared by donorCollection
+Rule: each step clears the keys it consumed after successful submit.
 
-### JS Rules
-- JS targets IDs — CSS targets classes — never mix
-- No inline CSS in HTML files
-- No inline JS in HTML files
-- No onclick attributes — always addEventListener in entry files
-- Every protected page: requireAuth() → requireRole() → renderNavbar() → renderSidebar() → feature init
-- type="module" on all script tags — enables ES module imports
-- All HTML CSS/JS paths are absolute (start with /) — relative paths break in subfolders
+---
 
-### HTML Rules
-- All CSS and JS links use absolute paths starting with / (e.g. /assets/css/main.css)
-  Never use relative paths (../) — Express serves from root, relative paths break by URL depth
+## Files Created / Modified This Session
 
-### CSS Rules
-- Minimal functional styles only during Phase 1 and Phase 2
-- Never override a shared class in a page-specific CSS file
-  Use modifier classes instead (e.g. .btn-full-width in login.css)
-- .btn-full-width modifier: full-width button — use instead of overriding .btn-primary
-- .notif-badge-hidden: hides badge when count is 0 — must exist in main.css alongside
-  the always-render badge pattern in navbar.js
+### New Files
+- js/components/searchableDropdown.js — reusable donor selector component
+- pages/field/donorScreening.html
+- js/entry/field/donorScreening.js
+- pages/field/donorDonation.html
+- js/entry/field/donorDonation.js
+- pages/field/donorCollection.html
+- js/entry/field/donorCollection.js
 
-### Constants Rules
-- All constants frozen with Object.freeze()
-- Status values as objects with named keys — never arrays
-- CANCELLED is in BLOOD_REQUEST_STATUS for display only
-  It is NOT a valid value for PATCH /:id/status — only set via PATCH /:id/cancel
+### Modified Files
+- assets/css/main.css — navbar/sidebar fixed positioning, page-shell/content offsets
+- assets/css/features/fieldWorkflow.css — added .sd-* searchableDropdown styles
+- assets/css/features/donors.css — replaced all CSS variables with raw hex
+- js/features/donors/donorsUI.js — inline duplicate detection, double-check confirm,
+  birthdate max on modal open (create + edit)
+- js/features/donors/donorsValidation.js — age 18+ minimum added
+- js/features/fieldWorkflow/fieldWorkflowValidation.js — age 18+ minimum added
+- js/entry/field/donorRegistration.js — Admin/Staff roles added, sidebar conditional,
+  birthdate max, replaced button-search with searchableDropdown
+- pages/field/donorRegistration.html — replaced search bar + button with sd-wrapper structure
+- js/entry/field/donorInterview.js — Admin/Staff roles added, sidebar conditional,
+  raw fetch replaced with apiFetch, <select> replaced with searchableDropdown
+- pages/field/donorInterview.html — replaced <select> with sd-wrapper structure
+- js/entry/admin/bloodDriveCreate.js — map Sections B, C, D (reverse geocode,
+  address search, expandable modal map)
+- pages/admin/bloodDriveCreate.html — expand button + map search bar added
+- assets/css/pages/admin/bloodDriveCreate.css — map search + modal styles
+- server.js — CSP: unpkg.com added to imgSrc and connectSrc
+- js/features/fieldWorkflow/fieldWorkflowApi.js
+    — added getAllDonors() (GET /api/donors, used by interview/screening/donation/collection)
+    — added updateDonorFull() (PATCH /api/donors/:id, used by Admin/Staff contact update)
+- js/features/fieldWorkflow/fieldWorkflowValidation.js
+    — validateScreening: screening_result now treated as auto-computed (not required input)
+    — validateScreening: blood_type_confirmed now required (was optional)
+- js/entry/field/donorRegistration.js
+    — contact update now branches by role: field roles → updateDonorContact(),
+      Admin/Staff → updateDonorFull(). Fixes 403 "Access denied" on contact update.
+- js/entry/field/donorInterview.js
+    — replaced raw apiFetch('/api/donors') call with getAllDonors() from fieldWorkflowApi.js.
+      Fixes "apiFetch is not defined" error on interview page.
+    — donor dropdown now filters: field roles see only uninterviewed donors in this drive
+      (cross-references getAllInterviews() against getAllDonors()). Admin/Staff see all.
+    — import updated: searchDonors replaced with getAllDonors, getAllInterviews added.
+- js/core/auth.js
+    — added getCurrentUserSilent(): raw fetch, no refresh, no redirect. Login page only.
+- js/entry/loginPage.js
+    — replaced getCurrentUser() with getCurrentUserSilent() for already-logged-in check.
+      Fixes infinite redirect loop (401 → refresh → 401 → redirect → reload → repeat)
+      that occurred after logout and hit 429 rate limit.
+- backend/interviewQuestionRoutes.js
+    — fixed route path: /gender/:sex → /sex/:sex to match FRONTEND_CONTRACT.md.
+      Fixes 404 on GET /api/interview-questions/sex/Male.
 
-### API Response Shape
-- success field is boolean: { success: true, message: "...", data: {...} }
-- Never check body.status === 'success' — that was the old wrong shape (fixed in responseHelper.js)
-- Always check res.ok && body.success before using body.data
+---
 
-### Backend Endpoints Added This Session
-- GET /api/volunteers/available — Admin + PRC Staff
-  Returns active volunteers and phlebotomists for participant assignment
-  Query params: ?role=5 (role_id), ?municipality=Batangas City
-  Documented in FRONTEND_CONTRACT.md
+## Architecture Decisions (Ongoing)
+
+### Two Leaflet Instances Over One
+Leaflet does not reliably support moving a map instance between DOM containers.
+The expand modal uses a second separate Leaflet instance. Both sync via shared
+hidden inputs. Correct architectural choice — do not attempt single-instance.
+
+### apiFetch Over raw fetch — Everywhere
+All API calls must use apiFetch() from js/core/api.js. Raw fetch() bypasses
+the 401→refresh→retry flow. donorInterview.js had this bug — now fixed.
+This rule applies to every file. The only exception is tryRefresh() inside
+api.js itself (raw fetch to avoid infinite loop).
+
+### SessionStorage for Cross-Page Context
+Field workflow pages pass context between steps via sessionStorage:
+- field_donor_id — set by donorRegistration, read by donorInterview
+- field_donor_name — set by donorRegistration
+- field_interview_id — set by donorInterview, read by donorScreening
+- field_interview_donor_id — set by donorInterview
+- field_screening_id — to be set by donorScreening, read by donorDonation
+- field_donation_id — to be set by donorDonation, read by donorCollection
+Clear each key after the next page reads it to avoid stale context.
 
 ### Serving Architecture
 - Express serves frontend via express.static('../frontend')
 - All non-API unmatched routes serve index.html (fallback)
-- Local dev: http://localhost:3000 (single command: npm run dev in backend/)
-- Production: Railway serves both frontend and backend from same deployment
-- railway.toml at repo root: buildCommand = "cd backend && npm install", startCommand = "cd backend && npm start"
-- CORS: allowedOrigins includes http://localhost:3000 (added to .env ALLOWED_ORIGINS)
-
-### Helmet CSP Configuration
-- scriptSrc: self + https://cdn.socket.io (Socket.io CDN)
-- connectSrc: self + ws://localhost:3000 + wss://localhost:3000 + https://cdn.socket.io
-- upgradeInsecureRequests removed — Railway handles HTTPS at infrastructure level
-- Configuration is production-safe as-is — no changes needed before Railway deployment
-
----
-
-## Files Created — Phase 1
-### Constants
-- js/constants/apiConfig.js
-- js/constants/roles.js
-- js/constants/statusConstants.js
-- js/constants/routes.js
-- js/constants/bloodTypes.js
-- js/constants/notificationTypes.js
-- js/constants/permissions.js
-- js/constants/socketEvents.js
-- js/constants/navItems.js
-- js/constants/sidebarItems.js
-
-### Core
-- js/core/api.js
-- js/core/auth.js
-- js/core/utils.js
-- js/core/socket.js
-- js/core/formPersist.js
-- js/core/guards/authGuard.js
-- js/core/guards/roleGuard.js
-
-### Layouts
-- js/layouts/navbar.js
-- js/layouts/sidebar.js
-
-### Components
-- js/components/feedback.js
-- js/components/toast.js
-- js/components/modal.js
-- js/components/skeleton.js
-- js/components/errorBoundary.js
-- js/components/infiniteScroll.js
-- js/components/search.js
-
-### Pages
-- index.html
-- pages/404.html
-
-### Entry
-- js/entry/loginPage.js
-- js/entry/notFoundPage.js
-
-### CSS
-- assets/css/main.css
-- assets/css/pages/login.css
-- assets/css/pages/404.css
-
-### Backend (modified during Phase 1)
-- authController.js — me() includes first_name/last_name via DB lookup
-- utils/responseHelper.js — fixed success field from string to boolean
-
----
-
-## Files Created — Phase 2
-
-### Dashboards
-- pages/admin/dashboard.html
-- pages/staff/dashboard.html
-- pages/volunteer/dashboard.html
-- pages/phlebotomist/dashboard.html
-- pages/requestor/dashboard.html
-- js/entry/admin/dashboard.js
-- js/entry/staff/dashboard.js
-- js/entry/volunteer/dashboard.js
-- js/entry/phlebotomist/dashboard.js
-- js/entry/requestor/dashboard.js
-- assets/css/pages/admin/dashboard.css
-- assets/css/pages/staff/dashboard.css
-- assets/css/pages/volunteer/dashboard.css
-- assets/css/pages/phlebotomist/dashboard.css
-- assets/css/pages/requestor/dashboard.css
-
-### Donors Feature (Admin/Staff)
-- js/features/donors/donorsApi.js
-- js/features/donors/donorsValidation.js
-- js/features/donors/donorsUI.js
-- pages/admin/donors.html
-- pages/staff/donors.html
-- js/entry/admin/donors.js
-- js/entry/staff/donors.js
-- assets/css/features/donors.css
-- assets/css/pages/admin/donors.css (placeholder)
-- assets/css/pages/staff/donors.css (placeholder)
-
-### Field Workflow Foundation
-- js/features/fieldWorkflow/fieldWorkflowApi.js
-- js/features/fieldWorkflow/fieldWorkflowValidation.js
-- assets/css/features/fieldWorkflow.css
-
-### Field Workflow Pages (partial)
-- pages/field/donorRegistration.html
-- js/entry/field/donorRegistration.js
-- pages/field/donorInterview.html
-- js/entry/field/donorInterview.js
-
-### Backend (modified during Phase 2)
-- server.js — express.static + fallback middleware + path require + link log
-- server.js — Helmet CSP configured for Socket.io CDN and WebSocket connections
-- backend/app/repositories/profileModel.js — getAvailableVolunteers() added
-- backend/app/controllers/registrationController.js — getAvailableVolunteers() added
-- backend/app/routes/registrationRoutes.js — GET /api/volunteers/available added
-
-### Root
-- railway.toml — Railway deployment config
-
----
-### Files Modified This Session
-Files Modified This Session
-
-Constants
-js/constants/routes.js — added ROUTES.FIELD, removed old per-role workflow
-routes, added SETTINGS to ADMIN and STAFF
-js/constants/sidebarItems.js — Dashboard added to all roles, unified field
-workflow for Volunteer + Phlebotomist, collapsible group support
-
-Core
-js/core/auth.js — sessionStorage user cache, getDashboardHref() exported
-
-Layouts
-js/layouts/navbar.js — brand link uses getDashboardHref()
-js/layouts/sidebar.js — collapsible group rendering added
-js/layouts/appShell.js — NEW: revealAppShell()
-
-CSS
-assets/css/main.css — field-error-hidden, form-group/label/input,
-page-header/title, btn-full-width, sidebar collapsible group styles,
-app-loading/app-ready shell reveal
-
-Settings (NEW)
-js/features/settings/settingsApi.js
-js/features/settings/settingsValidation.js
-js/features/settings/settingsUI.js
-pages/admin/settings.html
-pages/staff/settings.html
-js/entry/admin/settings.js
-js/entry/staff/settings.js
-assets/css/features/settings.css
-assets/css/pages/admin/settings.css
-assets/css/pages/staff/settings.css
-
-Dashboards (UPDATED — appShell + sidebar section rename)
-pages/[role]/dashboard.html — all 5: added class="app-loading" to body
-js/entry/[role]/dashboard.js — all 5: revealAppShell() added,
-'operations' → 'general', Volunteer/Phlebotomist now render 'workflow'
-and 'drive' sections
-
-Sidebar Section Names Per Role (CURRENT)
-RoleSections passed to renderSidebar()Admin'general', 'management'PRC Staff'general', 'management'Volunteer'general', 'workflow', 'drive'Phlebotomist'general', 'workflow', 'drive'Requestor'general'
-
-Every entry file must use these exact section names.
-'operations' no longer exists — do not use it.
-
----
-
-## Environment
-- Backend: Railway (ready to deploy)
-- Frontend: served by Express via express.static — same Railway deployment
 - Local dev: http://localhost:3000 (npm run dev in backend/)
-- Mobile: Expo (React Native) — separate
-- API base URL (local): http://localhost:3000
-- API base URL (production): '' (empty string — same origin on Railway)
+- Production: Railway — same deployment
+
+### Helmet CSP (current complete state)
+scriptSrc:  self, cdn.socket.io, unpkg.com
+styleSrc:   self, unsafe-inline, unpkg.com
+connectSrc: self, ws://localhost:3000, wss://localhost:3000,
+            cdn.socket.io, nominatim.openstreetmap.org, unpkg.com
+imgSrc:     self, data:, res.cloudinary.com, *.tile.openstreetmap.org, unpkg.com
+fontSrc:    self
+objectSrc:  none
+upgradeInsecureRequests: removed (Railway handles HTTPS)

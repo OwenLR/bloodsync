@@ -20,9 +20,10 @@ const SEX_OPTIONS = ['Male', 'Female'];
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
-let _user        = null;   // set via initDonorsPage
-let _searchTimer = null;
-let _currentDonors = [];
+let _user               = null;   // set via initDonorsPage
+let _searchTimer        = null;
+let _currentDonors      = [];
+let _duplicateCheckTimer = null;  // debounce for inline duplicate detection
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -237,6 +238,12 @@ async function _openEditModal(donorId) {
     _clearFormErrors('donor-edit-form');
   }
 
+  // Birthdate max = today — consistent with create form
+  const editBirthdate = document.getElementById('edit-birthdate');
+  if (editBirthdate) {
+    editBirthdate.max = new Date().toISOString().split('T')[0];
+  }
+
   modal.classList.add('modal-open');
 
   // Show loading state in form
@@ -360,12 +367,28 @@ function _openCreateModal() {
     _clearFormErrors('donor-create-form');
   }
 
+  // Clear any leftover duplicate warning
+  _clearDuplicateWarning();
+
+  // Birthdate max = today — prevents selecting tomorrow and beyond (bloodsync item 41)
+  const birthdateInput = document.getElementById('create-birthdate');
+  if (birthdateInput) {
+    birthdateInput.max = new Date().toISOString().split('T')[0];
+  }
+
+  // Hide Register Donor button until form step is shown
+  const submitBtn = document.getElementById('donor-create-submit');
+  if (submitBtn) submitBtn.style.display = 'none';
+
   modal.classList.add('modal-open');
 
-  // Wire up search
+  // Wire up search button + Enter key on search input
   const searchBtn = document.getElementById('create-search-btn');
-  if (searchBtn) {
-    searchBtn.onclick = () => _handleCreateSearch();
+  if (searchBtn) searchBtn.onclick = () => _handleCreateSearch();
+  if (searchInput) {
+    searchInput.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); _handleCreateSearch(); }
+    };
   }
 
   // Wire up "Register new donor" button
@@ -377,7 +400,10 @@ function _openCreateModal() {
   // Wire up back button
   const backBtn = document.getElementById('create-back-btn');
   if (backBtn) {
-    backBtn.onclick = () => _showCreateStep('search');
+    backBtn.onclick = () => {
+      _showCreateStep('search');
+      _clearDuplicateWarning();
+    };
   }
 
   // Wire up form submit
@@ -387,7 +413,102 @@ function _openCreateModal() {
       _submitCreateForm();
     };
   }
+
+  // Inline duplicate detection — fires when last_name + first_name + birthdate
+  // are all filled. Matches bloodsync.md items 12-15: detect similar donor
+  // while typing. Uses a fresh addEventListener each time modal opens.
+  // Clone fields to remove any prior listeners before re-attaching.
+  ['create-last-name', 'create-first-name', 'create-birthdate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Remove old listeners by replacing with clone
+    const clone = el.cloneNode(true);
+    el.parentNode.replaceChild(clone, el);
+    clone.addEventListener('input', _debouncedDuplicateCheck);
+    clone.addEventListener('change', _debouncedDuplicateCheck);
+  });
 }
+
+// ─── Inline Duplicate Detection ───────────────────────────────────────────────
+// bloodsync.md items 12-16: while filling the registration form, if last name +
+// first name + birthdate all have values, search for a potential match and show
+// an inline warning. Does NOT block the user — they can still proceed.
+// Item 16: a second confirmation fires on the Register button click.
+
+function _debouncedDuplicateCheck() {
+  clearTimeout(_duplicateCheckTimer);
+  _duplicateCheckTimer = setTimeout(_checkForDuplicates, 600);
+}
+
+async function _checkForDuplicates() {
+  const lastName  = document.getElementById('create-last-name')  ? document.getElementById('create-last-name').value.trim()  : '';
+  const firstName = document.getElementById('create-first-name') ? document.getElementById('create-first-name').value.trim() : '';
+  const birthdate = document.getElementById('create-birthdate')  ? document.getElementById('create-birthdate').value.trim()  : '';
+
+  // Only run when all three fields have values
+  if (!lastName || !firstName || !birthdate) {
+    _clearDuplicateWarning();
+    return;
+  }
+
+  try {
+    const query   = `${firstName} ${lastName}`;
+    const matches = await searchDonors(query);
+
+    // Strict match: ALL THREE must match (bloodsync item 14 — partial name match alone won't trigger)
+    const duplicate = matches.find(d => {
+      const nameMatch = d.first_name.toLowerCase() === firstName.toLowerCase() &&
+                        d.last_name.toLowerCase()  === lastName.toLowerCase();
+      const dobMatch  = d.birthdate && d.birthdate.slice(0, 10) === birthdate;
+      return nameMatch && dobMatch;
+    });
+
+    if (duplicate) {
+      _showDuplicateWarning(duplicate);
+    } else {
+      _clearDuplicateWarning();
+    }
+  } catch {
+    // Silent fail — duplicate check is best-effort, not a blocker
+    _clearDuplicateWarning();
+  }
+}
+
+function _showDuplicateWarning(donor) {
+  let warningEl = document.getElementById('duplicate-warning');
+  if (!warningEl) {
+    warningEl = document.createElement('div');
+    warningEl.id = 'duplicate-warning';
+    warningEl.className = 'duplicate-warning';
+    // Insert before the form's first field row
+    const form = document.getElementById('donor-create-form');
+    if (form) form.insertBefore(warningEl, form.firstChild);
+  }
+
+  warningEl.innerHTML = '';
+
+  const msg = document.createElement('p');
+  msg.className = 'duplicate-warning-text';
+  msg.textContent = `A donor named ${donor.first_name} ${donor.last_name} with the same birthdate already exists in the system.`;
+
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'btn-action btn-view duplicate-warning-btn';
+  viewBtn.textContent = 'View existing donor';
+  viewBtn.addEventListener('click', () => {
+    _closeModal('donor-create-modal');
+    _openViewModal(donor.donor_id);
+  });
+
+  warningEl.appendChild(msg);
+  warningEl.appendChild(viewBtn);
+}
+
+function _clearDuplicateWarning() {
+  const el = document.getElementById('duplicate-warning');
+  if (el) el.remove();
+}
+
 
 function _showCreateStep(step) {
   const searchStep = document.getElementById('create-step-search');
@@ -502,6 +623,19 @@ async function _submitCreateForm() {
       contact:    'create-contact-error',
     });
     return;
+  }
+
+  // bloodsync item 16 — double-check confirmation before registering.
+  // If a duplicate warning is currently visible, require explicit confirmation.
+  const hasDuplicateWarning = !!document.getElementById('duplicate-warning');
+  if (hasDuplicateWarning) {
+    const confirmed = await confirmModal({
+      title:        'Possible Duplicate Detected',
+      message:      'A donor with the same name and birthdate was found. Are you sure this is a different person and you want to register them as a new donor?',
+      confirmLabel: 'Yes, Register as New',
+      danger:       true,
+    });
+    if (!confirmed) return;
   }
 
   if (submitBtn) {

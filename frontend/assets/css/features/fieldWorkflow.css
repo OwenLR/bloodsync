@@ -416,3 +416,89 @@
     align-items: stretch;
   }
 }
+/* ── Searchable Dropdown (searchableDropdown.js) ──────────────────────────── */
+/*
+ * Used across all 5 field workflow steps for donor/record selection.
+ * The component wraps a plain <input> and a <ul> list container.
+ * HTML structure required:
+ *
+ *   <div class="sd-wrapper">
+ *     <input id="X-input" type="text" class="form-input sd-input" />
+ *     <ul   id="X-list"               class="sd-list"></ul>
+ *   </div>
+ */
+
+.sd-wrapper {
+  position: relative;
+}
+
+.sd-input {
+  width: 100%;
+  cursor: pointer;
+}
+
+/* Caret hint — tells user the field is clickable */
+.sd-input::after {
+  content: '';
+}
+
+.sd-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 300;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.sd-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 14px;
+  cursor: pointer;
+  outline: none;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.1s;
+}
+
+.sd-item:last-child {
+  border-bottom: none;
+}
+
+.sd-item:hover,
+.sd-item:focus {
+  background: #fdf0f0;
+}
+
+.sd-item--empty {
+  cursor: default;
+  color: #888;
+  font-size: 13px;
+  font-style: italic;
+  padding: 12px 14px;
+}
+
+.sd-item--empty:hover,
+.sd-item--empty:focus {
+  background: none;
+}
+
+.sd-item-primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+}
+
+.sd-item-sub {
+  font-size: 11px;
+  color: #777;
+}

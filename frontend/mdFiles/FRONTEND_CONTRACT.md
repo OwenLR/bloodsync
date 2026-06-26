@@ -16,10 +16,6 @@ and build plan.
 
 ## Valid Values Reference
 
-Self-Service Capability by Role (informational — for frontend Settings planning)
-
-RolePassword changeProfile photoAdminPATCH /api/auth/me/passwordPATCH /api/users/me/profile-img → staff_profilesPRC StaffPATCH /api/auth/me/passwordPATCH /api/users/me/profile-img → staff_profilesVolunteerPATCH /api/auth/me/passwordPATCH /api/volunteers/me/profile → volunteer_profiles (existing)PhlebotomistPATCH /api/auth/me/passwordPATCH /api/volunteers/me/profile → volunteer_profiles (existing)RequestorPATCH /api/auth/me/passwordNO endpoint exists yet — backlogDonorN/A — not a login roleN/A
-
 ### Roles (role_id)
 | role_id | Role | Login? |
 |---|---|---|
@@ -83,37 +79,6 @@ RolePassword changeProfile photoAdminPATCH /api/auth/me/passwordPATCH /api/users
 |---|---|
 | Pending | Approved, Rejected |
 | Approved | Released, Rejected |
-
----
-
-## Build Order / Feature Tiers
-
-### Tier 1 — Core (must work before anything else)
-1. Auth (login, refresh, logout)
-2. User profile (GET /api/auth/me)
-3. Registration (requestor + volunteer/phlebotomist)
-
-### Tier 2 — Primary Workflows
-4. Blood Drives (create, list, manage, participants)
-5. Donors (register, search, view)
-6. Donor Workflow (interview → answers → screening → donation → collection)
-
-### Tier 3 — Inventory & Requests
-7. Blood Units (list, status updates)
-8. Blood Requests (submit, approve, release) + real-time socket
-
-### Tier 4 — Supporting Features
-9. Notifications (badge, list, mark read)
-10. Volunteer/Phlebotomist profile
-11. Branches, Hospitals (reference data — mostly read-only)
-
-### Tier 5 — Admin Only
-12. User management (create, update, delete)
-13. Registration approvals (approve/decline volunteers)
-14. Interview questions (update only)
-
-### Tier 6 — Reports (read-only, build last)
-15. Reports (aggregate data display)
 
 ---
 
@@ -231,9 +196,8 @@ Errors:
 - `401` — no valid token (handled by apiFetch refresh flow)
 
 ### PATCH /api/auth/me/password
-Requires authentication — ALL authenticated roles (Admin, PRC Staff,
-Volunteer, Phlebotomist, Requestor — not role-restricted, since password
-verification/hashing does not depend on role_id)
+Requires authentication — ALL authenticated roles (Admin, PRC Staff, Volunteer, Phlebotomist, Requestor).
+This is the password change endpoint for every role — lives under /api/auth, NOT /api/users.
 
 Request:
 json{ "current_password": "string", "new_password": "string" }
@@ -434,8 +398,8 @@ Response `200`: deleted user object
 ---
 
 ### PATCH /api/users/me/profile-img
-
-Admin, PRC Staff only — multipart/form-data
+**Admin, PRC Staff only** — multipart/form-data
+Profile photo for Admin/Staff. Volunteer/Phlebotomist use PATCH /api/volunteers/me/profile instead. Requestor has no profile photo endpoint yet.
 Field: profile_img (file, jpeg/png/jpg/pdf, max 5MB — same constraints as
 volunteer/phlebotomist registration uploads)
 
@@ -516,6 +480,7 @@ Fields per drive:
 `start_datetime`, `end_datetime`, `slots_available`,
 `venue_name`, `venue_type`, `building`, `floor_room`,
 `street_address`, `city`, `province`, `postal_code`,
+`venue_latitude`, `venue_longitude`,
 `contact_person`, `contact_number`, `contact_email`,
 `created_by`, `created_by_first`, `created_by_last`,
 `cancelled_by`, `cancelled_by_first`, `cancelled_by_last`,
@@ -560,11 +525,14 @@ Request:
   "slots_available": 50,
   "contact_person":  "string",
   "contact_number":  "string",
-  "contact_email":   "string"
+  "contact_email":   "string",
+  "venue_latitude":  13.7565,
+  "venue_longitude": 121.0583
 }
 ```
 
 Required: `name`, `branch_id`, `start_datetime`, `end_datetime`
+`venue_latitude` and `venue_longitude` are optional — set via map picker.
 All other fields optional.
 
 Errors:
@@ -634,10 +602,131 @@ Request:
 
 ---
 
+### GET /api/blood-drives/:id/participants/suggestions
+**Admin, PRC Staff only**
+
+Query params (all optional):
+- `?role_id=5` — filter by role (5=Volunteer, 6=Phlebotomist)
+- `?limit=20` — max results (default 20, max 50)
+
+Response `200`:
+```json
+{
+  "success": true,
+  "data": [{
+    "user_id":              3,
+    "first_name":           "Maria",
+    "last_name":            "Santos",
+    "role_id":              5,
+    "role_name":            "Volunteer",
+    "address_municipality": "Batangas City",
+    "address_province":     "Batangas",
+    "distance_km":          2.4,
+    "profile_img":          "https://res.cloudinary.com/..."
+  }]
+}
+```
+
+Notes:
+- Returns only Active users not already assigned to this drive
+- Sorted by distance from drive venue if `venue_latitude`/`venue_longitude` set; falls back to alphabetical
+- `distance_km` is `null` if either the drive or the volunteer has no coordinates
+
+---
+
+### POST /api/blood-drives/:id/participants/bulk
+**Admin, PRC Staff only**
+
+Two modes — send one or the other, not both:
+
+Mode A — manual selection:
+```json
+{ "user_ids": [1, 2, 3] }
+```
+
+Mode B — auto-assign nearest N by distance:
+```json
+{ "target_count": 30, "role_id": 5 }
+```
+`role_id` is optional in Mode B — omit to auto-assign any role.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "message": "3 participant(s) assigned successfully",
+  "data": {
+    "total_assigned": 3,
+    "total_failed":   0,
+    "assigned": [{ "user_id": 1 }],
+    "failed":   []
+  }
+}
+```
+
+Notes:
+- Partial success is intentional — already-assigned users are skipped (counted in `total_failed`), not errored
+- Each assigned user receives the assignment email (fire-and-forget)
+
+---
+
+### GET /api/blood-drives/:id/stats
+**Admin, PRC Staff only**
+
+Response `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "drive_id":             1,
+    "total_donors":         42,
+    "new_donors":           28,
+    "returning_donors":     14,
+    "interviews_total":     42,
+    "interviews_passed":    38,
+    "interviews_failed":    4,
+    "interviews_pending":   0,
+    "screenings_total":     38,
+    "screenings_eligible":  35,
+    "screenings_deferred":  3,
+    "donations_total":      35,
+    "donations_qns":        2,
+    "donations_valid":      33,
+    "collections_total":    33,
+    "collections_pending":  5,
+    "collections_safe":     26,
+    "collections_rejected": 2
+  }
+}
+```
+
+Note: `new_donors + returning_donors = total_donors` always.
+
+---
+
 ## Donor Endpoints
 
 ### GET /api/donors
 **Admin, PRC Staff, Volunteer, Phlebotomist**
+
+Response `200`:
+```json
+{
+  "success": true,
+  "data": [{
+    "donor_id":   1,
+    "first_name": "Pedro",
+    "last_name":  "Reyes",
+    "birthdate":  "1990-05-15",
+    "sex":        "Male",
+    "email":      "pedro@email.com",
+    "blood_type": "O+",
+    "contact":    "09171234567",
+    "status":     "Active",
+    "id_number":  "XX-XXXXX"
+  }]
+}
+```
 
 ---
 
@@ -687,7 +776,12 @@ Request:
 ```
 
 Required: `first_name`, `last_name`, `birthdate`, `sex`, `email`
-Errors: `409` — duplicate donor detected
+`email` is required — a donor without email will fail at the donation step (backend sends post-extraction email).
+Errors: `409` — duplicate donor (backend detects via `id_number`)
+
+Frontend search-first flow: always show donor search BEFORE the registration form. On match, select the existing donor — no new record. Only show the form when no match is found or staff confirms the person is new. On `409`: "This donor is already registered. Please search for them and select their existing record."
+
+When an existing donor is selected: show their contact info with an inline "Update contact info" option (PATCH /api/donors/:id/contact for field roles). If the selected donor has no email, prompt staff to add one via the contact update form BEFORE proceeding to the donation step.
 
 ---
 
@@ -697,8 +791,41 @@ All fields optional, at least one required. Same validation as create.
 
 ---
 
+### PATCH /api/donors/:id/contact
+**Volunteer, Phlebotomist only** (Admin/Staff use `PATCH /api/donors/:id`)
+Not gated by `requireBloodDrive` — field staff can call this without an active drive.
+
+Request:
+```json
+{ "email": "new@email.com", "contact": "09171234567" }
+```
+
+At least one field required. Sending any field other than `email`/`contact` → `400`.
+
+Response `200`:
+```json
+{ "success": true, "message": "Donor contact information updated successfully", "data": { ...full donor object... } }
+```
+
+Errors: `400` — validation failure or disallowed field sent, `404` — donor not found
+
+Frontend: show email + contact as inline-editable only (not a full form). All other fields read-only for these roles.
+
+---
+
 ### DELETE /api/donors/:id
 **Admin only**
+
+### Donor Endpoint Role Access Summary
+| Endpoint | Roles | Notes |
+|---|---|---|
+| GET /api/donors | Admin, PRC Staff, Volunteer, Phlebotomist | All |
+| GET /api/donors/search?q= | Admin, PRC Staff, Volunteer, Phlebotomist | Server-side search |
+| GET /api/donors/:id | Admin, PRC Staff, Volunteer, Phlebotomist | Read-only for field roles |
+| POST /api/donors | Admin, PRC Staff, Volunteer, Phlebotomist | Field roles need active drive |
+| PATCH /api/donors/:id | Admin, PRC Staff only | Full edit |
+| PATCH /api/donors/:id/contact | Volunteer, Phlebotomist only | Contact info only |
+| DELETE /api/donors/:id | Admin only | Hard delete |
 
 ---
 
@@ -706,9 +833,11 @@ All fields optional, at least one required. Same validation as create.
 
 ### GET /api/donor-interviews
 **All roles**
+Response `200`: array of interviews (same fields as single below).
 
 ### GET /api/donor-interviews/donor/:donor_id
 **All roles**
+Response `200`: array of interviews for that donor.
 
 ### GET /api/donor-interviews/:id
 **All roles**
@@ -727,9 +856,15 @@ Response `200`:
 }
 ```
 
+Note: `drive_id` is `null` for Admin/Staff walk-in operations — this is correct.
+
 ### POST /api/donor-interviews
 **All roles**
 Volunteer/Phlebotomist: requires active blood drive assignment.
+
+Behavior:
+- If this donor already has a pending interview in the current drive, the backend returns the existing interview session instead of creating a duplicate.
+- If the donor already has a completed interview in the current drive, the backend rejects the request with `409 Conflict`.
 
 Request:
 ```json
@@ -740,6 +875,15 @@ Request:
 ```
 
 Note: `drive_id` is set automatically by middleware — do not send it.
+
+**Workflow dropbox filtering (frontend-side, applies to all 5 steps):**
+Each step's donor selector should show only donors valid for that step. Filter by completion of the prior step using data already fetched from the relevant list endpoints.
+- Interview page: show donors registered in this drive who have no interview yet
+- Screening page: show donors with a completed interview but no screening yet
+- Donation page: show donors with an `Eligible` screening but no donation yet
+- Collection page: show donors with a completed donation but no collection yet
+
+Admin/Staff walk-in (drive_id = null): show all donors in the system unfiltered — they are not scoped to a drive. Sequential prerequisite logic still applies per donor.
 
 ---
 
@@ -770,6 +914,8 @@ CRITICAL: field is `interview_id` — NOT `screening_id`. `answer` must be exact
 **All roles**
 
 ### GET /api/interview-questions/sex/:sex
+Note: route parameter is :sex (not :gender) — backend route was previously
+registered as /gender/:sex in error. Corrected to /sex/:sex to match this contract.
 **All roles**
 `:sex` — `Male` or `Female`
 
@@ -918,6 +1064,25 @@ On success: source unit → Separated (terminal), 3 new Pending collections crea
 **Admin, PRC Staff, Requestor**
 Requestors only see their own requests (enforced server-side — no filter needed).
 
+Response `200`:
+```json
+{
+  "success": true,
+  "data": [{
+    "request_id":    1,
+    "status":        "Pending",
+    "urgency_level": "Routine",
+    "diagnosis":     "string",
+    "hospital_id":   1,
+    "hospital_name": "string",
+    "created_at":    "...",
+    "items": [
+      { "blood_type": "O+", "component": "Whole Blood", "quantity": 2 }
+    ]
+  }]
+}
+```
+
 ### GET /api/blood-requests/:id
 **Admin, PRC Staff, Requestor**
 
@@ -997,7 +1162,22 @@ Returns 404 if not Pending or not owned by requestor.
 
 ### GET /api/notifications
 **All authenticated roles**
-Response `200`: array of notifications for current user
+Scoped to own notifications server-side — no filter needed.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "data": [{
+    "notification_id": 1,
+    "user_id":         2,
+    "type":            "blood_request_new",
+    "message":         "New blood request submitted",
+    "is_read":         false,
+    "created_at":      "..."
+  }]
+}
+```
 
 ### GET /api/notifications/unread-count
 **All authenticated roles**
@@ -1164,150 +1344,3 @@ Frontend NEVER calls `socket.emit('join_room', ...)` — no handler exists on ba
 | Donation created | Donor | Email — post-extraction instructions |
 | Daily inventory low stock | Branch staff + all admins | Email + socket |
 | Daily inventory near expiry | Branch staff + all admins | Email + socket |
-
-# BloodSync Frontend Contract — Donor Additions
-#
-# Below contains ADDITIONS and CORRECTIONS to FRONTEND_CONTRACT.md
-# from this session. Merge these into the main contract file.
-#
-# ─────────────────────────────────────────────────────────────────────────────
-
-## NEW ENDPOINT — PATCH /api/donors/:id/contact
-Volunteer + Phlebotomist only (NOT Admin/Staff — they use PATCH /api/donors/:id)
-
-WHY THIS EXISTS:
-During a blood drive, a donor may need to update their contact info —
-for example, they no longer use the phone number or email on record. Field
-staff (Volunteer/Phlebotomist) cannot edit full donor records (that is
-Admin/Staff only), but they do need to be able to correct contact details
-on the spot. This endpoint is hard-scoped to contact info only by server-side
-validation — sending any other donor field is rejected with 400.
-This endpoint is NOT gated by requireBloodDrive middleware, so field staff
-can call it regardless of whether they are currently assigned to an active drive.
-
-Request:
-```json
-{ "email": "new@email.com", "contact": "09171234567" }
-```
-At least one field required. Both optional individually.
-contact: digits only, 7–15 characters — same rule as everywhere else.
-
-Response 200:
-```json
-{ "success": true, "message": "Donor contact information updated successfully", "data": { ...full donor object... } }
-```
-
-Errors:
-- 400 — validation failure OR any field other than email/contact sent
-- 404 — donor not found
-
-Frontend behavior:
-- Volunteer/Phlebotomist donor detail modal shows email + contact as
-  inline-editable fields only (not a full edit form)
-- All other donor fields are read-only for these roles
-- Admin/Staff use the full edit flow (PATCH /api/donors/:id) — separate modal
-
----
-
-## DONOR BUSINESS RULES — Background and Frontend Implications
-
-### Duplicate donor prevention (government ID)
-WHY: A donor who donated in a previous blood drive is already in the system.
-Re-registering them as a new donor would create duplicate records and break
-donation history tracking. The backend uses government ID (id_number on the
-donor record) to detect duplicates and rejects with 409 if the same ID is
-submitted again.
-
-FRONTEND IMPLICATION on Register Donor page (ROUTES.FIELD.REGISTER):
-- Show a search-first flow: before the registration form, prompt staff to
-  search existing donors by name or ID number
-- If a matching donor is found, offer to SELECT that existing donor rather
-  than create a new one
-- "Existing donor" selection pre-fills the interview with the selected
-  donor_id — no new donor record created
-- New registration form is only shown when no match is found OR staff
-  explicitly confirms the person is not in the system
-- On 409 from POST /api/donors, show: "This donor is already registered.
-  Please search for them and select their existing record."
-
-### Old donor — contact info may be stale
-WHY: A donor from a past blood drive may have a different phone number or
-email than what is on record. Field staff need to be able to update this
-during intake without requiring Admin/Staff involvement.
-This is why PATCH /api/donors/:id/contact exists.
-
-FRONTEND IMPLICATION:
-- When an existing donor is selected/found, show their current contact info
-  with an "Update contact info" inline option
-- This uses PATCH /api/donors/:id/contact (Volunteer/Phlebotomist) or
-  PATCH /api/donors/:id (Admin/Staff)
-
-### Donor email is required for donation
-WHY: The backend sends a post-extraction email to the donor after a donation
-is created. If the donor has no email, donationService throws a BusinessError
-before creating the donation record.
-
-FRONTEND IMPLICATION:
-- Email is required at donor registration — do not make it optional
-- On the existing donor selection flow, if the selected donor has no email,
-  prompt staff to add one via the contact update form BEFORE proceeding
-  to the donation step — otherwise the donation will fail at the last step
-  with a confusing error
-
-### Sequential workflow — frontend must guide, backend enforces
-WHY: Each step depends on the previous step's output:
-  Interview → needs a donor_id
-  Screening → needs an interview_id from a completed interview
-  Donation → needs a screening_id where result = 'Eligible'
-  Collection → needs a donation_id
-
-The backend enforces this and returns 400 if a prerequisite is missing.
-The frontend should never let staff attempt a step without completing
-the prior step — use the dropbox/select pattern to surface only valid
-options at each step.
-
-FRONTEND IMPLICATION per workflow page:
-- Register Donor: search-first, then new registration form
-- Conduct Interview: donor dropbox shows all donors registered in this drive
-  (GET /api/donors filtered by drive context, or GET /api/donor-interviews
-  to infer which donors already have interviews)
-- Conduct Screening: donor dropbox shows only donors who have a completed
-  interview in this drive but no screening yet
-- Record Donation: donor dropbox shows only donors with an Eligible screening
-  in this drive but no donation yet
-- Record Collection: donor dropbox shows donors with a completed donation
-  in this drive but no collection yet
-
-The dropbox filtering logic is frontend-side: fetch the relevant list for
-the current drive and filter by completion status of the prior step.
-The drive context comes from req.drive_id set by bloodDriveMiddleware on
-the backend — field staff are always scoped to their active drive.
-
-### Admin/Staff walk-in operations
-WHY: Admin and PRC Staff are not required to be assigned to a blood drive.
-They can register donors and run the full workflow as walk-ins. Their
-requests have drive_id = NULL in the database — this is correct and
-intentional, not an error.
-
-FRONTEND IMPLICATION:
-- Admin/Staff donor workflow pages (under /pages/admin/ and /pages/staff/)
-  do not need a "current drive" selector — they operate without drive context
-- Donor dropbox on Admin/Staff interview/screening/donation/collection pages
-  should show all donors (not filtered by drive), letting them select any
-  donor in the system
-- The sequential prerequisite logic still applies — Admin/Staff still need
-  to complete each step in order for a given donor
-
----
-
-## CORRECTED: Donor endpoints role access
-
-| Endpoint | Roles | Notes |
-|---|---|---|
-| GET /api/donors | Admin, PRC Staff, Volunteer, Phlebotomist | All authenticated field roles |
-| GET /api/donors/search?q= | Admin, PRC Staff, Volunteer, Phlebotomist | Server-side search |
-| GET /api/donors/:id | Admin, PRC Staff, Volunteer, Phlebotomist | Read-only for field roles |
-| POST /api/donors | Admin, PRC Staff, Volunteer, Phlebotomist | Field roles need active drive |
-| PATCH /api/donors/:id | Admin, PRC Staff ONLY | Full edit — not for field roles |
-| PATCH /api/donors/:id/contact | Volunteer, Phlebotomist ONLY | Contact info only |
-| DELETE /api/donors/:id | Admin ONLY | Hard delete |

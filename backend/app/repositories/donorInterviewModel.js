@@ -5,9 +5,8 @@
 
 const pool = require('../../config/db');
 
-const getAllInterviews = async () => {
-    const result = await pool.query(
-        `SELECT
+const getAllInterviews = async (drive_id = null) => {
+    const baseQuery = `SELECT
             di.interview_id,
             di.interview_result,
             di.drive_id,
@@ -23,15 +22,24 @@ const getAllInterviews = async () => {
          JOIN donors d         ON di.donor_id    = d.donor_id
          LEFT JOIN branches b  ON di.branch_id   = b.branch_id
          LEFT JOIN users u     ON di.conducted_by = u.user_id
-         LEFT JOIN blood_drives bd ON di.drive_id = bd.drive_id
-         ORDER BY di.created_at DESC`
+         LEFT JOIN blood_drives bd ON di.drive_id = bd.drive_id`;
+
+    if (drive_id === null) {
+        const result = await pool.query(`${baseQuery}
+         ORDER BY di.created_at DESC`);
+        return result.rows;
+    }
+
+    const result = await pool.query(`${baseQuery}
+         WHERE di.drive_id = $1
+         ORDER BY di.created_at DESC`,
+        [drive_id]
     );
     return result.rows;
 };
 
-const getInterviewById = async (id) => {
-    const result = await pool.query(
-        `SELECT
+const getInterviewById = async (id, drive_id = null) => {
+    const baseQuery = `SELECT
             di.interview_id,
             di.interview_result,
             di.donor_id,
@@ -50,15 +58,20 @@ const getInterviewById = async (id) => {
          LEFT JOIN branches b  ON di.branch_id   = b.branch_id
          LEFT JOIN users u     ON di.conducted_by = u.user_id
          LEFT JOIN blood_drives bd ON di.drive_id = bd.drive_id
-         WHERE di.interview_id = $1`,
-        [id]
-    );
+         WHERE di.interview_id = $1`;
+
+    if (drive_id === null) {
+        const result = await pool.query(baseQuery, [id]);
+        return result.rows[0];
+    }
+
+    const result = await pool.query(`${baseQuery}
+         AND di.drive_id = $2`, [id, drive_id]);
     return result.rows[0];
 };
 
-const getInterviewsByDonor = async (donor_id) => {
-    const result = await pool.query(
-        `SELECT
+const getInterviewsByDonor = async (donor_id, drive_id = null) => {
+    const baseQuery = `SELECT
             di.interview_id,
             di.interview_result,
             di.drive_id,
@@ -71,11 +84,54 @@ const getInterviewsByDonor = async (donor_id) => {
          LEFT JOIN branches b  ON di.branch_id   = b.branch_id
          LEFT JOIN users u     ON di.conducted_by = u.user_id
          LEFT JOIN blood_drives bd ON di.drive_id = bd.drive_id
-         WHERE di.donor_id = $1
+         WHERE di.donor_id = $1`;
+
+    if (drive_id === null) {
+        const result = await pool.query(`${baseQuery}
+         ORDER BY di.created_at DESC`, [donor_id]);
+        return result.rows;
+    }
+
+    const result = await pool.query(`${baseQuery}
+         AND di.drive_id = $2
          ORDER BY di.created_at DESC`,
-        [donor_id]
+        [donor_id, drive_id]
     );
     return result.rows;
+};
+
+const getInterviewByDonorAndDrive = async (donor_id, drive_id = null) => {
+    const baseQuery = `SELECT
+            di.interview_id,
+            di.interview_result,
+            di.drive_id,
+            di.created_at,
+            di.donor_id,
+            di.branch_id,
+            di.conducted_by,
+            b.branch_name,
+            u.first_name  AS conducted_by_first,
+            u.last_name   AS conducted_by_last,
+            bd.name       AS drive_name
+         FROM donor_interviews di
+         LEFT JOIN branches b  ON di.branch_id   = b.branch_id
+         LEFT JOIN users u     ON di.conducted_by = u.user_id
+         LEFT JOIN blood_drives bd ON di.drive_id = bd.drive_id
+         WHERE di.donor_id = $1`;
+
+    if (drive_id === null) {
+        const result = await pool.query(`${baseQuery}
+         AND di.drive_id IS NULL
+         ORDER BY di.created_at DESC
+         LIMIT 1`, [donor_id]);
+        return result.rows[0];
+    }
+
+    const result = await pool.query(`${baseQuery}
+         AND di.drive_id = $2
+         ORDER BY di.created_at DESC
+         LIMIT 1`, [donor_id, drive_id]);
+    return result.rows[0];
 };
 
 /**
@@ -111,6 +167,7 @@ module.exports = {
     getAllInterviews,
     getInterviewById,
     getInterviewsByDonor,
+    getInterviewByDonorAndDrive,
     createInterview,
     updateInterviewResult,
 };

@@ -24,7 +24,7 @@ const getAllDonors = async () => {
             d.address_province,
             d.zip_code,
             d.national_id_type,
-            d.national_id_number,
+            d.national_id_number AS id_number,
             d.emergency_contact_name,
             d.emergency_contact_phone,
             d.status,
@@ -64,7 +64,7 @@ const getDonorById = async (id) => {
             d.address_province,
             d.zip_code,
             d.national_id_type,
-            d.national_id_number,
+            d.national_id_number AS id_number,
             d.emergency_contact_name,
             d.emergency_contact_phone,
             d.status,
@@ -82,6 +82,7 @@ const getDonorById = async (id) => {
 };
 
 const searchDonors = async (keyword) => {
+    const queryText = `%${keyword}%`;
     const result = await pool.query(
         `SELECT
             donor_id,
@@ -92,15 +93,19 @@ const searchDonors = async (keyword) => {
             blood_type,
             contact,
             email,
+            national_id_number AS id_number,
             status
          FROM donors
          WHERE
             LOWER(first_name) LIKE LOWER($1) OR
             LOWER(last_name) LIKE LOWER($1) OR
+            LOWER(CONCAT(first_name, ' ', last_name)) LIKE LOWER($1) OR
+            LOWER(CONCAT(last_name, ' ', first_name)) LIKE LOWER($1) OR
             LOWER(contact) LIKE LOWER($1) OR
-            LOWER(email) LIKE LOWER($1)
+            LOWER(email) LIKE LOWER($1) OR
+            LOWER(national_id_number) LIKE LOWER($1)
          ORDER BY last_name ASC`,
-        [`%${keyword}%`]
+        [queryText]
     );
     return result.rows;
 };
@@ -216,14 +221,42 @@ const deleteDonor = async (id) => {
 };
 
 const getDonorByNationalId = async (national_id_type, national_id_number) => {
+    const params = [national_id_number.toString().trim()];
+    let query = `SELECT donor_id, first_name, middle_name, last_name,
+                birthdate, sex, blood_type, contact,
+                email, national_id_type, national_id_number, status
+         FROM donors
+         WHERE LOWER(national_id_number) = LOWER($1)`;
+
+    if (national_id_type) {
+        query += ' AND LOWER(national_id_type) = LOWER($2)';
+        params.push(national_id_type);
+    }
+
+    const result = await pool.query(query, params);
+    return result.rows[0];
+};
+
+const getDonorByEmail = async (email) => {
     const result = await pool.query(
         `SELECT donor_id, first_name, middle_name, last_name,
                 birthdate, sex, blood_type, contact,
-                national_id_type, national_id_number, status
+                email, national_id_type, national_id_number, status
          FROM donors
-         WHERE LOWER(national_id_type) = LOWER($1)
-         AND LOWER(national_id_number) = LOWER($2)`,
-        [national_id_type, national_id_number]
+         WHERE LOWER(email) = LOWER($1)`,
+        [email]
+    );
+    return result.rows[0];
+};
+
+const getDonorByContact = async (contact) => {
+    const result = await pool.query(
+        `SELECT donor_id, first_name, middle_name, last_name,
+                birthdate, sex, blood_type, contact,
+                email, national_id_type, national_id_number, status
+         FROM donors
+         WHERE contact = $1`,
+        [contact]
     );
     return result.rows[0];
 };
@@ -232,6 +265,8 @@ module.exports = {
     getAllDonors,
     getDonorById,
     getDonorByNationalId,
+    getDonorByEmail,
+    getDonorByContact,
     searchDonors,
     createDonor,
     updateDonor,

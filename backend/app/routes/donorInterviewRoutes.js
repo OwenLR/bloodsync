@@ -11,22 +11,25 @@ const ALL_ROLES = [
     ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST,
 ];
 
-// Read — all roles can view interviews
+// Read — all roles can view interviews. Field roles are scoped to their active drive.
 router.get('/',
     verifyToken,
     checkRole(ALL_ROLES),
+    requireBloodDrive,
     donorInterviewController.getAllInterviews
 );
 
 router.get('/donor/:donor_id',
     verifyToken,
     checkRole(ALL_ROLES),
+    requireBloodDrive,
     donorInterviewController.getInterviewsByDonor
 );
 
 router.get('/:id',
     verifyToken,
     checkRole(ALL_ROLES),
+    requireBloodDrive,
     donorInterviewController.getInterviewById
 );
 

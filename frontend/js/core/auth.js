@@ -186,3 +186,44 @@ export function getDashboardHref(roleId) {
 export function redirectByRole(roleId) {
   window.location.href = getDashboardHref(roleId);
 }
+// ---------------------------------------------------------------------------
+// getCurrentUserSilent()
+// Lightweight already-logged-in check for the LOGIN PAGE ONLY.
+//
+// Uses raw fetch — NOT apiFetch — so a 401 is treated as "not logged in"
+// and silently returns null. No refresh attempt, no redirect.
+//
+// Why this exists: apiFetch intercepts 401 → calls tryRefresh → if refresh
+// also fails, it redirects to ROUTES.LOGIN. On the login page that redirect
+// causes the page to reload → init() runs again → infinite loop.
+//
+// Do NOT use this anywhere except loginPage.js. Every other page should use
+// getCurrentUser() via authGuard so the 401→refresh→retry flow works correctly.
+// ---------------------------------------------------------------------------
+
+export async function getCurrentUserSilent() {
+  // Check caches first — no network call if already known
+  if (_currentUser) return _currentUser;
+  const cached = readSessionCache();
+  if (cached) {
+    _currentUser = cached;
+    return _currentUser;
+  }
+
+  // Raw fetch — 401 = not logged in, return null quietly, no refresh, no redirect
+  try {
+    const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH_ME}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+
+    const body = await res.json();
+    if (!body.success) return null;
+
+    _currentUser = body.data.user;
+    writeSessionCache(_currentUser);
+    return _currentUser;
+  } catch {
+    return null;
+  }
+}

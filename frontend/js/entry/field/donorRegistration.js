@@ -7,16 +7,18 @@ import { revealAppShell }     from '../../layouts/appShell.js';
 import { getSidebarItems }    from '../../constants/sidebarItems.js';
 import { ROLES }              from '../../constants/roles.js';
 import { showToast }          from '../../components/toast.js';
+import { apiFetch }                from '../../core/api.js';
+import { initSearchableDropdown } from '../../components/searchableDropdown.js';
 import {
-  searchDonors,
   getDonorById,
   createDonor,
+  searchDonors,
   updateDonorContact,
+  updateDonorFull,
 } from '../../features/fieldWorkflow/fieldWorkflowApi.js';
 import {
   validateDonorRegistration,
   validateContactUpdate,
-  validateSearchQuery,
 } from '../../features/fieldWorkflow/fieldWorkflowValidation.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -33,7 +35,7 @@ async function init() {
   _user = await requireAuth();
   if (!_user) return;
 
-  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST])) return;
+  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.ADMIN, ROLES.PRC_STAFF])) return;
 
   renderNavbar(_user, 0);
   clearSidebar();
@@ -43,110 +45,55 @@ async function init() {
 
   revealAppShell();
 
-  _setupSearch();
+  await _initSearchDropdown();
   _setupDuplicateDetection();
   _setupRegistrationForm();
   _setupContactUpdateForm();
   _setupClearSelection();
   _setupResetBtn();
+  _setupRegisterAnotherBtn();
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────
+// ─── Search Dropdown (existing donor lookup) ─────────────────────────────────
+// Loads all donors on page load and filters client-side.
+// On select: auto-fills form fields (read-only) and shows contact update section.
 
-function _setupSearch() {
-  const btn   = document.getElementById('donor-search-btn');
-  const input = document.getElementById('donor-search-input');
-  if (!btn || !input) return;
+let _searchDropdown = null;
 
-  btn.addEventListener('click', () => _runSearch());
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') _runSearch();
-  });
-}
-
-async function _runSearch() {
-  const input     = document.getElementById('donor-search-input');
-  const errorEl   = document.getElementById('donor-search-error');
-  const statusEl  = document.getElementById('donor-search-status');
-  const resultsEl = document.getElementById('donor-search-results');
-  const btn       = document.getElementById('donor-search-btn');
-
-  if (!input) return;
-  const query = input.value.trim();
-
-  _hideEl(errorEl);
-  _hideEl(resultsEl);
-  _hideEl(statusEl);
-
-  const { valid, message } = validateSearchQuery(query);
-  if (!valid) {
-    _showEl(errorEl);
-    errorEl.textContent = message;
-    return;
-  }
-
-  btn.disabled        = true;
-  btn.textContent     = 'Searching...';
-  statusEl.textContent = 'Searching for matching donors...';
-  _showEl(statusEl);
+async function _initSearchDropdown() {
+  const errorEl = document.getElementById('donor-search-error');
 
   try {
-    const donors = await searchDonors(query);
-    _hideEl(statusEl);
-    _renderSearchResults(donors, resultsEl);
+    // Load all donors for client-side filtering
+    const donors = await _loadAllDonors();
+
+    _searchDropdown = initSearchableDropdown({
+      inputId:      'donor-search-input',
+      listId:       'donor-search-list',
+      items:         donors,
+      displayFn:    (d) => `${d.first_name} ${d.last_name}`,
+      subDisplayFn: (d) => [d.blood_type, d.sex, d.birthdate].filter(Boolean).join(' · '),
+      filterFn:     (d, q) =>
+        `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
+        (d.id_number || '').toLowerCase().includes(q),
+      onSelect:     _selectExistingDonor,
+      placeholder:  'Click to search existing donors…',
+      emptyMessage: 'No matching donor found. Register them as new below.',
+    });
   } catch (err) {
-    _hideEl(statusEl);
-    _showEl(errorEl);
-    errorEl.textContent = err.message || 'Search failed. Please try again.';
-  } finally {
-    btn.disabled    = false;
-    btn.textContent = 'Search';
+    if (errorEl) {
+      errorEl.textContent = err.message || 'Failed to load donor list. Refresh to try again.';
+      errorEl.classList.remove('field-error-hidden');
+    }
   }
 }
 
-function _renderSearchResults(donors, container) {
-  container.innerHTML = '';
-
-  if (!donors || donors.length === 0) {
-    container.innerHTML = '<p class="search-status" style="padding:10px 14px;">No matching donor found.</p>';
-    _showEl(container);
-    return;
-  }
-
-  donors.forEach(donor => {
-    const item = document.createElement('div');
-    item.className = 'search-result-item';
-
-    const info = document.createElement('div');
-    info.className = 'search-result-info';
-
-    const name = document.createElement('span');
-    name.className   = 'search-result-name';
-    name.textContent = `${donor.first_name} ${donor.last_name}`;
-
-    const meta = document.createElement('span');
-    meta.className   = 'search-result-meta';
-    meta.textContent = [
-      donor.blood_type,
-      donor.sex,
-      donor.birthdate,
-    ].filter(Boolean).join(' · ');
-
-    info.appendChild(name);
-    info.appendChild(meta);
-
-    const selectBtn = document.createElement('button');
-    selectBtn.className   = 'btn-action btn-view';
-    selectBtn.textContent = 'Select';
-    selectBtn.style.fontSize = '12px';
-    selectBtn.addEventListener('click', () => _selectExistingDonor(donor));
-
-    item.appendChild(info);
-    item.appendChild(selectBtn);
-    container.appendChild(item);
-  });
-
-  _showEl(container);
+async function _loadAllDonors() {
+  const res  = await apiFetch('/api/donors');
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load donors.');
+  return body.data || [];
 }
 
 // ─── Select Existing Donor ────────────────────────────────────────────────────
@@ -155,10 +102,8 @@ async function _selectExistingDonor(donor) {
   _selectedDonor   = donor;
   _registeredDonor = null;
 
-  // Hide search results
-  _hideEl(document.getElementById('donor-search-results'));
-  const searchInput = document.getElementById('donor-search-input');
-  if (searchInput) searchInput.value = '';
+  // Clear the search dropdown — keeps input clean after selection
+  if (_searchDropdown) _searchDropdown.clear();
 
   // Show banner
   const banner = document.getElementById('selected-donor-banner');
@@ -216,7 +161,9 @@ function _lockFormFields(locked) {
 function _populateForm(donor) {
   _setField('reg-first-name',  donor.first_name);
   _setField('reg-last-name',   donor.last_name);
-  _setField('reg-birthdate',   donor.birthdate);
+  // Birthdate from API may be a full ISO string (e.g. "1995-06-14T16:00:00.000Z").
+  // date inputs require exactly "yyyy-MM-dd" — slice to first 10 characters.
+  _setField('reg-birthdate',   donor.birthdate ? donor.birthdate.slice(0, 10) : '');
   _setField('reg-sex',         donor.sex);
   _setField('reg-email',       donor.email);
   _setField('reg-contact',     donor.contact);
@@ -264,6 +211,28 @@ function _setupDuplicateDetection() {
     });
   }
 
+  // Email — warn if the same email is already registered
+  const emailInput = document.getElementById('reg-email');
+  if (emailInput) {
+    emailInput.addEventListener('blur', () => {
+      if (_selectedDonor) return;
+      const email = emailInput.value.trim();
+      if (!email) return;
+      _checkDuplicate('email', { email }, 'reg-email-duplicate');
+    });
+  }
+
+  // Contact — warn if the same contact number is already registered
+  const contactInput = document.getElementById('reg-contact');
+  if (contactInput) {
+    contactInput.addEventListener('blur', () => {
+      if (_selectedDonor) return;
+      const contact = contactInput.value.trim();
+      if (!contact) return;
+      _checkDuplicate('contact', { contact }, 'reg-contact-duplicate');
+    });
+  }
+
   // Name + birthdate — only trigger when ALL THREE have values
   const firstNameInput = document.getElementById('reg-first-name');
   const lastNameInput  = document.getElementById('reg-last-name');
@@ -298,9 +267,16 @@ async function _checkDuplicate(type, searchData, warningElId) {
   _hideEl(warningEl);
 
   // Build query string
-  const query = type === 'id'
-    ? searchData.id_number
-    : `${searchData.first_name} ${searchData.last_name}`;
+  let query;
+  if (type === 'id') {
+    query = searchData.id_number;
+  } else if (type === 'email') {
+    query = searchData.email;
+  } else if (type === 'contact') {
+    query = searchData.contact.replace(/\D/g, '');
+  } else {
+    query = `${searchData.first_name} ${searchData.last_name}`;
+  }
 
   // Show checking state
   const checkingEl = type === 'id'
@@ -314,10 +290,14 @@ async function _checkDuplicate(type, searchData, warningElId) {
       const donors = await searchDonors(query);
       if (!donors || donors.length === 0) return;
 
-      // For name+birthdate: only warn if birthdate also matches
       let match = null;
       if (type === 'id') {
         match = donors.find(d => d.id_number === searchData.id_number);
+      } else if (type === 'email') {
+        match = donors.find(d => d.email && d.email.toLowerCase() === searchData.email.toLowerCase());
+      } else if (type === 'contact') {
+        const normalized = searchData.contact.replace(/\D/g, '');
+        match = donors.find(d => d.contact && d.contact.replace(/\D/g, '') === normalized);
       } else {
         match = donors.find(d =>
           d.first_name.toLowerCase()  === searchData.first_name.toLowerCase() &&
@@ -333,6 +313,10 @@ async function _checkDuplicate(type, searchData, warningElId) {
       if (textEl) {
         textEl.textContent = type === 'id'
           ? 'A donor with this ID number is already registered.'
+          : type === 'email'
+          ? 'A donor with this email address is already registered.'
+          : type === 'contact'
+          ? 'A donor with this contact number is already registered.'
           : 'A donor with the same name and birthdate is already registered.';
       }
 
@@ -472,7 +456,13 @@ async function _handleContactUpdateSubmit(e) {
   }
 
   try {
-    const updated = await updateDonorContact(_selectedDonor.donor_id, data);
+    // Admin and PRC Staff must use PATCH /api/donors/:id (full update endpoint).
+    // Volunteer and Phlebotomist use PATCH /api/donors/:id/contact (contact-only).
+    // The contact-only endpoint rejects Admin/Staff with 403 — backend enforces this.
+    const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+    const updated = isFieldRole
+      ? await updateDonorContact(_selectedDonor.donor_id, data)
+      : await updateDonorFull(_selectedDonor.donor_id, data);
     _selectedDonor = updated;
     showToast('Contact information updated.', 'success');
 
@@ -535,9 +525,20 @@ function _resetForm() {
   _clearAllFieldErrors('donor-registration-form');
   _hideEl(document.getElementById('reg-form-error'));
   _hideEl(document.getElementById('reg-id-duplicate'));
+  _hideEl(document.getElementById('reg-email-duplicate'));
+  _hideEl(document.getElementById('reg-contact-duplicate'));
   _hideEl(document.getElementById('reg-name-birthdate-duplicate'));
   _hideEl(document.getElementById('proceed-section'));
   _registeredDonor = null;
+}
+
+function _setupRegisterAnotherBtn() {
+  const btn = document.getElementById('proceed-register-another-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    _clearSelection();
+    _resetForm();
+  });
 }
 
 // ─── DOM Helpers ──────────────────────────────────────────────────────────────

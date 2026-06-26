@@ -580,3 +580,9 @@ Response on success:
 json{ "success": true, "message": "Donor contact information updated successfully", "data": { ...full donor object... } }
 Errors: 400 for validation failure or extra fields, 404 if the donor doesn't exist. No 403 for active-drive requirement — this one isn't gated by requireBloodDrive, so Volunteer/Phlebotomist can use it regardless of whether they're currently assigned to an active drive.
 So for the Donor detail view: Volunteer/Phlebotomist should get an inline-editable email/contact field (not the full edit form — that stays Admin/PRC-Staff-only and out of their reach entirely), backed by this new endpoint. Everything else on the donor record stays read-only for them, exactly as the contract already says.
+
+Additional backend donor updates:
+- POST /api/donors now rejects duplicate donors by national ID, email, or contact with 409 Conflict.
+- GET /api/donors/search supports query parameter `q` for frontend search compatibility.
+- searchDonors now returns matching donors on first/last/full name, contact, email, and national ID number.
+- Donor GET and GET by ID responses now expose `id_number` as an alias for `national_id_number` to match frontend expectations.

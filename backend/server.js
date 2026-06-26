@@ -41,15 +41,16 @@ app.use(
 
 // Security middleware
 // CSP configured to allow same-origin scripts (frontend JS modules),
-// the Socket.io CDN used on protected pages, and WebSocket connections.
+// the Socket.io CDN, Leaflet from unpkg.com, and WebSocket connections.
+// connectSrc includes Nominatim for reverse geocoding (Section B map picker).
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc:  ["'self'"],
-            scriptSrc:   ["'self'", "https://cdn.socket.io"],
-            styleSrc:    ["'self'", "'unsafe-inline'"],
-            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "https://cdn.socket.io"],
-            imgSrc:      ["'self'", "data:", "https://res.cloudinary.com"],
+            scriptSrc:   ["'self'", "https://cdn.socket.io", "https://unpkg.com"],
+            styleSrc:    ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "https://cdn.socket.io", "https://nominatim.openstreetmap.org", "https://unpkg.com"],
+            imgSrc:      ["'self'", "data:", "https://res.cloudinary.com", "https://*.tile.openstreetmap.org", "https://unpkg.com"],
             fontSrc:     ["'self'"],
             objectSrc:   ["'none'"],
         },

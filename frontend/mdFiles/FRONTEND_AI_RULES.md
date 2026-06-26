@@ -502,6 +502,13 @@ Never use 'operations' as a sidebar section name — it was renamed to 'general'
 - Never show action buttons for Separated blood units
 - Never show Cancel button for non-Pending requests
 - Never show Cancelled as a staff action option on blood requests
+- Never manually render hemoglobin_status or screening_result as user-selectable fields —
+  both are auto-computed from hemoglobin input + donor sex on the screening page
+- Never call PATCH /api/donors/:id/contact for Admin/PRC Staff roles — use PATCH /api/donors/:id
+- Never call PATCH /api/donors/:id for Volunteer/Phlebotomist roles — use PATCH /api/donors/:id/contact
+- Never use getCurrentUser() on the login page — use getCurrentUserSilent() only
+- Never call getAllCollections() from field role entry files without .catch(() => []) —
+  it returns 403 for Volunteer/Phlebotomist
 
 ### Auth
 - Never put tokens in localStorage or sessionStorage
@@ -533,6 +540,12 @@ Called revealAppShell() after an async await → shell stays invisible during wa
 Pointed navbar brand to '/' → two-hop redirect flash on every home click
 Let field role proceed to donation without checking donor email → 400 at last step
 Showed full donor edit form to Volunteer/Phlebotomist → 403 from backend
+- Used getCurrentUser() on login page → 401 → apiFetch refresh → 401 → redirect loop → 429 rate limit
+- Called PATCH /api/donors/:id/contact as Admin/Staff → 403 "Access denied"
+- Used raw apiFetch() directly in entry file (donorInterview.js) → "apiFetch is not defined"
+- Backend route was /gender/:sex instead of /sex/:sex → 404 on interview questions load
+- Manually rendered hemoglobin_status as a select → violates auto-computation rule
+- Made blood_type_confirmed optional on screening → backend requires it, causes 400 on submit
 
 ---
 

@@ -11,7 +11,7 @@ router.get('/',
     interviewQuestionController.getAllQuestions
 );
 
-router.get('/gender/:sex',
+router.get('/sex/:sex',
     verifyToken,
     checkRole([ROLES.ADMIN, ROLES.PRC_STAFF, ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST]),
     interviewQuestionController.getQuestionsByGender

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Donor Screening|BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/fieldWorkflow.css" />
+</head>
+<body class="app-loading">
+
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Donor Screening</h1>
+          <p class="page-subtitle">Select a donor who passed the interview and record their screening results.</p>
+        </div>
+      </div>
+
+      <!-- Step indicator -->
+      <div class="workflow-steps">
+        <div class="workflow-step done">
+          <span class="workflow-step-number">1</span>
+          Register
+        </div>
+        <div class="workflow-step-divider"></div>
+        <div class="workflow-step done">
+          <span class="workflow-step-number">2</span>
+          Interview
+        </div>
+        <div class="workflow-step-divider"></div>
+        <div class="workflow-step active">
+          <span class="workflow-step-number">3</span>
+          Screening
+        </div>
+        <div class="workflow-step-divider"></div>
+        <div class="workflow-step">
+          <span class="workflow-step-number">4</span>
+          Donation
+        </div>
+        <div class="workflow-step-divider"></div>
+        <div class="workflow-step">
+          <span class="workflow-step-number">5</span>
+          Collection
+        </div>
+      </div>
+
+      <!-- Donor selector -->
+      <div class="workflow-card">
+        <p class="workflow-card-title">Select Donor</p>
+
+        <div class="donor-selector-group">
+          <label for="donor-select-input">Donor</label>
+          <div class="sd-wrapper">
+            <input
+              id="donor-select-input"
+              type="text"
+              class="form-input sd-input"
+              placeholder="Click to browse or type to filter donors…"
+            />
+            <ul id="donor-select-list" class="sd-list"></ul>
+          </div>
+          <span id="donor-select-error" class="field-error field-error-hidden"></span>
+        </div>
+
+        <!-- Donor info panel (shown after selecting a donor) -->
+        <div id="donor-info-panel" class="donor-info-panel" style="display:none">
+          <dl id="donor-info-list"></dl>
+        </div>
+
+        <div id="donor-load-error" class="form-error" style="display:none"></div>
+      </div>
+
+      <!-- Screening form (hidden until donor selected) -->
+      <div id="screening-form-section" class="workflow-card" style="display:none">
+        <p class="workflow-card-title">Screening Details</p>
+
+        <p id="screening-already-done" class="form-error" style="display:none">
+          This donor already has a completed screening for this session.
+          Proceed to the donation step.
+        </p>
+
+        <form id="screening-form" novalidate>
+
+          <div id="screening-form-fields">
+
+            <!-- Hemoglobin -->
+            <div class="form-row">
+              <div class="form-group">
+                <label for="input-hemoglobin">Hemoglobin (g/dL) <span class="required-mark">*</span></label>
+                <input id="input-hemoglobin" type="number" step="0.1" min="5" max="25" class="form-input" placeholder="e.g. 14.5" />
+                <span class="field-hint" id="hemoglobin-hint"></span>
+                <span id="error-hemoglobin" class="field-error field-error-hidden"></span>
+              </div>
+
+              <div class="form-group">
+                <label for="input-blood-type-confirmed">Blood Type <span class="required-mark">*</span></label>
+                <select id="input-blood-type-confirmed" class="form-input">
+                  <option value="">— Select —</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
+                <span id="error-blood-type-confirmed" class="field-error field-error-hidden"></span>
+              </div>
+            </div>
+
+            <!-- Optional vitals -->
+            <div class="form-row">
+              <div class="form-group">
+                <label for="input-weight">Weight (kg)</label>
+                <input id="input-weight" type="number" step="0.1" min="20" max="300" class="form-input" placeholder="e.g. 65" />
+                <span id="error-weight" class="field-error field-error-hidden"></span>
+              </div>
+              <div class="form-group">
+                <label for="input-pulse-rate">Pulse Rate (bpm)</label>
+                <input id="input-pulse-rate" type="number" min="30" max="200" class="form-input" placeholder="e.g. 72" />
+                <span id="error-pulse-rate" class="field-error field-error-hidden"></span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="input-blood-pressure">Blood Pressure</label>
+                <input id="input-blood-pressure" type="text" class="form-input" placeholder="e.g. 120/80" />
+                <span id="error-blood-pressure" class="field-error field-error-hidden"></span>
+              </div>
+            </div>
+
+            <!-- Auto-computed result preview (shown once hemoglobin is entered) -->
+            <div id="screening-result-preview" style="display:none" class="duplicate-warning">
+              <span id="screening-result-preview-text" class="duplicate-warning-text"></span>
+            </div>
+
+          </div>
+
+          <div id="screening-form-error" class="form-error" style="display:none"></div>
+
+          <div class="submit-section" id="screening-submit-section">
+            <button type="submit" id="screening-submit-btn" class="btn-primary">
+              Save Screening Record
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- Proceed section (shown after successful screening or already done) -->
+      <div id="proceed-section" class="workflow-card" style="display:none">
+        <p class="workflow-card-title" id="proceed-title">Screening Complete</p>
+        <p id="proceed-body" style="font-size:13px; color:#555; margin-bottom:16px;"></p>
+        <a id="proceed-link" href="/pages/field/donorDonation.html" class="btn-primary" style="display:none">
+          Proceed to Donation
+        </a>
+        <a href="/pages/field/donorRegistration.html" class="btn-secondary" id="proceed-back" style="display:none">
+          Return to Registration
+        </a>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/field/donorScreening.js"></script>
+</body>
+</html>

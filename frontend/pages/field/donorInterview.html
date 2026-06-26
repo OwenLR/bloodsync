@@ -56,10 +56,16 @@
         <p class="workflow-card-title">Select Donor</p>
 
         <div class="donor-selector-group">
-          <label for="donor-select">Donor</label>
-          <select id="donor-select" class="form-input">
-            <option value="">Loading donors...</option>
-          </select>
+          <label for="donor-select-input">Donor</label>
+          <div class="sd-wrapper">
+            <input
+              id="donor-select-input"
+              type="text"
+              class="form-input sd-input"
+              placeholder="Click to browse or type to filter donors…"
+            />
+            <ul id="donor-select-list" class="sd-list"></ul>
+          </div>
           <span id="donor-select-error" class="field-error field-error-hidden"></span>
         </div>
 

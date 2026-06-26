@@ -54,21 +54,21 @@
       <!-- Search existing donor -->
       <div class="workflow-card">
         <p class="workflow-card-title">Search Existing Donor</p>
+        <p class="field-hint" style="margin-bottom:10px;">
+          Click the field below to browse all registered donors, or type a name to filter.
+        </p>
 
-        <div class="donor-search-bar">
+        <div class="sd-wrapper">
           <input
             id="donor-search-input"
-            type="search"
-            class="form-input"
-            placeholder="Name or ID number..."
+            type="text"
+            class="form-input sd-input"
+            placeholder="Click to browse or type to search donors…"
             autocomplete="off"
           />
-          <button id="donor-search-btn" class="btn-primary">Search</button>
+          <ul id="donor-search-list" class="sd-list"></ul>
         </div>
         <span id="donor-search-error" class="field-error field-error-hidden"></span>
-        <p id="donor-search-status" class="search-status" style="display:none"></p>
-
-        <div id="donor-search-results" class="search-results-dropdown" style="display:none"></div>
       </div>
 
       <!-- Selected donor banner (shown when existing donor selected) -->
@@ -127,11 +127,19 @@
               <input id="reg-email" type="email" class="form-input" autocomplete="off" />
               <span class="field-hint">Required for post-donation notifications.</span>
               <span id="reg-email-error" class="field-error field-error-hidden"></span>
+              <div id="reg-email-duplicate" style="display:none" class="duplicate-warning">
+                <span class="duplicate-warning-text"></span>
+                <button type="button" class="duplicate-warning-btn">View existing donor</button>
+              </div>
             </div>
             <div class="form-group">
               <label for="reg-contact">Contact Number</label>
-              <input id="reg-contact" type="tel" class="form-input" placeholder="09171234567" autocomplete="off" />
+              <input id="reg-contact" type="tel" class="form-input" placeholder=" " autocomplete="off" />
               <span id="reg-contact-error" class="field-error field-error-hidden"></span>
+              <div id="reg-contact-duplicate" style="display:none" class="duplicate-warning">
+                <span class="duplicate-warning-text"></span>
+                <button type="button" class="duplicate-warning-btn">View existing donor</button>
+              </div>
             </div>
           </div>
 
@@ -188,7 +196,7 @@
               </div>
               <div class="form-group">
                 <label for="update-contact">Contact Number</label>
-                <input id="update-contact" type="tel" class="form-input" placeholder="09171234567" autocomplete="off" />
+                <input id="update-contact" type="tel" class="form-input" placeholder=" " autocomplete="off" />
                 <span id="update-contact-error" class="field-error field-error-hidden"></span>
               </div>
             </div>
@@ -207,9 +215,14 @@
         <p style="font-size:13px; color:#555; margin-bottom:16px;">
           Donor registered. Proceed to the interview step.
         </p>
-        <a id="proceed-to-interview-btn" href="/pages/field/donorInterview.html" class="btn-primary">
-          Proceed to Interview
-        </a>
+        <div class="submit-section" style="margin-top: 16px; gap: 12px; display: flex; flex-wrap: wrap;">
+          <a id="proceed-to-interview-btn" href="/pages/field/donorInterview.html" class="btn-primary">
+            Proceed to Interview
+          </a>
+          <button type="button" id="proceed-register-another-btn" class="btn-secondary">
+            Register Another Donor
+          </button>
+        </div>
       </div>
 
     </main>

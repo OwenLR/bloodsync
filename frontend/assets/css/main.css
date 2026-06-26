@@ -345,12 +345,18 @@ a {
    lives in the sidebar (see sidebarItems.js). Navbar renders: brand,
    notifications link + badge, username, logout button. */
 #navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
   background: #fff;
   border-bottom: 1px solid #ddd;
+  height: 52px;
 }
 
 .navbar-brand a {
@@ -408,11 +414,16 @@ a {
 
 /* ── Sidebar (sidebar.js) ────────────────────────────────────────── */
 #sidebar {
+  position: fixed;
+  top: 52px;       /* sits flush below the fixed navbar */
+  left: 0;
+  bottom: 0;
   width: 200px;
   padding: 16px;
   background: #fff;
   border-right: 1px solid #ddd;
-  min-height: 100vh;
+  overflow-y: auto;
+  z-index: 100;
 }
 
 .sidebar-section {
@@ -493,13 +504,19 @@ a {
 }
 
 /* ── Page layout shell ───────────────────────────────────────────── */
+/* Both navbar (52px tall) and sidebar (200px wide) are fixed.
+   page-shell is offset from the top so it starts below the navbar.
+   page-content is offset from the left so it starts beside the sidebar. */
 .page-shell {
   display: flex;
+  padding-top: 52px;   /* clear the fixed navbar */
 }
 
 .page-content {
   flex: 1;
   padding: 24px;
+  margin-left: 200px;  /* clear the fixed sidebar */
+  min-width: 0;        /* prevent flex children from overflowing */
 }
 
 /* ── App shell reveal pattern ────────────────────────────────────── */

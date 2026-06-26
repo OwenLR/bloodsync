@@ -24,7 +24,7 @@ Philippine Red Cross Batangas needed a modern system to manage:
 
 ## Core Features
 1. Blood drive management with participant assignment and access control
-2. Donor registration with duplicate detection (national ID)
+2. Donor registration with duplicate detection (national ID, email, contact)
 3. Donor interview → screening → donation → blood collection chain
 4. Blood inventory management (blood_collections → blood_units)
 5. Blood requests with FEFO auto-assignment and race condition protection

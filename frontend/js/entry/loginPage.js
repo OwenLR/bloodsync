@@ -9,14 +9,16 @@
  * Path: frontend/js/entry/loginPage.js
  */
 
-import { login, getCurrentUser, redirectByRole } from '../core/auth.js';
-import { showError, clearFeedback }              from '../components/feedback.js';
+import { login, getCurrentUserSilent, redirectByRole } from '../core/auth.js';
+import { showError, clearFeedback }                    from '../components/feedback.js';
 
 const ERROR_ID = 'login-error';
 
 async function init() {
-  // If already logged in, skip the login page entirely
-  const user = await getCurrentUser();
+  // Check if already logged in using raw fetch — NOT apiFetch.
+  // apiFetch would trigger the 401→refresh→redirect loop on this page.
+  // getCurrentUserSilent() returns null on 401 without any retry or redirect.
+  const user = await getCurrentUserSilent();
   if (user) {
     redirectByRole(user.role_id);
     return;

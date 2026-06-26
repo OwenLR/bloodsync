@@ -12,23 +12,23 @@
   width: 100%;
   max-width: 360px;
   padding: 8px 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid #e0e0e0;
   border-radius: 6px;
   font-size: 0.9rem;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: #ffffff;
+  color: #111111;
   outline: none;
   transition: border-color 0.15s;
 }
 
 .search-input:focus {
-  border-color: var(--color-primary);
+  border-color: #c00;
 }
 
 /* Table */
 .table-wrapper {
   overflow-x: auto;
-  border: 1px solid var(--color-border);
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
 }
 
@@ -39,7 +39,7 @@
 }
 
 .data-table thead {
-  background: var(--color-surface-alt, #f8f8f8);
+  background: #f8f8f8;
 }
 
 .data-table th {
@@ -49,15 +49,15 @@
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  border-bottom: 1px solid var(--color-border);
+  color: #777777;
+  border-bottom: 1px solid #e0e0e0;
   white-space: nowrap;
 }
 
 .data-table td {
   padding: 12px 14px;
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text);
+  border-bottom: 1px solid #e0e0e0;
+  color: #111111;
   vertical-align: middle;
 }
 
@@ -66,7 +66,7 @@
 }
 
 .data-table tbody tr:hover {
-  background: var(--color-surface-hover, #fafafa);
+  background: #fafafa;
 }
 
 /* Actions cell */
@@ -92,13 +92,13 @@
 }
 
 .btn-view {
-  background: var(--color-primary-light, #fde8e8);
-  color: var(--color-primary);
+  background: #fde8e8;
+  color: #c00;
 }
 
 .btn-edit {
-  background: var(--color-surface-alt, #f0f0f0);
-  color: var(--color-text);
+  background: #f0f0f0;
+  color: #111111;
 }
 
 /* Status badges */
@@ -132,18 +132,18 @@
 .empty-state-title {
   font-weight: 600;
   font-size: 1rem;
-  color: var(--color-text);
+  color: #111111;
   margin: 0;
 }
 
 .empty-state-body {
   font-size: 0.88rem;
-  color: var(--color-text-muted);
+  color: #777777;
   margin: 0;
 }
 
 .empty-state-error .empty-state-title {
-  color: var(--color-danger, #c00);
+  color: #c00;
 }
 
 /* ─── Modals ────────────────────────────────────────────────────────────────── */
@@ -179,7 +179,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 22px 14px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid #e0e0e0;
   flex-shrink: 0;
 }
 
@@ -187,7 +187,7 @@
   font-size: 1.05rem;
   font-weight: 600;
   margin: 0;
-  color: var(--color-text);
+  color: #111111;
 }
 
 .modal-close {
@@ -195,7 +195,7 @@
   border: none;
   font-size: 1.1rem;
   cursor: pointer;
-  color: var(--color-text-muted);
+  color: #777777;
   padding: 4px 6px;
   border-radius: 4px;
   line-height: 1;
@@ -203,7 +203,7 @@
 }
 
 .modal-close:hover {
-  background: var(--color-surface-alt, #f0f0f0);
+  background: #f0f0f0;
 }
 
 .modal-body {
@@ -218,7 +218,7 @@
   justify-content: flex-end;
   gap: 10px;
   padding: 14px 22px 18px;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid #e0e0e0;
   flex-shrink: 0;
 }
 
@@ -236,16 +236,16 @@
   text-align: center;
   padding: 24px 0;
   font-size: 0.9rem;
-  color: var(--color-text-muted);
+  color: #777777;
 }
 
 .modal-error {
-  color: var(--color-danger, #c00);
+  color: #c00;
 }
 
 .modal-hint {
   font-size: 0.87rem;
-  color: var(--color-text-muted);
+  color: #777777;
   margin: 0 0 14px;
 }
 
@@ -261,7 +261,7 @@
 .detail-list dt {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: #777777;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   align-self: start;
@@ -270,7 +270,7 @@
 
 .detail-list dd {
   font-size: 0.93rem;
-  color: var(--color-text);
+  color: #111111;
   margin: 0;
 }
 
@@ -292,16 +292,16 @@
 .form-group label {
   font-size: 0.83rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: #111111;
 }
 
 .form-input {
   padding: 8px 10px;
-  border: 1px solid var(--color-border);
+  border: 1px solid #e0e0e0;
   border-radius: 6px;
   font-size: 0.9rem;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: #ffffff;
+  color: #111111;
   outline: none;
   transition: border-color 0.15s;
   width: 100%;
@@ -309,17 +309,17 @@
 }
 
 .form-input:focus {
-  border-color: var(--color-primary);
+  border-color: #c00;
 }
 
 .field-error {
   font-size: 0.8rem;
-  color: var(--color-danger, #c00);
+  color: #c00;
 }
 
 .field-hint {
   font-size: 0.78rem;
-  color: var(--color-text-muted);
+  color: #777777;
 }
 
 .form-error {
@@ -329,11 +329,11 @@
   border: 1px solid #f5c6c6;
   border-radius: 6px;
   font-size: 0.87rem;
-  color: var(--color-danger, #c00);
+  color: #c00;
 }
 
 .required-mark {
-  color: var(--color-danger, #c00);
+  color: #c00;
 }
 
 /* ─── Create modal search step ──────────────────────────────────────────────── */
@@ -361,9 +361,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid #e0e0e0;
   border-radius: 6px;
-  background: var(--color-surface);
+  background: #ffffff;
 }
 
 .search-result-info {
@@ -375,17 +375,17 @@
 .search-result-name {
   font-size: 0.92rem;
   font-weight: 600;
-  color: var(--color-text);
+  color: #111111;
 }
 
 .search-result-meta {
   font-size: 0.8rem;
-  color: var(--color-text-muted);
+  color: #777777;
 }
 
 .search-no-results {
   font-size: 0.88rem;
-  color: var(--color-text-muted);
+  color: #777777;
   margin: 0;
   padding: 10px 0;
 }
@@ -395,7 +395,7 @@
   align-items: center;
   gap: 10px;
   margin: 18px 0 14px;
-  color: var(--color-text-muted);
+  color: #777777;
   font-size: 0.82rem;
 }
 
@@ -404,7 +404,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--color-border);
+  background: #e0e0e0;
 }
 
 /* Back button */
@@ -414,7 +414,7 @@
   padding: 0;
   margin-bottom: 16px;
   font-size: 0.85rem;
-  color: var(--color-primary);
+  color: #c00;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -440,4 +440,38 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+/* ─── Inline duplicate warning (registration form) ─────────────────────────── */
+/* Shown when last name + first name + birthdate match an existing donor record.
+   bloodsync.md items 12-15: auto-detect similar donor while typing. */
+
+.duplicate-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.duplicate-warning-text {
+  flex: 1;
+  font-size: 0.86rem;
+  color: #5d4037;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.duplicate-warning-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: #fff3cd;
+  color: #5d4037;
+  border: 1px solid #ffe082;
+}
+
+.duplicate-warning-btn:hover {
+  background: #ffe082;
 }

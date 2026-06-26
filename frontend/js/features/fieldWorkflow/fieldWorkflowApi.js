@@ -14,6 +14,37 @@ import { apiFetch } from '../../core/api.js';
 // ─── Donors ──────────────────────────────────────────────────────────────────
 
 /**
+ * Get all donors.
+ * Used for the donor selector dropdowns on field workflow pages.
+ * @returns {Promise<Array>}
+ */
+export async function getAllDonors() {
+  const res  = await apiFetch('/api/donors');
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load donors.');
+  return body.data || [];
+}
+
+/**
+ * Update a donor's full details (Admin + PRC Staff only).
+ * Used on the registration page when an Admin or Staff updates contact info
+ * for an existing donor — the contact-only endpoint rejects their role.
+ * @param {number} donorId
+ * @param {{ email?: string, contact?: string }} data
+ * @returns {Promise<Object>}
+ */
+export async function updateDonorFull(donorId, data) {
+  const res  = await apiFetch(`/api/donors/${donorId}`, {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(data),
+  });
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to update donor.');
+  return body.data;
+}
+
+/**
  * Search donors by name or ID number.
  * Used for the search bar on the registration page.
  * @param {string} query

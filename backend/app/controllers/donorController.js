@@ -28,7 +28,7 @@ const getDonorById = async (req, res) => {
 
 const searchDonors = async (req, res) => {
     try {
-        const { keyword } = req.query;
+        const keyword = req.query.q || req.query.keyword;
         if (!keyword) return response.badRequest(res, 'keyword is required');
         const donors = await donorModel.searchDonors(keyword);
         return response.success(res, donors);

@@ -31,11 +31,18 @@ export function validateDonorRegistration(data) {
   if (!data.birthdate) {
     errors.birthdate = 'Birthdate is required.';
   } else {
-    const d = new Date(data.birthdate);
+    const d     = new Date(data.birthdate);
+    const today = new Date();
     if (isNaN(d.getTime())) {
       errors.birthdate = 'Enter a valid date.';
-    } else if (d > new Date()) {
+    } else if (d > today) {
       errors.birthdate = 'Birthdate cannot be in the future.';
+    } else {
+      const minAge = new Date(today);
+      minAge.setFullYear(minAge.getFullYear() - 18);
+      if (d > minAge) {
+        errors.birthdate = 'Donor must be at least 18 years old.';
+      }
     }
   }
 
@@ -165,8 +172,16 @@ export function validateScreening(data) {
     }
   }
 
-  if (!data.screening_result || !['Eligible', 'Deferred'].includes(data.screening_result)) {
-    errors.screening_result = 'Select Eligible or Deferred.';
+  // screening_result is auto-computed by the UI from hemoglobin + donor sex.
+  // Only validate that the computed value is one of the two accepted strings.
+  if (data.screening_result && !['Eligible', 'Deferred'].includes(data.screening_result)) {
+    errors.screening_result = 'Invalid screening result.';
+  }
+
+  // blood_type_confirmed is required at screening — this is where blood type
+  // is confirmed for the record.
+  if (!data.blood_type_confirmed || !VALID_BLOOD_TYPES.includes(data.blood_type_confirmed)) {
+    errors.blood_type_confirmed = 'Blood type confirmation is required.';
   }
 
   if (data.blood_pressure && !/^\d{2,3}\/\d{2,3}$/.test(data.blood_pressure.trim())) {
@@ -185,10 +200,6 @@ export function validateScreening(data) {
     if (isNaN(val) || val < 20 || val > 300) {
       errors.weight = 'Enter a valid weight (20 to 300 kg).';
     }
-  }
-
-  if (data.blood_type_confirmed && !VALID_BLOOD_TYPES.includes(data.blood_type_confirmed)) {
-    errors.blood_type_confirmed = 'Select a valid blood type.';
   }
 
   return { valid: Object.keys(errors).length === 0, errors };
