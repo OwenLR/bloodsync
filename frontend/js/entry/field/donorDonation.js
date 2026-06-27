@@ -1,28 +1,30 @@
 /**
  * donorDonation.js — Entry file for /pages/field/donorDonation.html
  *
- * Step 4 of the field donor workflow.
+ * Combined Step 4 + 5 of the field donor workflow.
+ * Records blood extraction (donation) AND blood collection in one page.
  *
  * Roles: Volunteer, Phlebotomist, Admin, PRC Staff
  *
- * Donor selector: shows only donors with an Eligible screening but no
- * donation yet. Built by cross-referencing screenings vs donations.
- * Backend scopes GET /api/screenings to the active drive for field roles.
+ * Flow:
+ *   1. Select donor (Eligible screening, no donation yet)
+ *   2. Fill extraction details — time, phlebotomist who performed it
+ *   3. Submit extraction → POST /api/donations
+ *   4. Collection form appears immediately below
+ *      - Component defaults to "Whole Blood"
+ *      - Volume defaults to 450 mL (editable)
+ *      - Blood type pre-filled from screening record
+ *   5. Submit collection → POST /api/blood-collections
  *
- * Key rules:
- * - Donor email is required before submit — backend sends post-extraction
- *   email. If missing, block submit and show prompt to update on Registration page.
- * - extraction_time > 15 min → show QNS warning, still allow submit.
- *   Backend sets is_qns: true automatically.
- * - POST body: only screening_id + extraction_time. Nothing else.
- * - Phlebotomist recorded server-side from JWT (conducted_by = req.user.user_id).
- *   Frontend shows the logged-in user's name as a read-only display only.
+ * Phlebotomist dropdown:
+ *   - If active drive found: GET /api/blood-drives/:id/participants filtered to role_id 6
+ *   - If no active drive (Admin/Staff walk-in): GET /api/volunteers/available?role=6
  *
  * SessionStorage:
  *   Reads:  field_screening_donor_id (pre-selects donor from screening page)
  *   Reads:  field_screening_id (resolves screening_id if not in screeningMap)
- *   Writes: field_donation_id, field_donation_donor_id (for collection page)
- *   Clears: field_screening_id, field_screening_donor_id after success
+ *   Writes: nothing — this is the last step (collection absorbed here)
+ *   Clears: field_screening_id, field_screening_donor_id after donation success
  */
 
 import { requireAuth }         from '../../core/guards/authGuard.js';
@@ -39,20 +41,32 @@ import {
   getDonorById,
   getAllScreenings,
   getAllDonations,
+  getAllCollections,
   getDonationsByDonor,
   createDonation,
+  createCollection,
+  getMyActiveDrive,
+  getDrivePhlebotomists,
+  getAvailablePhlebotomists,
 } from '../../features/fieldWorkflow/fieldWorkflowApi.js';
-import { validateDonation }    from '../../features/fieldWorkflow/fieldWorkflowValidation.js';
+import {
+  validateDonation,
+  validateCollection,
+} from '../../features/fieldWorkflow/fieldWorkflowValidation.js';
 import { initSearchableDropdown } from '../../components/searchableDropdown.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let _user          = null;
-let _selectedDonor = null;
-let _screeningMap  = null;   // donor_id → most recent Eligible screening record
-let _dropdown      = null;
+let _user           = null;
+let _selectedDonor  = null;
+let _screeningMap   = null;   // donor_id → most recent Eligible screening
+let _donationMap    = null;   // donor_id → most recent donation (built after donations load)
+let _activeDrive    = null;   // active blood drive (null for walk-ins)
+let _phlebotomists  = [];     // list of available phlebotomists for dropdown
+let _dropdown       = null;
+let _createdDonation = null;  // donation record after step 1 submit
 
-const QNS_THRESHOLD = 15;   // minutes — backend also enforces this
+const QNS_THRESHOLD = 15;     // minutes
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -77,14 +91,73 @@ async function init() {
 
   revealAppShell();
 
-  // Show logged-in user as "Performed By" — display only, not submitted
-  const performedBy = document.getElementById('performed-by');
-  if (performedBy) {
-    performedBy.textContent = `${_user.first_name} ${_user.last_name}`;
+  // Load active drive and phlebotomist list in parallel with donor data
+  await Promise.all([
+    _initDonorDropdown(),
+    _loadPhlebotomists(),
+  ]);
+
+  _setupDonationForm();
+  _setupCollectionForm();
+}
+
+// ─── Phlebotomist Loader ──────────────────────────────────────────────────────
+
+async function _loadPhlebotomists() {
+  try {
+    // Try to find active drive first — needed for participant list
+    _activeDrive = await getMyActiveDrive();
+
+    if (_activeDrive) {
+      _phlebotomists = await getDrivePhlebotomists(_activeDrive.drive_id);
+    } else {
+      // No active drive (Admin/Staff walk-in) — use available phlebotomists list
+      _phlebotomists = await getAvailablePhlebotomists();
+    }
+  } catch (_err) {
+    _phlebotomists = [];
+    // Non-fatal — the dropdown will show empty with a message
+  }
+  _renderPhlebotomistDropdown();
+}
+
+function _renderPhlebotomistDropdown() {
+  const select  = document.getElementById('input-phlebotomist');
+  const hint    = document.getElementById('phlebotomist-hint');
+  if (!select) return;
+
+  // Clear existing options except the placeholder
+  select.innerHTML = '<option value="">— Select phlebotomist —</option>';
+
+  if (_phlebotomists.length === 0) {
+    const opt = document.createElement('option');
+    opt.value    = '';
+    opt.disabled = true;
+    opt.textContent = 'No phlebotomists found for this drive';
+    select.appendChild(opt);
+
+    if (hint) hint.textContent = 'No assigned phlebotomists found. Ensure phlebotomists are assigned to this drive.';
+    return;
   }
 
-  await _initDonorDropdown();
-  _setupForm();
+  _phlebotomists.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value       = p.user_id;
+    opt.textContent = `${p.first_name} ${p.last_name}`;
+    select.appendChild(opt);
+  });
+
+  if (hint) {
+    hint.textContent = _activeDrive
+      ? 'Phlebotomists assigned to this blood drive.'
+      : 'Available phlebotomists (walk-in session).';
+  }
+
+  // If logged-in user is a phlebotomist and is in the list, pre-select them
+  if (_user.role_id === ROLES.PHLEBOTOMIST) {
+    const self = _phlebotomists.find(p => p.user_id === _user.user_id);
+    if (self) select.value = String(_user.user_id);
+  }
 }
 
 // ─── Donor Selector ───────────────────────────────────────────────────────────
@@ -93,18 +166,15 @@ async function _initDonorDropdown() {
   const errorEl = document.getElementById('donor-load-error');
 
   try {
-    // Load all three in parallel
     const [allDonors, allScreenings, allDonations] = await Promise.all([
       getAllDonors(),
       getAllScreenings(),
       getAllDonations(),
     ]);
 
-    // Set of donor_ids that already have a donation in this context
     const donatedIds = new Set(allDonations.map(d => d.donor_id));
 
-    // Map donor_id → most recent Eligible screening record
-    // Only Eligible screenings can proceed to donation
+    // Map donor_id → most recent Eligible screening
     _screeningMap = new Map();
     allScreenings.forEach(s => {
       if (s.screening_result !== 'Eligible') return;
@@ -114,7 +184,6 @@ async function _initDonorDropdown() {
       }
     });
 
-    // Eligible: has an Eligible screening, no donation yet
     const eligibleDonors = allDonors.filter(d =>
       _screeningMap.has(d.donor_id) && !donatedIds.has(d.donor_id)
     );
@@ -126,7 +195,11 @@ async function _initDonorDropdown() {
       listId:       'donor-select-list',
       items:         eligibleDonors,
       displayFn:    (d) => `${d.last_name}, ${d.first_name}`,
-      subDisplayFn: (d) => [d.blood_type, d.sex, d.birthdate].filter(Boolean).join(' · '),
+      subDisplayFn: (d) => [
+        d.blood_type,
+        d.sex,
+        d.birthdate ? String(d.birthdate).slice(0, 10) : '',
+      ].filter(Boolean).join(' · '),
       filterFn:     (d, q) =>
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
         (d.id_number || '').toLowerCase().includes(q),
@@ -134,7 +207,7 @@ async function _initDonorDropdown() {
       placeholder:  isFieldRole
         ? 'Click to browse eligible donors in this drive…'
         : 'Click to browse or type to filter donors…',
-      emptyMessage: 'No donors available for extraction. All eligible donors may already have a donation recorded.',
+      emptyMessage: 'No donors ready for donation. All eligible donors may already have a donation recorded, or no donors have passed screening yet.',
     });
 
     // Pre-select donor passed from screening page
@@ -154,12 +227,14 @@ async function _initDonorDropdown() {
 }
 
 async function _handleDonorSelected(donor) {
-  _selectedDonor = null;
+  _selectedDonor   = null;
+  _createdDonation = null;
 
   _hideEl(document.getElementById('donor-info-panel'));
   _hideEl(document.getElementById('email-missing-warning'));
   _hideEl(document.getElementById('donation-form-section'));
-  _hideEl(document.getElementById('proceed-section'));
+  _hideEl(document.getElementById('collection-form-section'));
+  _hideEl(document.getElementById('complete-section'));
 
   try {
     const fullDonor = await getDonorById(donor.donor_id);
@@ -168,10 +243,9 @@ async function _handleDonorSelected(donor) {
     _renderDonorInfo(fullDonor);
     _showEl(document.getElementById('donor-info-panel'));
 
-    // Email guard — must be checked before showing the form
     if (!fullDonor.email || !fullDonor.email.trim()) {
       _showEl(document.getElementById('email-missing-warning'));
-      return;   // Do not show the form — cannot proceed without email
+      return;
     }
 
     await _checkExistingDonation(fullDonor);
@@ -187,7 +261,7 @@ function _renderDonorInfo(donor) {
 
   const fields = [
     ['Name',       `${donor.first_name} ${donor.last_name}`],
-    ['Birthdate',  donor.birthdate  || 'Not on record'],
+    ['Birthdate',  donor.birthdate ? String(donor.birthdate).slice(0, 10) : 'Not on record'],
     ['Sex',        donor.sex        || 'Not on record'],
     ['Blood Type', donor.blood_type || 'Unknown'],
     ['Email',      donor.email      || '— missing —'],
@@ -199,9 +273,8 @@ function _renderDonorInfo(donor) {
     dt.textContent = label;
     const dd = document.createElement('dd');
     dd.textContent = value;
-    // Highlight missing email
     if (label === 'Email' && (!donor.email || !donor.email.trim())) {
-      dd.style.color = '#c00';
+      dd.style.color      = '#c00';
       dd.style.fontWeight = '600';
     }
     list.appendChild(dt);
@@ -218,49 +291,110 @@ async function _checkExistingDonation(donor) {
     _showEl(document.getElementById('donation-form-section'));
 
     if (donations && donations.length > 0) {
-      // Already donated — show already-done message and proceed
+      // Already donated — store and jump straight to collection form
+      _createdDonation = donations[donations.length - 1];
       _showEl(document.getElementById('donation-already-done'));
       _hideEl(document.getElementById('donation-form-fields'));
       _hideEl(document.getElementById('donation-submit-section'));
-      _showEl(document.getElementById('proceed-section'));
+
+      // Build donationMap if not already built
+      if (!_donationMap) {
+        _donationMap = new Map();
+        donations.forEach(d => {
+          _donationMap.set(d.donor_id, d);
+        });
+      }
+
+      await _checkExistingCollection(donor);
       return;
     }
 
-    // No existing donation — show form
+    // No donation yet — show donation form
     _hideEl(document.getElementById('donation-already-done'));
     _showEl(document.getElementById('donation-form-fields'));
     _showEl(document.getElementById('donation-submit-section'));
 
   } catch (err) {
-    showToast('Failed to check existing donation. Please try again.', 'error');
+    showToast('Failed to check donation record. Please try again.', 'error');
   }
 }
 
-// ─── Form Setup ───────────────────────────────────────────────────────────────
+// ─── Existing Collection Check ────────────────────────────────────────────────
 
-function _setupForm() {
+async function _checkExistingCollection(donor) {
+  const collectionSection = document.getElementById('collection-form-section');
+  _showEl(collectionSection);
+
+  try {
+    // Try to get collections — field roles get 403 caught silently
+    const allCollections = await getAllCollections().catch(() => []);
+    const existingCollection = allCollections.find(c => c.donor_id === donor.donor_id);
+
+    if (existingCollection) {
+      _hideEl(document.getElementById('collection-form-fields'));
+      _hideEl(document.getElementById('collection-submit-section'));
+      _showEl(document.getElementById('collection-already-done'));
+      _showEl(document.getElementById('complete-section'));
+      return;
+    }
+
+    // No collection yet — show form and pre-fill from screening
+    _hideEl(document.getElementById('collection-already-done'));
+    _showEl(document.getElementById('collection-form-fields'));
+    _showEl(document.getElementById('collection-submit-section'));
+    _prefillCollection(donor);
+
+  } catch (_err) {
+    // If we can't check, just show the form — backend will reject a duplicate
+    _hideEl(document.getElementById('collection-already-done'));
+    _showEl(document.getElementById('collection-form-fields'));
+    _showEl(document.getElementById('collection-submit-section'));
+    _prefillCollection(donor);
+  }
+}
+
+function _prefillCollection(donor) {
+  // Blood type: prefer blood_type_confirmed from screening, fall back to donor's type
+  const screening = _screeningMap ? _screeningMap.get(donor.donor_id) : null;
+  const confirmedType = (screening && screening.blood_type_confirmed)
+    ? screening.blood_type_confirmed
+    : donor.blood_type;
+
+  const btSelect = document.getElementById('input-blood-type');
+  if (btSelect && confirmedType) btSelect.value = confirmedType;
+
+  // Default component: Whole Blood
+  const compSelect = document.getElementById('input-component');
+  if (compSelect) compSelect.value = 'Whole Blood';
+
+  // Default volume: 450 mL
+  const volInput = document.getElementById('input-volume-ml');
+  if (volInput && !volInput.value) volInput.value = '450';
+}
+
+// ─── Donation Form ────────────────────────────────────────────────────────────
+
+function _setupDonationForm() {
   const form = document.getElementById('donation-form');
   if (!form) return;
-  form.addEventListener('submit', _handleSubmit);
+  form.addEventListener('submit', _handleDonationSubmit);
 
-  // Live QNS warning as extraction time is typed
   const timeInput = document.getElementById('input-extraction-time');
   if (timeInput) {
     timeInput.addEventListener('input', () => {
       const val     = parseInt(timeInput.value, 10);
       const warning = document.getElementById('qns-warning');
       if (warning) {
-        !isNaN(val) && val > QNS_THRESHOLD ? _showEl(warning) : _hideEl(warning);
+        (!isNaN(val) && val > QNS_THRESHOLD) ? _showEl(warning) : _hideEl(warning);
       }
     });
   }
 }
 
-async function _handleSubmit(e) {
+async function _handleDonationSubmit(e) {
   e.preventDefault();
   if (!_selectedDonor) return;
 
-  // Double-check email guard — in case donor data changed
   if (!_selectedDonor.email || !_selectedDonor.email.trim()) {
     _showEl(document.getElementById('email-missing-warning'));
     _hideEl(document.getElementById('donation-form-section'));
@@ -269,21 +403,14 @@ async function _handleSubmit(e) {
 
   const formError = document.getElementById('donation-form-error');
   if (formError) _hideEl(formError);
-
-  _clearAllErrors();
+  _clearErrors(['error-extraction-time', 'error-phlebotomist']);
 
   const submitBtn = document.getElementById('donation-submit-btn');
-  if (submitBtn) {
-    submitBtn.disabled    = true;
-    submitBtn.textContent = 'Recording…';
-  }
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Recording…'; }
 
   try {
-    // Resolve screening_id from screeningMap or sessionStorage
-    let screeningId = null;
-    if (_screeningMap && _screeningMap.has(_selectedDonor.donor_id)) {
-      screeningId = _screeningMap.get(_selectedDonor.donor_id).screening_id;
-    }
+    // Resolve screening_id
+    let screeningId = _screeningMap?.get(_selectedDonor.donor_id)?.screening_id || null;
     if (!screeningId) {
       try {
         const stored        = sessionStorage.getItem('field_screening_id');
@@ -302,20 +429,33 @@ async function _handleSubmit(e) {
       return;
     }
 
-    const rawTime = document.getElementById('input-extraction-time').value;
+    const rawTime        = document.getElementById('input-extraction-time').value;
+    const phlebotomistId = document.getElementById('input-phlebotomist')?.value;
+
+    // Phlebotomist is required — backend now stores phlebotomist_id
+    if (!phlebotomistId) {
+      const errEl = document.getElementById('error-phlebotomist');
+      if (errEl) {
+        errEl.textContent = 'Select the phlebotomist who performed this extraction.';
+        errEl.classList.remove('field-error-hidden');
+      }
+      return;
+    }
 
     const data = {
       screening_id:    screeningId,
       extraction_time: rawTime !== '' ? parseInt(rawTime, 10) : undefined,
+      phlebotomist_id: Number(phlebotomistId),
     };
 
     const { valid, errors } = validateDonation(data);
     if (!valid) {
-      _showFieldErrors(errors);
+      _showFieldErrors(errors, { extraction_time: 'error-extraction-time' });
       return;
     }
 
     const donation = await createDonation(data);
+    _createdDonation = donation;
 
     // Clear screening sessionStorage — consumed
     try {
@@ -323,16 +463,15 @@ async function _handleSubmit(e) {
       sessionStorage.removeItem('field_screening_donor_id');
     } catch (_e) { /* ignore */ }
 
-    // Write donation sessionStorage for collection page
-    try {
-      sessionStorage.setItem('field_donation_id',       donation.donation_id);
-      sessionStorage.setItem('field_donation_donor_id', _selectedDonor.donor_id);
-    } catch (_e) { /* ignore */ }
+    showToast('Extraction recorded. Now record the collection below.', 'success');
 
-    showToast('Extraction recorded successfully.', 'success');
+    // Hide donation form, show collection form
     _hideEl(document.getElementById('donation-submit-section'));
     _hideEl(document.getElementById('qns-warning'));
-    _showEl(document.getElementById('proceed-section'));
+    _showEl(document.getElementById('donation-recorded-notice'));
+
+    _showEl(document.getElementById('collection-form-section'));
+    _prefillCollection(_selectedDonor);
 
   } catch (err) {
     if (formError) {
@@ -342,21 +481,86 @@ async function _handleSubmit(e) {
       _showEl(formError);
     }
   } finally {
-    if (submitBtn) {
-      submitBtn.disabled    = false;
-      submitBtn.textContent = 'Record Extraction';
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Record Extraction'; }
+  }
+}
+
+// ─── Collection Form ──────────────────────────────────────────────────────────
+
+function _setupCollectionForm() {
+  const form = document.getElementById('collection-form');
+  if (!form) return;
+  form.addEventListener('submit', _handleCollectionSubmit);
+}
+
+async function _handleCollectionSubmit(e) {
+  e.preventDefault();
+  if (!_selectedDonor) return;
+
+  const formError = document.getElementById('collection-form-error');
+  if (formError) _hideEl(formError);
+  _clearErrors(['error-blood-type', 'error-component', 'error-volume-ml']);
+
+  const submitBtn = document.getElementById('collection-submit-btn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Recording…'; }
+
+  try {
+    // Resolve donation_id
+    let donationId = _createdDonation?.donation_id || null;
+    if (!donationId && _donationMap) {
+      donationId = _donationMap.get(_selectedDonor.donor_id)?.donation_id || null;
     }
+
+    if (!donationId) {
+      if (formError) {
+        formError.textContent = 'Could not find the extraction record. Please complete the extraction step above first.';
+        _showEl(formError);
+      }
+      return;
+    }
+
+    const data = {
+      donation_id: donationId,
+      blood_type:  document.getElementById('input-blood-type').value  || undefined,
+      component:   document.getElementById('input-component').value   || undefined,
+      volume_ml:   document.getElementById('input-volume-ml').value !== ''
+        ? parseInt(document.getElementById('input-volume-ml').value, 10)
+        : undefined,
+    };
+
+    const { valid, errors } = validateCollection(data);
+    if (!valid) {
+      _showFieldErrors(errors, {
+        blood_type: 'error-blood-type',
+        component:  'error-component',
+        volume_ml:  'error-volume-ml',
+      });
+      return;
+    }
+
+    await createCollection(data);
+
+    showToast('Blood collection recorded. Workflow complete.', 'success');
+    _hideEl(document.getElementById('collection-form-section'));
+    _showEl(document.getElementById('complete-section'));
+
+  } catch (err) {
+    if (formError) {
+      formError.textContent = err.status === 403
+        ? 'You are not assigned to an active blood drive. Please contact your coordinator.'
+        : (err.message || 'Failed to record collection. Please try again.');
+      _showEl(formError);
+    }
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Record Collection'; }
   }
 }
 
 // ─── Error Helpers ────────────────────────────────────────────────────────────
 
-function _showFieldErrors(errors) {
-  const map = {
-    extraction_time: 'error-extraction-time',
-  };
+function _showFieldErrors(errors, idMap) {
   Object.entries(errors).forEach(([field, msg]) => {
-    const id = map[field];
+    const id = idMap[field];
     if (!id) return;
     const el = document.getElementById(id);
     if (el) {
@@ -366,8 +570,8 @@ function _showFieldErrors(errors) {
   });
 }
 
-function _clearAllErrors() {
-  ['error-extraction-time'].forEach(id => {
+function _clearErrors(ids) {
+  ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.textContent = '';

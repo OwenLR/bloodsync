@@ -26,9 +26,21 @@ import { initSearchableDropdown } from '../../components/searchableDropdown.js';
 
 let _user             = null;
 let _selectedDonor    = null;
-let _createdInterview = null;   // interview record after createInterview()
-let _questions        = [];      // loaded questions for the selected donor's sex
-let _dropdown         = null;    // searchableDropdown instance
+let _createdInterview = null;
+let _questions        = [];
+let _dropdown         = null;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Format an ISO date string or YYYY-MM-DD to YYYY-MM-DD display string.
+ * FIX Issue 3: prevents raw ISO strings like "1990-05-15T00:00:00.000Z"
+ * from appearing in the dropdown and donor info panel.
+ */
+function _formatBirthdate(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -40,9 +52,17 @@ async function init() {
 
   renderNavbar(_user, 0);
   clearSidebar();
-  renderSidebar(getSidebarItems(_user.role_id, 'general'),  'General');
-  renderSidebar(getSidebarItems(_user.role_id, 'workflow'), 'Workflow');
-  renderSidebar(getSidebarItems(_user.role_id, 'drive'),    'My Drive');
+
+  // FIX: branch sidebar by role — was always rendering field role sidebar
+  const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+  if (isFieldRole) {
+    renderSidebar(getSidebarItems(_user.role_id, 'general'),  'General');
+    renderSidebar(getSidebarItems(_user.role_id, 'workflow'), 'Workflow');
+    renderSidebar(getSidebarItems(_user.role_id, 'drive'),    'My Drive');
+  } else {
+    renderSidebar(getSidebarItems(_user.role_id, 'general'),    'General');
+    renderSidebar(getSidebarItems(_user.role_id, 'management'), 'Management');
+  }
 
   revealAppShell();
 
@@ -50,41 +70,34 @@ async function init() {
   _setupInterviewForm();
 }
 
-// ─── Donor Selector (searchable dropdown) ────────────────────────────────────
+// ─── Donor Selector ───────────────────────────────────────────────────────────
 
 async function _initDonorDropdown() {
   const errorEl = document.getElementById('donor-load-error');
 
   try {
-    // Load all donors and existing interviews in parallel
     const [allDonors, allInterviews] = await Promise.all([
       getAllDonors(),
       getAllInterviews(),
     ]);
 
-    // Determine eligible donors for the dropdown based on role:
-    //
-    // Field roles (Volunteer/Phlebotomist):
-    //   The backend scopes GET /api/donor-interviews to their active drive.
-    //   Build the set of donor_ids that already have an interview in this drive,
-    //   then exclude them — leaving only donors registered here but not yet interviewed.
-    //   Contract rule: "Interview page: show donors registered in this drive
-    //   who have no interview yet."
-    //
-    // Admin/Staff (walk-in, drive_id = null):
-    //   Show all donors unfiltered.
-    //   Contract rule: "Admin/Staff walk-in: show all donors in the system unfiltered."
     const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
 
     let eligibleDonors;
     if (isFieldRole) {
-      const completedInterviewIds = new Set(
+      // Issue 5: exclude donors with a completed interview from the dropdown.
+      // A completed interview with interview_result = 'Deferred' means the donor
+      // is blocked for this drive entirely — exclude them too (they'd hit the
+      // already-done path and show a deferred notice anyway, but cleaner to omit).
+      const completedInterviewDonorIds = new Set(
         allInterviews
           .filter(iv => iv.interview_result !== null)
           .map(iv => iv.donor_id)
       );
-      eligibleDonors = allDonors.filter(d => !completedInterviewIds.has(d.donor_id));
+      eligibleDonors = allDonors.filter(d => !completedInterviewDonorIds.has(d.donor_id));
     } else {
+      // Admin/Staff walk-in: show all donors. Deferred donors can still be selected
+      // and the existing interview check will show the appropriate state.
       eligibleDonors = allDonors;
     }
 
@@ -93,7 +106,8 @@ async function _initDonorDropdown() {
       listId:       'donor-select-list',
       items:         eligibleDonors,
       displayFn:    (d) => `${d.last_name}, ${d.first_name}`,
-      subDisplayFn: (d) => [d.blood_type, d.sex, d.birthdate].filter(Boolean).join(' · '),
+      // FIX Issue 3: format birthdate as YYYY-MM-DD in dropdown sub-line
+      subDisplayFn: (d) => [d.blood_type, d.sex, _formatBirthdate(d.birthdate)].filter(Boolean).join(' · '),
       filterFn:     (d, q) =>
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
         (d.id_number || '').toLowerCase().includes(q),
@@ -106,7 +120,7 @@ async function _initDonorDropdown() {
         : 'No donors found matching your search.',
     });
 
-    // Pre-select donor passed from registration page via sessionStorage
+    // Pre-select donor passed from registration page
     try {
       const storedId = sessionStorage.getItem('field_donor_id');
       if (storedId) {
@@ -123,7 +137,6 @@ async function _initDonorDropdown() {
 }
 
 async function _handleDonorSelected(donor) {
-  // Reset everything below the selector
   _selectedDonor    = null;
   _createdInterview = null;
   _questions        = [];
@@ -132,9 +145,9 @@ async function _handleDonorSelected(donor) {
   _hideEl(document.getElementById('interview-form-section'));
   _hideEl(document.getElementById('proceed-section'));
   _hideEl(document.getElementById('interview-already-done'));
+  _hideEl(document.getElementById('interview-deferred-notice'));
 
   try {
-    // Fetch full donor details — list may not include all fields (e.g. sex needed for questions)
     const fullDonor = await getDonorById(donor.donor_id);
     _selectedDonor  = fullDonor;
     _renderDonorInfo(fullDonor);
@@ -153,7 +166,8 @@ function _renderDonorInfo(donor) {
 
   const fields = [
     ['Name',       `${donor.first_name} ${donor.last_name}`],
-    ['Birthdate',  donor.birthdate  || 'Not on record'],
+    // FIX Issue 3: format birthdate in donor info panel
+    ['Birthdate',  _formatBirthdate(donor.birthdate) || 'Not on record'],
     ['Sex',        donor.sex        || 'Not on record'],
     ['Blood Type', donor.blood_type || 'Unknown'],
     ['Email',      donor.email      || 'Not on record'],
@@ -177,9 +191,8 @@ async function _checkExistingInterview(donor) {
     const interviews = await getInterviewsByDonor(donor.donor_id);
 
     if (interviews && interviews.length > 0) {
-      // Prefer a pending interview session if one exists.
-      const pendingInterview = interviews.find(iv => iv.interview_result === null);
-      const completedInterview = interviews.find(iv => iv.interview_result !== null);
+      const pendingInterview    = interviews.find(iv => iv.interview_result === null);
+      const completedInterview  = interviews.find(iv => iv.interview_result !== null);
 
       if (pendingInterview) {
         _createdInterview = pendingInterview;
@@ -190,7 +203,23 @@ async function _checkExistingInterview(donor) {
       if (completedInterview) {
         _createdInterview = completedInterview;
 
-        // Store the completed interview so Screening can preselect this donor.
+        // FIX Issue 4: check if this completed interview resulted in deferral
+        const isDeferred = _isDeferredResult(completedInterview.interview_result);
+
+        if (isDeferred) {
+          // Show deferral notice — donor cannot proceed in this drive
+          _showEl(document.getElementById('interview-form-section'));
+          _showEl(document.getElementById('interview-already-done'));
+          _hideEl(document.getElementById('interview-submit-section'));
+          document.getElementById('question-list') && (document.getElementById('question-list').innerHTML = '');
+
+          _renderDeferralNotice(completedInterview, 'interview');
+          _showEl(document.getElementById('interview-deferred-notice'));
+          // Do NOT show proceed-section — donor is blocked
+          return;
+        }
+
+        // Passed interview — show already-done state with proceed
         try {
           sessionStorage.setItem('field_interview_id', _createdInterview.interview_id);
           sessionStorage.setItem('field_interview_donor_id', donor.donor_id);
@@ -210,11 +239,52 @@ async function _checkExistingInterview(donor) {
       }
     }
 
-    // No pending or completed interview — show the form and load questions
     await _initInterviewForm(donor);
   } catch (err) {
     showToast('Failed to check existing interviews. Please try again.', 'error');
   }
+}
+
+/**
+ * Determine if an interview result string means the donor was deferred.
+ * The backend may store this as 'Deferred', 'Failed', or similar.
+ * We treat anything that is NOT a passed/eligible value as deferred.
+ */
+function _isDeferredResult(result) {
+  if (!result) return false;
+  const normalized = String(result).toLowerCase();
+  // Passed values — anything else is deferred/blocked
+  return normalized === 'deferred' || normalized === 'failed';
+}
+
+/**
+ * Render the deferral notice with which step and what date.
+ * FIX Issue 5 partial: show date as YYYY-MM-DD only (no time).
+ */
+function _renderDeferralNotice(record, step) {
+  const notice = document.getElementById('interview-deferred-notice');
+  if (!notice) return;
+
+  // Format the date — prefer created_at, fall back to deferred_at
+  const rawDate = record.deferred_at || record.created_at || record.updated_at;
+  const dateStr = rawDate ? String(rawDate).slice(0, 10) : 'unknown date';
+
+  const stepLabel = step === 'interview' ? 'the donor interview' : step;
+
+  notice.innerHTML = '';
+
+  const icon = document.createElement('span');
+  icon.textContent = '⚠';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.style.marginRight = '6px';
+
+  const msg = document.createElement('span');
+  msg.textContent =
+    `This donor was deferred during ${stepLabel} on ${dateStr}. ` +
+    `They cannot participate in this blood drive. Please register a different donor.`;
+
+  notice.appendChild(icon);
+  notice.appendChild(msg);
 }
 
 // ─── Interview Form ───────────────────────────────────────────────────────────
@@ -225,9 +295,6 @@ async function _initInterviewForm(donor) {
   _showEl(formSection);
   if (submitSection) _showEl(submitSection);
 
-  // Load questions based on donor sex.
-  // getDonorById() is called before this so donor.sex should be populated.
-  // Fall back to 'Male' if sex is missing — questions with sex_filter='Both' still load.
   await _loadQuestions(donor.sex);
 }
 
@@ -238,7 +305,6 @@ async function _loadQuestions(sex) {
 
   list.innerHTML = '<p class="search-status">Loading questions...</p>';
 
-  // Normalise sex value — backend expects exactly 'Male' or 'Female'
   const normalised = (sex || '').trim();
   const safeSex    = (normalised === 'Male' || normalised === 'Female') ? normalised : 'Male';
 
@@ -272,17 +338,34 @@ async function _loadQuestions(sex) {
         radio.name  = `question_${q.question_id}`;
         radio.value = val;
         radio.setAttribute('data-question-id', q.question_id);
+        // Store whether this answer would defer the donor
+        if (q.defer_if) {
+          radio.setAttribute('data-defer-if', q.defer_if);
+        }
 
         const span = document.createElement('span');
         span.textContent = val === 'YES' ? 'Yes' : 'No';
+
+        // FIX Issue 4: live inline warning when a deferring answer is selected
+        radio.addEventListener('change', () => {
+          _updateDeferWarning(q, val);
+        });
 
         label.appendChild(radio);
         label.appendChild(span);
         options.appendChild(label);
       });
 
+      // Per-question inline defer warning element
+      const deferWarn = document.createElement('p');
+      deferWarn.className = 'question-defer-warning field-error-hidden';
+      deferWarn.id        = `defer-warn-${q.question_id}`;
+      deferWarn.textContent = 'Answering this way will defer this donor from the blood drive.';
+      deferWarn.setAttribute('aria-live', 'polite');
+
       item.appendChild(text);
       item.appendChild(options);
+      item.appendChild(deferWarn);
       list.appendChild(item);
     });
   } catch (err) {
@@ -291,6 +374,21 @@ async function _loadQuestions(sex) {
       errorEl.textContent = `Failed to load interview questions for ${safeSex} donors. Please refresh and try again.`;
       _showEl(errorEl);
     }
+  }
+}
+
+/**
+ * FIX Issue 4: Show an inline warning beneath a question when the selected
+ * answer matches the defer_if value for that question.
+ */
+function _updateDeferWarning(question, selectedValue) {
+  const warnEl = document.getElementById(`defer-warn-${question.question_id}`);
+  if (!warnEl) return;
+
+  if (question.defer_if && selectedValue === question.defer_if) {
+    warnEl.classList.remove('field-error-hidden');
+  } else {
+    warnEl.classList.add('field-error-hidden');
   }
 }
 
@@ -355,26 +453,50 @@ async function _handleInterviewSubmit(e) {
       answers,
     });
 
-    // Clear the sessionStorage donor hint so next page starts fresh
+    // Step 4: FIX Issue 4 — check if submission resulted in deferral
+    // Re-fetch the interview record to get the updated interview_result.
+    // submitAnswers response does not include deferral info directly.
+    let isDeferred = false;
+    try {
+      const updatedInterviews = await getInterviewsByDonor(_selectedDonor.donor_id);
+      const thisInterview     = updatedInterviews.find(iv => iv.interview_id === interview.interview_id);
+      if (thisInterview && _isDeferredResult(thisInterview.interview_result)) {
+        isDeferred = true;
+        _createdInterview = thisInterview;
+      }
+    } catch (_e) {
+      // If re-fetch fails, fall through — we still submitted successfully
+    }
+
+    // Clear registration sessionStorage hint
     try {
       sessionStorage.removeItem('field_donor_id');
       sessionStorage.removeItem('field_donor_name');
     } catch (_e) { /* ignore */ }
 
-    showToast('Interview submitted successfully.', 'success');
-    _showEl(document.getElementById('proceed-section'));
-    _hideEl(document.getElementById('interview-submit-section'));
+    if (isDeferred) {
+      // FIX Issue 4: show deferral result — do NOT show proceed to screening
+      showToast('Interview submitted. This donor has been deferred.', 'warning');
+      _hideEl(document.getElementById('interview-submit-section'));
 
-    // Store interview_id for screening page
-    try {
-      sessionStorage.setItem('field_interview_id',       interview.interview_id);
-      sessionStorage.setItem('field_interview_donor_id', _selectedDonor.donor_id);
-    } catch (_e) { /* ignore */ }
+      _renderDeferralNotice(_createdInterview, 'the donor interview');
+      _showEl(document.getElementById('interview-deferred-notice'));
+      // proceed-section stays hidden — donor cannot go to screening
+    } else {
+      // Passed — store interview for screening page and show proceed
+      showToast('Interview submitted successfully.', 'success');
+      _hideEl(document.getElementById('interview-submit-section'));
+      _showEl(document.getElementById('proceed-section'));
+
+      try {
+        sessionStorage.setItem('field_interview_id',       interview.interview_id);
+        sessionStorage.setItem('field_interview_donor_id', _selectedDonor.donor_id);
+      } catch (_e) { /* ignore */ }
+    }
 
   } catch (err) {
     const msg = err.message || 'Failed to submit interview. Please try again.';
     if (formError) {
-      // 403 means no active drive assignment for field roles
       formError.textContent = err.status === 403
         ? 'You are not assigned to an active blood drive. Please contact your coordinator.'
         : msg;

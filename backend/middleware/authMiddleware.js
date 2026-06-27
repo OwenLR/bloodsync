@@ -10,7 +10,7 @@ const verifyToken = (req, res, next) => {
 
         if (!token) {
             return res.status(401).json({
-                status:  'error',
+                success: false,
                 message: 'Access denied. No token provided.',
             });
         }
@@ -20,7 +20,7 @@ const verifyToken = (req, res, next) => {
         next();
     } catch (error) {
         return res.status(401).json({
-            status:  'error',
+            success: false,
             message: 'Invalid or expired token.',
         });
     }

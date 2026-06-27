@@ -126,18 +126,37 @@ async function _initDonorDropdown() {
     // Set of donor_ids that already have a screening in this context
     const screenedIds = new Set(allScreenings.map(s => s.donor_id));
 
-    // Map donor_id → most recent interview record
+    // Issue 5: Set of donor_ids deferred at interview stage.
+    // These donors have a completed interview with a deferred/failed result.
+    // They should not appear in the screening dropdown at all.
+    const interviewDeferredIds = new Set(
+      allInterviews
+        .filter(iv => {
+          if (!iv.interview_result) return false;
+          const r = String(iv.interview_result).toLowerCase();
+          return r === 'deferred' || r === 'failed';
+        })
+        .map(iv => iv.donor_id)
+    );
+
+    // Map donor_id → most recent PASSED interview record
+    // Only interviews that are completed AND not deferred can proceed to screening
     _interviewMap = new Map();
     allInterviews.forEach(iv => {
+      if (!iv.interview_result) return; // pending — skip
+      const r = String(iv.interview_result).toLowerCase();
+      if (r === 'deferred' || r === 'failed') return; // deferred — skip
       const existing = _interviewMap.get(iv.donor_id);
       if (!existing || iv.interview_id > existing.interview_id) {
         _interviewMap.set(iv.donor_id, iv);
       }
     });
 
-    // Eligible: has interview, not yet screened
+    // Eligible: has a PASSED interview, not yet screened, not interview-deferred
     const eligibleDonors = allDonors.filter(d =>
-      _interviewMap.has(d.donor_id) && !screenedIds.has(d.donor_id)
+      _interviewMap.has(d.donor_id) &&
+      !screenedIds.has(d.donor_id) &&
+      !interviewDeferredIds.has(d.donor_id)
     );
 
     const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
@@ -147,7 +166,7 @@ async function _initDonorDropdown() {
       listId:       'donor-select-list',
       items:         eligibleDonors,
       displayFn:    (d) => `${d.last_name}, ${d.first_name}`,
-      subDisplayFn: (d) => [d.blood_type, d.sex, d.birthdate].filter(Boolean).join(' · '),
+      subDisplayFn: (d) => [d.blood_type, d.sex, (d.birthdate ? String(d.birthdate).slice(0, 10) : '')].filter(Boolean).join(' · '),
       filterFn:     (d, q) =>
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
         (d.id_number || '').toLowerCase().includes(q),
@@ -204,7 +223,7 @@ function _renderDonorInfo(donor) {
 
   const fields = [
     ['Name',       `${donor.first_name} ${donor.last_name}`],
-    ['Birthdate',  donor.birthdate  || 'Not on record'],
+    ['Birthdate', (donor.birthdate ? String(donor.birthdate).slice(0, 10) : 'Not on record')],
     ['Sex',        donor.sex        || 'Not on record'],
     ['Blood Type', donor.blood_type || 'Unknown'],
     ['Email',      donor.email      || 'Not on record'],

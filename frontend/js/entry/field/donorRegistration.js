@@ -15,6 +15,8 @@ import {
   searchDonors,
   updateDonorContact,
   updateDonorFull,
+  getAllInterviews,
+  getAllScreenings,
 } from '../../features/fieldWorkflow/fieldWorkflowApi.js';
 import {
   validateDonorRegistration,
@@ -29,6 +31,25 @@ let _registeredDonor  = null;  // newly created donor after form submit
 let _searchTimer      = null;
 let _duplicateTimers  = {};    // per-field blur timers
 
+/**
+ * Map of donor_id → deferral info for donors deferred in this drive.
+ * { step: 'interview'|'screening', date: 'YYYY-MM-DD' }
+ * Built at page load from interview + screening records.
+ * Used to: (a) show badge in dropdown, (b) block selection.
+ */
+let _deferredDonorMap = new Map();
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Format an ISO date string or YYYY-MM-DD to YYYY-MM-DD display string.
+ * Handles both "1990-05-15" and "1990-05-15T00:00:00.000Z".
+ */
+function _formatBirthdate(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
@@ -39,11 +60,23 @@ async function init() {
 
   renderNavbar(_user, 0);
   clearSidebar();
-  renderSidebar(getSidebarItems(_user.role_id, 'general'),  'General');
-  renderSidebar(getSidebarItems(_user.role_id, 'workflow'), 'Workflow');
-  renderSidebar(getSidebarItems(_user.role_id, 'drive'),    'My Drive');
+
+  // FIX: branch sidebar by role — admin/staff get management, field roles get workflow
+  const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+  if (isFieldRole) {
+    renderSidebar(getSidebarItems(_user.role_id, 'general'),  'General');
+    renderSidebar(getSidebarItems(_user.role_id, 'workflow'), 'Workflow');
+    renderSidebar(getSidebarItems(_user.role_id, 'drive'),    'My Drive');
+  } else {
+    renderSidebar(getSidebarItems(_user.role_id, 'general'),    'General');
+    renderSidebar(getSidebarItems(_user.role_id, 'management'), 'Management');
+  }
 
   revealAppShell();
+
+  // Set birthdate max to today (no future dates, age validation in validation.js)
+  const bdInput = document.getElementById('reg-birthdate');
+  if (bdInput) bdInput.max = new Date().toISOString().slice(0, 10);
 
   await _initSearchDropdown();
   _setupDuplicateDetection();
@@ -54,8 +87,7 @@ async function init() {
   _setupRegisterAnotherBtn();
 }
 
-// ─── Search ───────────────────────────────────────────────────────────────────
-// ─── Search Dropdown (existing donor lookup) ─────────────────────────────────
+// ─── Search Dropdown (existing donor lookup) ──────────────────────────────────
 // Loads all donors on page load and filters client-side.
 // On select: auto-fills form fields (read-only) and shows contact update section.
 
@@ -65,15 +97,49 @@ async function _initSearchDropdown() {
   const errorEl = document.getElementById('donor-search-error');
 
   try {
-    // Load all donors for client-side filtering
-    const donors = await _loadAllDonors();
+    // Load donors, interviews, and screenings in parallel.
+    // Interviews + screenings are used to build the deferred donor map.
+    // For field roles, backend scopes interviews/screenings to their active drive.
+    // For Admin/Staff (walk-in), all records are returned — still useful for
+    // flagging donors who were deferred in any prior context.
+    const [donors, allInterviews, allScreenings] = await Promise.all([
+      _loadAllDonors(),
+      getAllInterviews().catch(() => []),
+      getAllScreenings().catch(() => []),
+    ]);
+
+    // Build deferred donor map from interview and screening results
+    _deferredDonorMap = new Map();
+
+    allInterviews.forEach(iv => {
+      if (_isDeferredResult(iv.interview_result)) {
+        const dateStr = _formatBirthdate(iv.deferred_at || iv.created_at || '');
+        _deferredDonorMap.set(iv.donor_id, { step: 'interview', date: dateStr });
+      }
+    });
+
+    allScreenings.forEach(s => {
+      if (s.screening_result === 'Deferred') {
+        // Screening deferral overrides interview deferral in the map if both exist
+        const dateStr = _formatBirthdate(s.deferred_at || s.created_at || '');
+        _deferredDonorMap.set(s.donor_id, { step: 'screening', date: dateStr });
+      }
+    });
 
     _searchDropdown = initSearchableDropdown({
       inputId:      'donor-search-input',
       listId:       'donor-search-list',
       items:         donors,
       displayFn:    (d) => `${d.first_name} ${d.last_name}`,
-      subDisplayFn: (d) => [d.blood_type, d.sex, d.birthdate].filter(Boolean).join(' · '),
+      // Issue 3: format birthdate. Issue 5: append deferred badge if applicable.
+      subDisplayFn: (d) => {
+        const parts = [d.blood_type, d.sex, _formatBirthdate(d.birthdate)].filter(Boolean);
+        const deferral = _deferredDonorMap.get(d.donor_id);
+        if (deferral) {
+          parts.push(`⚠ Deferred at ${deferral.step}${deferral.date ? ' · ' + deferral.date : ''}`);
+        }
+        return parts.join(' · ');
+      },
       filterFn:     (d, q) =>
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
         (d.id_number || '').toLowerCase().includes(q),
@@ -89,6 +155,15 @@ async function _initSearchDropdown() {
   }
 }
 
+/**
+ * Determine if an interview result string means the donor was deferred.
+ */
+function _isDeferredResult(result) {
+  if (!result) return false;
+  const normalized = String(result).toLowerCase();
+  return normalized === 'deferred' || normalized === 'failed';
+}
+
 async function _loadAllDonors() {
   const res  = await apiFetch('/api/donors');
   const body = await res.json();
@@ -102,10 +177,34 @@ async function _selectExistingDonor(donor) {
   _selectedDonor   = donor;
   _registeredDonor = null;
 
-  // Clear the search dropdown — keeps input clean after selection
   if (_searchDropdown) _searchDropdown.clear();
 
-  // Show banner
+  // Issue 5: if this donor is deferred in this drive, block and show notice
+  const deferral = _deferredDonorMap.get(donor.donor_id);
+  if (deferral) {
+    _hideEl(document.getElementById('selected-donor-banner'));
+    _hideEl(document.getElementById('contact-update-section'));
+    _hideEl(document.getElementById('proceed-section'));
+    _hideEl(document.getElementById('reg-submit-btn'));
+    _hideEl(document.getElementById('reg-reset-btn'));
+
+    // Show deferred block notice
+    const notice = document.getElementById('donor-deferred-notice');
+    if (notice) {
+      const stepLabel = deferral.step === 'interview' ? 'the donor interview' : 'donor screening';
+      notice.textContent =
+        `This donor was deferred during ${stepLabel}` +
+        (deferral.date ? ` on ${deferral.date}` : '') +
+        `. They cannot participate in this blood drive. Please search for a different donor.`;
+      _showEl(notice);
+    }
+    _selectedDonor = null;
+    return;
+  }
+
+  // Not deferred — clear any previous deferred notice
+  _hideEl(document.getElementById('donor-deferred-notice'));
+
   const banner = document.getElementById('selected-donor-banner');
   const nameEl = document.getElementById('selected-donor-name');
   const metaEl = document.getElementById('selected-donor-meta');
@@ -116,26 +215,21 @@ async function _selectExistingDonor(donor) {
     _showEl(banner);
   }
 
-  // Auto-fill registration form (read-only view of existing data)
   _populateForm(donor);
   _lockFormFields(true);
 
-  // Update card title
   const title = document.getElementById('form-card-title');
   if (title) title.textContent = 'Existing Donor Details';
 
-  // Hide register button, show contact update section
   _hideEl(document.getElementById('reg-submit-btn'));
   _hideEl(document.getElementById('reg-reset-btn'));
   _showEl(document.getElementById('contact-update-section'));
 
-  // Pre-fill contact update form
   const emailEl   = document.getElementById('update-email');
   const contactEl = document.getElementById('update-contact');
   if (emailEl)   emailEl.value   = donor.email   || '';
   if (contactEl) contactEl.value = donor.contact || '';
 
-  // Check if donor has no email — prompt to add one
   if (!donor.email) {
     showToast(
       'This donor has no email on record. Please add one before proceeding to donation.',
@@ -143,7 +237,6 @@ async function _selectExistingDonor(donor) {
     );
   }
 
-  // Show proceed section if no email issue — staff can still proceed to interview
   _showProceedSection(donor);
 }
 
@@ -161,9 +254,8 @@ function _lockFormFields(locked) {
 function _populateForm(donor) {
   _setField('reg-first-name',  donor.first_name);
   _setField('reg-last-name',   donor.last_name);
-  // Birthdate from API may be a full ISO string (e.g. "1995-06-14T16:00:00.000Z").
-  // date inputs require exactly "yyyy-MM-dd" — slice to first 10 characters.
-  _setField('reg-birthdate',   donor.birthdate ? donor.birthdate.slice(0, 10) : '');
+  // FIX Issue 3: slice to YYYY-MM-DD for date input compatibility
+  _setField('reg-birthdate',   _formatBirthdate(donor.birthdate));
   _setField('reg-sex',         donor.sex);
   _setField('reg-email',       donor.email);
   _setField('reg-contact',     donor.contact);
@@ -186,6 +278,7 @@ function _clearSelection() {
   _hideEl(document.getElementById('selected-donor-banner'));
   _hideEl(document.getElementById('contact-update-section'));
   _hideEl(document.getElementById('proceed-section'));
+  _hideEl(document.getElementById('donor-deferred-notice'));
 
   const title = document.getElementById('form-card-title');
   if (title) title.textContent = 'Donor Information';
@@ -200,18 +293,16 @@ function _clearSelection() {
 // ─── Duplicate Detection (blur) ───────────────────────────────────────────────
 
 function _setupDuplicateDetection() {
-  // Government ID — single field trigger
   const idInput = document.getElementById('reg-id-number');
   if (idInput) {
     idInput.addEventListener('blur', () => {
-      if (_selectedDonor) return; // already viewing existing donor
+      if (_selectedDonor) return;
       const val = idInput.value.trim();
       if (!val) return;
       _checkDuplicate('id', { id_number: val }, 'reg-id-duplicate');
     });
   }
 
-  // Email — warn if the same email is already registered
   const emailInput = document.getElementById('reg-email');
   if (emailInput) {
     emailInput.addEventListener('blur', () => {
@@ -222,7 +313,6 @@ function _setupDuplicateDetection() {
     });
   }
 
-  // Contact — warn if the same contact number is already registered
   const contactInput = document.getElementById('reg-contact');
   if (contactInput) {
     contactInput.addEventListener('blur', () => {
@@ -233,7 +323,6 @@ function _setupDuplicateDetection() {
     });
   }
 
-  // Name + birthdate — only trigger when ALL THREE have values
   const firstNameInput = document.getElementById('reg-first-name');
   const lastNameInput  = document.getElementById('reg-last-name');
   const birthdateInput = document.getElementById('reg-birthdate');
@@ -247,7 +336,6 @@ function _setupDuplicateDetection() {
       const lastName  = lastNameInput  ? lastNameInput.value.trim()  : '';
       const birthdate = birthdateInput ? birthdateInput.value.trim() : '';
 
-      // All three must have values to trigger
       if (!firstName || !lastName || !birthdate) return;
 
       _checkDuplicate(
@@ -263,10 +351,8 @@ async function _checkDuplicate(type, searchData, warningElId) {
   const warningEl = document.getElementById(warningElId);
   if (!warningEl) return;
 
-  // Clear previous warning
   _hideEl(warningEl);
 
-  // Build query string
   let query;
   if (type === 'id') {
     query = searchData.id_number;
@@ -278,12 +364,6 @@ async function _checkDuplicate(type, searchData, warningElId) {
     query = `${searchData.first_name} ${searchData.last_name}`;
   }
 
-  // Show checking state
-  const checkingEl = type === 'id'
-    ? document.getElementById('reg-id-number-error')
-    : null;
-
-  // Use a small debounce
   clearTimeout(_duplicateTimers[type]);
   _duplicateTimers[type] = setTimeout(async () => {
     try {
@@ -299,16 +379,18 @@ async function _checkDuplicate(type, searchData, warningElId) {
         const normalized = searchData.contact.replace(/\D/g, '');
         match = donors.find(d => d.contact && d.contact.replace(/\D/g, '') === normalized);
       } else {
+        // FIX Issue 1: normalize both sides to YYYY-MM-DD before comparing
+        // API returns ISO strings like "1990-05-15T00:00:00.000Z"; form input gives "1990-05-15"
+        const inputDate = searchData.birthdate.slice(0, 10);
         match = donors.find(d =>
-          d.first_name.toLowerCase()  === searchData.first_name.toLowerCase() &&
-          d.last_name.toLowerCase()   === searchData.last_name.toLowerCase()  &&
-          d.birthdate                 === searchData.birthdate
+          d.first_name.toLowerCase() === searchData.first_name.toLowerCase() &&
+          d.last_name.toLowerCase()  === searchData.last_name.toLowerCase()  &&
+          _formatBirthdate(d.birthdate) === inputDate
         );
       }
 
       if (!match) return;
 
-      // Show warning
       const textEl = warningEl.querySelector('.duplicate-warning-text');
       if (textEl) {
         textEl.textContent = type === 'id'
@@ -342,7 +424,7 @@ function _setupRegistrationForm() {
 
 async function _handleRegisterSubmit(e) {
   e.preventDefault();
-  if (_selectedDonor) return; // should not happen — button is hidden
+  if (_selectedDonor) return;
 
   _clearAllFieldErrors('donor-registration-form');
 
@@ -358,7 +440,6 @@ async function _handleRegisterSubmit(e) {
     blood_type:  _getField('reg-blood-type') || undefined,
   };
 
-  // Include ID number if filled
   const idVal = _getField('reg-id-number');
   if (idVal) data.id_number = idVal;
 
@@ -388,18 +469,16 @@ async function _handleRegisterSubmit(e) {
     showToast('Donor registered successfully.', 'success');
     _showProceedSection(donor);
 
-    // Hide form buttons after success
     if (submitBtn) _hideEl(submitBtn);
     _hideEl(document.getElementById('reg-reset-btn'));
   } catch (err) {
+    const formError = document.getElementById('reg-form-error');
     if (err.status === 409) {
-      const formError = document.getElementById('reg-form-error');
       if (formError) {
         formError.textContent = 'A donor with this information is already registered. Search for them above and select their existing record.';
         _showEl(formError);
       }
     } else {
-      const formError = document.getElementById('reg-form-error');
       if (formError) {
         formError.textContent = err.message || 'Failed to register donor. Please try again.';
         _showEl(formError);
@@ -456,9 +535,6 @@ async function _handleContactUpdateSubmit(e) {
   }
 
   try {
-    // Admin and PRC Staff must use PATCH /api/donors/:id (full update endpoint).
-    // Volunteer and Phlebotomist use PATCH /api/donors/:id/contact (contact-only).
-    // The contact-only endpoint rejects Admin/Staff with 403 — backend enforces this.
     const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
     const updated = isFieldRole
       ? await updateDonorContact(_selectedDonor.donor_id, data)
@@ -466,18 +542,15 @@ async function _handleContactUpdateSubmit(e) {
     _selectedDonor = updated;
     showToast('Contact information updated.', 'success');
 
-    // Update banner meta
     const metaEl = document.getElementById('selected-donor-meta');
     if (metaEl) {
       metaEl.textContent = [updated.blood_type, updated.sex, updated.contact, updated.email]
         .filter(Boolean).join(' · ');
     }
 
-    // Update form fields to reflect new values
     _setField('reg-email',   updated.email);
     _setField('reg-contact', updated.contact);
 
-    // Re-check proceed section (email may now be present)
     _showProceedSection(updated);
   } catch (err) {
     const errEl = document.getElementById('contact-update-error');
@@ -499,16 +572,12 @@ function _showProceedSection(donor) {
   const section = document.getElementById('proceed-section');
   if (!section) return;
 
-  // Always show proceed — interview step doesn't require email
   _showEl(section);
 
-  // Store donor_id in sessionStorage so interview page can pre-select this donor
   try {
     sessionStorage.setItem('field_donor_id', donor.donor_id);
     sessionStorage.setItem('field_donor_name', `${donor.first_name} ${donor.last_name}`);
-  } catch (_e) {
-    // sessionStorage unavailable — not a blocker
-  }
+  } catch (_e) { /* sessionStorage unavailable */ }
 }
 
 // ─── Reset ────────────────────────────────────────────────────────────────────
@@ -538,6 +607,9 @@ function _setupRegisterAnotherBtn() {
   btn.addEventListener('click', () => {
     _clearSelection();
     _resetForm();
+    // Re-enable register and reset buttons in case they were hidden after success
+    _showEl(document.getElementById('reg-submit-btn'));
+    _showEl(document.getElementById('reg-reset-btn'));
   });
 }
 

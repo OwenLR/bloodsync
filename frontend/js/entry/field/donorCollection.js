@@ -127,7 +127,7 @@ async function _initDonorDropdown() {
       listId:       'donor-select-list',
       items:         eligibleDonors,
       displayFn:    (d) => `${d.last_name}, ${d.first_name}`,
-      subDisplayFn: (d) => [d.blood_type, d.sex, d.birthdate].filter(Boolean).join(' · '),
+      subDisplayFn: (d) => [d.blood_type, d.sex, (d.birthdate ? String(d.birthdate).slice(0, 10) : '')].filter(Boolean).join(' · '),
       filterFn:     (d, q) =>
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
         (d.id_number || '').toLowerCase().includes(q),
@@ -181,7 +181,7 @@ function _renderDonorInfo(donor) {
 
   const fields = [
     ['Name',       `${donor.first_name} ${donor.last_name}`],
-    ['Birthdate',  donor.birthdate  || 'Not on record'],
+    ['Birthdate', (donor.birthdate ? String(donor.birthdate).slice(0, 10) : 'Not on record')],
     ['Sex',        donor.sex        || 'Not on record'],
     ['Blood Type', donor.blood_type || 'Unknown'],
     ['Email',      donor.email      || 'Not on record'],

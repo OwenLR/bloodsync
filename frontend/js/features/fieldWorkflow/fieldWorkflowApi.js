@@ -317,3 +317,49 @@ export async function createCollection(data) {
   }
   return body.data;
 }
+// ─── Blood Drives (for phlebotomist lookup) ───────────────────────────────────
+
+/**
+ * Get the current user's active blood drive.
+ * For field roles: backend scopes GET /api/blood-drives to their assignments,
+ * so we just filter to the first Ongoing drive.
+ * For Admin/Staff: returns the first Ongoing drive (may be null for walk-ins).
+ * @returns {Promise<Object|null>}
+ */
+export async function getMyActiveDrive() {
+  const res  = await apiFetch('/api/blood-drives');
+  const body = await res.json();
+  if (!res.ok || !body.success) return null;
+  const drives = body.data || [];
+  return drives.find(d => d.status === 'Ongoing') || null;
+}
+
+/**
+ * Get participants for a blood drive, filtered to Phlebotomists only.
+ * Used to populate the "Performed By" dropdown on the donation page.
+ * @param {number} driveId
+ * @returns {Promise<Array>}
+ */
+export async function getDrivePhlebotomists(driveId) {
+  const res  = await apiFetch(`/api/blood-drives/${driveId}/participants`);
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load participants.');
+  const participants = body.data || [];
+  // Filter to Phlebotomists (role_id 6) with Confirmed or Assigned status
+  return participants.filter(p =>
+    p.role_id === 6 &&
+    (p.assignment_status === 'Confirmed' || p.assignment_status === 'Assigned')
+  );
+}
+
+/**
+ * Get all available phlebotomists (Admin/Staff walk-in fallback).
+ * Used when there is no active drive to scope the participant list.
+ * @returns {Promise<Array>}
+ */
+export async function getAvailablePhlebotomists() {
+  const res  = await apiFetch('/api/volunteers/available?role=6');
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load phlebotomists.');
+  return body.data || [];
+}

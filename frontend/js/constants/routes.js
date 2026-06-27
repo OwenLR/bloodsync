@@ -45,12 +45,14 @@ export const ROUTES = Object.freeze({
 
   // Shared donor workflow pages — used by both Volunteer and Phlebotomist.
   // Entry files under /pages/field/ accept both roles via requireRole guard.
+  // NOTE: Donation and Collection are combined on donorDonation.html.
+  // COLLECTION kept as alias so any hardcoded links don't 404.
   FIELD: Object.freeze({
     REGISTER:   '/pages/field/donorRegistration.html',
     INTERVIEW:  '/pages/field/donorInterview.html',
     SCREENING:  '/pages/field/donorScreening.html',
     DONATION:   '/pages/field/donorDonation.html',
-    COLLECTION: '/pages/field/donorCollection.html',
+    COLLECTION: '/pages/field/donorDonation.html',  // combined — same page as DONATION
   }),
 
   VOLUNTEER: Object.freeze({

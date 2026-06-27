@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blood Extraction|BloodSync</title>
+  <title>Donation & Collection | BloodSync</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
   <link rel="stylesheet" href="/assets/css/features/fieldWorkflow.css" />
 </head>
@@ -18,12 +18,12 @@
 
       <div class="page-header">
         <div class="page-header-left">
-          <h1 class="page-title">Blood Extraction</h1>
-          <p class="page-subtitle">Select an eligible donor and record the extraction details.</p>
+          <h1 class="page-title">Donation &amp; Collection</h1>
+          <p class="page-subtitle">Record blood extraction and collect the unit in one step.</p>
         </div>
       </div>
 
-      <!-- Step indicator -->
+      <!-- Step indicator — steps 4+5 combined -->
       <div class="workflow-steps">
         <div class="workflow-step done">
           <span class="workflow-step-number">1</span>
@@ -41,13 +41,8 @@
         </div>
         <div class="workflow-step-divider"></div>
         <div class="workflow-step active">
-          <span class="workflow-step-number">4</span>
-          Donation
-        </div>
-        <div class="workflow-step-divider"></div>
-        <div class="workflow-step">
-          <span class="workflow-step-number">5</span>
-          Collection
+          <span class="workflow-step-number">4–5</span>
+          Donation &amp; Collection
         </div>
       </div>
 
@@ -77,8 +72,8 @@
         <!-- Email missing warning — blocks proceed -->
         <div id="email-missing-warning" class="duplicate-warning" style="display:none">
           <span class="duplicate-warning-text">
-            This donor has no email on record. An email is required before extraction can be recorded -
-            the backend sends post-extraction instructions to the donor's email.
+            This donor has no email on record. An email is required before extraction
+            can be recorded — the system sends post-extraction instructions to the donor's email.
             Please update the donor's contact information on the
             <a href="/pages/field/donorRegistration.html">Registration page</a> before proceeding.
           </span>
@@ -87,42 +82,52 @@
         <div id="donor-load-error" class="form-error" style="display:none"></div>
       </div>
 
-      <!-- Donation form (hidden until donor selected and email confirmed) -->
+      <!-- ─── Step 4: Blood Extraction ─────────────────────────────────────── -->
       <div id="donation-form-section" class="workflow-card" style="display:none">
-        <p class="workflow-card-title">Extraction Details</p>
+        <p class="workflow-card-title">Step 4 — Blood Extraction</p>
 
-        <p id="donation-already-done" class="form-error" style="display:none">
-          This donor already has a recorded extraction for this session.
-          Proceed to the collection step.
+        <p id="donation-already-done" class="form-success" style="display:none">
+          Extraction already recorded for this donor. Proceed to collection below.
+        </p>
+
+        <!-- Shown after successful extraction submit, before collection -->
+        <p id="donation-recorded-notice" class="form-success" style="display:none">
+          Extraction recorded successfully. Complete the collection details below.
         </p>
 
         <form id="donation-form" novalidate>
-
           <div id="donation-form-fields">
 
             <div class="form-row">
               <div class="form-group">
                 <label for="input-extraction-time">Extraction Time (minutes) <span class="required-mark">*</span></label>
-                <input id="input-extraction-time" type="number" min="1" max="120"
-                       class="form-input" placeholder="e.g. 10" />
+                <input
+                  id="input-extraction-time"
+                  type="number" min="1" max="120"
+                  class="form-input"
+                  placeholder="e.g. 10"
+                />
                 <span class="field-hint">Normal extraction takes up to 15 minutes.</span>
                 <span id="error-extraction-time" class="field-error field-error-hidden"></span>
               </div>
             </div>
 
-            <!-- QNS warning — shown live when extraction time exceeds 15 min -->
+            <!-- QNS warning — shown live when extraction time > 15 min -->
             <div id="qns-warning" class="qns-warning" style="display:none">
               Extraction time exceeds 15 minutes. This donation will be flagged as
               <strong>QNS (Quantity Not Sufficient)</strong> and cannot be marked Safe for release.
               You may still submit the record.
             </div>
 
-            <!-- Phlebotomist on record — read-only, taken from logged-in user -->
+            <!-- Phlebotomist dropdown — required, wired to phlebotomist_id in POST body -->
             <div class="form-row">
               <div class="form-group">
-                <label>Performed By</label>
-                <p id="performed-by" class="form-input" style="background:#f8f8f8; cursor:default; margin:0;"></p>
-                <span class="field-hint">Automatically set to the currently logged-in user.</span>
+                <label for="input-phlebotomist">Performed By (Phlebotomist) <span class="required-mark">*</span></label>
+                <select id="input-phlebotomist" class="form-input">
+                  <option value="">— Select phlebotomist —</option>
+                </select>
+                <span id="phlebotomist-hint" class="field-hint"></span>
+                <span id="error-phlebotomist" class="field-error field-error-hidden"></span>
               </div>
             </div>
 
@@ -135,18 +140,86 @@
               Record Extraction
             </button>
           </div>
-
         </form>
       </div>
 
-      <!-- Proceed section -->
-      <div id="proceed-section" class="workflow-card" style="display:none">
-        <p class="workflow-card-title">Extraction Recorded</p>
-        <p style="font-size:13px; color:#555; margin-bottom:16px;">
-          Extraction recorded successfully. Proceed to collect the blood unit.
+      <!-- ─── Step 5: Blood Collection ─────────────────────────────────────── -->
+      <div id="collection-form-section" class="workflow-card" style="display:none">
+        <p class="workflow-card-title">Step 5 — Blood Collection</p>
+
+        <p id="collection-already-done" class="form-success" style="display:none">
+          Collection already recorded for this donor. The workflow for this donor is complete.
         </p>
-        <a href="/pages/field/donorCollection.html" class="btn-primary">
-          Proceed to Collection
+
+        <form id="collection-form" novalidate>
+          <div id="collection-form-fields">
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="input-blood-type">Blood Type <span class="required-mark">*</span></label>
+                <select id="input-blood-type" class="form-input">
+                  <option value="">— Select —</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
+                <span class="field-hint">Pre-filled from screening. Confirm before submitting.</span>
+                <span id="error-blood-type" class="field-error field-error-hidden"></span>
+              </div>
+
+              <div class="form-group">
+                <label for="input-component">Blood Component <span class="required-mark">*</span></label>
+                <select id="input-component" class="form-input">
+                  <option value="Whole Blood">Whole Blood</option>
+                  <option value="Packed Red Blood Cells">Packed Red Blood Cells</option>
+                  <option value="Platelets">Platelets</option>
+                  <option value="Fresh Frozen Plasma">Fresh Frozen Plasma</option>
+                </select>
+                <span class="field-hint">Defaults to Whole Blood. Change only if applicable.</span>
+                <span id="error-component" class="field-error field-error-hidden"></span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="input-volume-ml">Volume (mL) <span class="required-mark">*</span></label>
+                <input
+                  id="input-volume-ml"
+                  type="number" min="50" max="600"
+                  class="form-input"
+                  placeholder="450"
+                />
+                <span class="field-hint">Default: 450 mL. Accepted range: 50–600 mL.</span>
+                <span id="error-volume-ml" class="field-error field-error-hidden"></span>
+              </div>
+            </div>
+
+          </div>
+
+          <div id="collection-form-error" class="form-error" style="display:none"></div>
+
+          <div class="submit-section" id="collection-submit-section">
+            <button type="submit" id="collection-submit-btn" class="btn-primary">
+              Record Collection
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Complete section -->
+      <div id="complete-section" class="workflow-card" style="display:none">
+        <p class="workflow-card-title">Workflow Complete</p>
+        <p style="font-size:13px; color:#555; margin-bottom:16px;">
+          Blood extraction and collection recorded successfully.
+          The unit is now pending laboratory testing.
+        </p>
+        <a href="/pages/field/donorRegistration.html" class="btn-secondary">
+          Register Another Donor
         </a>
       </div>
 

@@ -19,13 +19,17 @@ const getAllDonations = async () => {
             s.hemoglobin,
             s.blood_type_confirmed,
             b.branch_name,
-            u.first_name AS extracted_by_first,
-            u.last_name AS extracted_by_last
+            u.first_name  AS extracted_by_first,
+            u.last_name   AS extracted_by_last,
+            pu.user_id    AS phlebotomist_id,
+            pu.first_name AS phlebotomist_first,
+            pu.last_name  AS phlebotomist_last
          FROM donations dn
-         JOIN donors d ON dn.donor_id = d.donor_id
+         JOIN donors d    ON dn.donor_id     = d.donor_id
          JOIN screening s ON dn.screening_id = s.screening_id
-         LEFT JOIN branches b ON dn.branch_id = b.branch_id
-         LEFT JOIN users u ON dn.extracted_by = u.user_id
+         LEFT JOIN branches b ON dn.branch_id       = b.branch_id
+         LEFT JOIN users u    ON dn.extracted_by    = u.user_id
+         LEFT JOIN users pu   ON dn.phlebotomist_id = pu.user_id
          ORDER BY dn.created_at DESC`
     );
     return result.rows;
@@ -50,13 +54,17 @@ const getDonationById = async (id) => {
             s.hemoglobin,
             s.blood_type_confirmed,
             b.branch_name,
-            u.first_name AS extracted_by_first,
-            u.last_name AS extracted_by_last
+            u.first_name  AS extracted_by_first,
+            u.last_name   AS extracted_by_last,
+            pu.user_id    AS phlebotomist_id,
+            pu.first_name AS phlebotomist_first,
+            pu.last_name  AS phlebotomist_last
          FROM donations dn
-         JOIN donors d ON dn.donor_id = d.donor_id
+         JOIN donors d    ON dn.donor_id     = d.donor_id
          JOIN screening s ON dn.screening_id = s.screening_id
-         LEFT JOIN branches b ON dn.branch_id = b.branch_id
-         LEFT JOIN users u ON dn.extracted_by = u.user_id
+         LEFT JOIN branches b ON dn.branch_id       = b.branch_id
+         LEFT JOIN users u    ON dn.extracted_by    = u.user_id
+         LEFT JOIN users pu   ON dn.phlebotomist_id = pu.user_id
          WHERE dn.donation_id = $1`,
         [id]
     );
@@ -71,12 +79,16 @@ const getDonationsByDonor = async (donor_id) => {
             dn.blood_volume_ml,
             dn.is_qns,
             dn.created_at,
+            dn.phlebotomist_id,
             s.screening_result,
             s.blood_type_confirmed,
-            b.branch_name
+            b.branch_name,
+            pu.first_name AS phlebotomist_first,
+            pu.last_name  AS phlebotomist_last
          FROM donations dn
          JOIN screening s ON dn.screening_id = s.screening_id
-         LEFT JOIN branches b ON dn.branch_id = b.branch_id
+         LEFT JOIN branches b ON dn.branch_id       = b.branch_id
+         LEFT JOIN users pu   ON dn.phlebotomist_id = pu.user_id
          WHERE dn.donor_id = $1
          ORDER BY dn.created_at DESC`,
         [donor_id]
@@ -87,28 +99,36 @@ const getDonationsByDonor = async (donor_id) => {
 const createDonation = async (data) => {
     const {
         donor_id, screening_id, branch_id,
-        extracted_by, extraction_date,
-        blood_volume_ml, extraction_time_minutes,
-        reaction_notes, is_qns, qns_reason
+        extracted_by, phlebotomist_id,
+        extraction_date, blood_volume_ml,
+        extraction_time_minutes,
+        reaction_notes, is_qns, qns_reason,
+        drive_id,
     } = data;
 
     const result = await pool.query(
         `INSERT INTO donations (
             donor_id, screening_id, branch_id,
-            extracted_by, extraction_date,
-            blood_volume_ml, extraction_time_minutes,
-            reaction_notes, is_qns, qns_reason
+            extracted_by, phlebotomist_id,
+            extraction_date, blood_volume_ml,
+            extraction_time_minutes, reaction_notes,
+            is_qns, qns_reason, drive_id
          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
          ) RETURNING *`,
         [
-            donor_id, screening_id, branch_id,
-            extracted_by, extraction_date || new Date(),
+            donor_id,
+            screening_id,
+            branch_id,
+            extracted_by,
+            phlebotomist_id || null,
+            extraction_date || new Date(),
             blood_volume_ml || 450,
             extraction_time_minutes,
             reaction_notes,
             is_qns || false,
-            qns_reason
+            qns_reason,
+            drive_id || null,
         ]
     );
     return result.rows[0];
@@ -117,15 +137,15 @@ const createDonation = async (data) => {
 const updateDonation = async (id, data) => {
     const {
         reaction_notes, is_qns,
-        qns_reason, extraction_time_minutes
+        qns_reason, extraction_time_minutes,
     } = data;
 
     const result = await pool.query(
         `UPDATE donations SET
-            reaction_notes = COALESCE($1, reaction_notes),
-            is_qns = COALESCE($2, is_qns),
-            qns_reason = COALESCE($3, qns_reason),
-            extraction_time_minutes = COALESCE($4, extraction_time_minutes)
+            reaction_notes           = COALESCE($1, reaction_notes),
+            is_qns                   = COALESCE($2, is_qns),
+            qns_reason               = COALESCE($3, qns_reason),
+            extraction_time_minutes  = COALESCE($4, extraction_time_minutes)
          WHERE donation_id = $5
          RETURNING *`,
         [reaction_notes, is_qns, qns_reason, extraction_time_minutes, id]
@@ -138,5 +158,5 @@ module.exports = {
     getDonationById,
     getDonationsByDonor,
     createDonation,
-    updateDonation
+    updateDonation,
 };
