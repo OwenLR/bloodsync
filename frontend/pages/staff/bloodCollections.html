@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blood Testing | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodCollections.css" />
+  <link rel="stylesheet" href="/assets/css/pages/staff/bloodCollections.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1>Blood Testing</h1>
+        <div class="page-header-filter">
+          <label for="status-filter">Show:</label>
+          <select id="status-filter" aria-label="Filter collections">
+            <option value="pending">Pending Review</option>
+            <option value="reviewed">Reviewed (Safe / Rejected)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="collections-skeleton"></div>
+      <div id="collections-error"></div>
+
+      <div id="collections-table-container" style="display:none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Donor</th>
+              <th>Blood Type</th>
+              <th>Component</th>
+              <th>Volume</th>
+              <th>Collection Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="collections-tbody"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/staff/bloodCollections.js"></script>
+</body>
+</html>

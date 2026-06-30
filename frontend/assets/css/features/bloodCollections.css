@@ -1,0 +1,62 @@
+/* ── Blood Collections (Blood Testing) Feature Styles ──────────────── */
+/* Reuses .data-table, .btn-xs, .empty-state, .table-actions from
+   bloodDrives.css — only net-new classes for this feature live here. */
+
+/* ── Status badges — extends the badge pattern from bloodDrives.css ── */
+.status-badge--pending  { background: #fff4e0; color: #b06000; }
+.status-badge--safe     { background: #e6f4ea; color: #1e7e34; }
+.status-badge--rejected { background: #fce8e6; color: #c5221f; }
+
+/* ── QNS indicator tag ───────────────────────────────────────────── */
+.qns-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #fce8e6;
+  color: #c5221f;
+  cursor: help;
+}
+
+/* ── Reject modal — reason textarea ─────────────────────────────── */
+.modal-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.modal-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.modal-textarea:focus {
+  outline: 2px solid #c00;
+  outline-offset: 1px;
+}
+
+/* ── Detail modal — definition list layout ──────────────────────── */
+.detail-list {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 12px;
+}
+
+.detail-list dt {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.detail-list dd {
+  font-size: 0.88rem;
+  color: #111;
+}

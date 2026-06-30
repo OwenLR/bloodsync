@@ -56,7 +56,7 @@ async function init() {
   _user = await requireAuth();
   if (!_user) return;
 
-  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.ADMIN, ROLES.PRC_STAFF])) return;
+  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.PRC_STAFF])) return;
 
   renderNavbar(_user, 0);
   clearSidebar();

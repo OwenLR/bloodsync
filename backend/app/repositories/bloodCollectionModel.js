@@ -80,11 +80,19 @@ const getCollectionsByBranch = async (branch_id) => {
             bc.expiration_date,
             bc.status,
             bc.collection_date,
+            bc.is_qns,
+            bc.qns_reason,
+            bc.notes,
+            bc.created_at,
+            d.donor_id,
             d.first_name,
-            d.last_name
+            d.last_name,
+            u.first_name AS collected_by_first,
+            u.last_name AS collected_by_last
          FROM blood_collections bc
          JOIN donations dn ON bc.donation_id = dn.donation_id
          JOIN donors d ON bc.donor_id = d.donor_id
+         LEFT JOIN users u ON bc.collected_by = u.user_id
          WHERE bc.branch_id = $1
          ORDER BY bc.created_at DESC`,
         [branch_id]

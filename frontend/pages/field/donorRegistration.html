@@ -23,31 +23,26 @@
         </div>
       </div>
 
-      <!-- Step indicator -->
+      <!-- Step indicator — 4-step workflow -->
       <div class="workflow-steps">
         <div class="workflow-step active">
           <span class="workflow-step-number">1</span>
           Register
         </div>
         <div class="workflow-step-divider"></div>
-        <div class="workflow-step">
+        <div class="workflow-step ">
           <span class="workflow-step-number">2</span>
           Interview
         </div>
         <div class="workflow-step-divider"></div>
-        <div class="workflow-step">
+        <div class="workflow-step ">
           <span class="workflow-step-number">3</span>
           Screening
         </div>
         <div class="workflow-step-divider"></div>
-        <div class="workflow-step">
+        <div class="workflow-step ">
           <span class="workflow-step-number">4</span>
-          Donation
-        </div>
-        <div class="workflow-step-divider"></div>
-        <div class="workflow-step">
-          <span class="workflow-step-number">5</span>
-          Collection
+          Donation &amp; Collection
         </div>
       </div>
 
@@ -79,6 +74,9 @@
         </div>
         <button id="clear-selection-btn" class="btn-clear-selection">Clear selection</button>
       </div>
+
+      <!-- Deferred donor block notice (shown when a deferred donor is selected) -->
+      <div id="donor-deferred-notice" class="form-error" style="display:none" role="alert"></div>
 
       <!-- Registration form -->
       <div class="workflow-card">

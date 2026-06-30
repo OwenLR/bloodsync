@@ -1,0 +1,31 @@
+/* Staff — Blood Testing (Blood Collections) page layout */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.page-header-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-header-filter label {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.page-header-filter select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}

@@ -23,7 +23,7 @@
         </div>
       </div>
 
-      <!-- Step indicator — steps 4+5 combined -->
+      <!-- Step indicator — 4-step workflow -->
       <div class="workflow-steps">
         <div class="workflow-step done">
           <span class="workflow-step-number">1</span>
@@ -41,7 +41,7 @@
         </div>
         <div class="workflow-step-divider"></div>
         <div class="workflow-step active">
-          <span class="workflow-step-number">4–5</span>
+          <span class="workflow-step-number">4</span>
           Donation &amp; Collection
         </div>
       </div>
@@ -103,11 +103,11 @@
                 <label for="input-extraction-time">Extraction Time (minutes) <span class="required-mark">*</span></label>
                 <input
                   id="input-extraction-time"
-                  type="number" min="1" max="120"
+                  type="number" min="1" max="120" step="1"
                   class="form-input"
                   placeholder="e.g. 10"
                 />
-                <span class="field-hint">Normal extraction takes up to 15 minutes.</span>
+                <span class="field-hint">Enter whole minutes only. Normal extraction takes up to 15 minutes.</span>
                 <span id="error-extraction-time" class="field-error field-error-hidden"></span>
               </div>
             </div>
@@ -119,13 +119,22 @@
               You may still submit the record.
             </div>
 
-            <!-- Phlebotomist dropdown — required, wired to phlebotomist_id in POST body -->
+            <!-- Phlebotomist searchable dropdown — required, wired to phlebotomist_id in POST body -->
             <div class="form-row">
               <div class="form-group">
-                <label for="input-phlebotomist">Performed By (Phlebotomist) <span class="required-mark">*</span></label>
-                <select id="input-phlebotomist" class="form-input">
-                  <option value="">— Select phlebotomist —</option>
-                </select>
+                <label for="phlebotomist-search-input">Performed By (Phlebotomist) <span class="required-mark">*</span></label>
+                <div class="sd-wrapper">
+                  <input
+                    id="phlebotomist-search-input"
+                    type="text"
+                    class="form-input sd-input"
+                    placeholder="Click to browse or type to filter…"
+                    autocomplete="off"
+                  />
+                  <ul id="phlebotomist-search-list" class="sd-list"></ul>
+                </div>
+                <!-- Hidden input holds the selected phlebotomist user_id for form submission -->
+                <input type="hidden" id="input-phlebotomist" value="" />
                 <span id="phlebotomist-hint" class="field-hint"></span>
                 <span id="error-phlebotomist" class="field-error field-error-hidden"></span>
               </div>
@@ -153,6 +162,20 @@
 
         <form id="collection-form" novalidate>
           <div id="collection-form-fields">
+
+            <!-- Admin-only: branch destination selector -->
+            <!-- Shown only when user is Admin (role_id 1) — Staff branch comes from JWT,
+                 Volunteer/Phlebotomist branch comes from their assigned blood drive -->
+            <div id="admin-branch-section" class="form-row" style="display:none">
+              <div class="form-group">
+                <label for="input-branch">Destination Branch <span class="required-mark">*</span></label>
+                <select id="input-branch" class="form-input">
+                  <option value="">— Select branch —</option>
+                </select>
+                <span class="field-hint">Select the PRC branch where this blood unit will go for testing.</span>
+                <span id="error-branch" class="field-error field-error-hidden"></span>
+              </div>
+            </div>
 
             <div class="form-row">
               <div class="form-group">

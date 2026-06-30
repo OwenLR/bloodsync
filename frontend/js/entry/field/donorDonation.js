@@ -57,16 +57,17 @@ import { initSearchableDropdown } from '../../components/searchableDropdown.js';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let _user           = null;
-let _selectedDonor  = null;
-let _screeningMap   = null;   // donor_id → most recent Eligible screening
-let _donationMap    = null;   // donor_id → most recent donation (built after donations load)
-let _activeDrive    = null;   // active blood drive (null for walk-ins)
-let _phlebotomists  = [];     // list of available phlebotomists for dropdown
-let _dropdown       = null;
-let _createdDonation = null;  // donation record after step 1 submit
+let _user             = null;
+let _selectedDonor    = null;
+let _screeningMap     = null;
+let _donationMap      = null;
+let _activeDrive      = null;
+let _phlebotomists    = [];
+let _dropdown         = null;
+let _phlebDropdown    = null;   // searchableDropdown instance for phlebotomist
+let _createdDonation  = null;
 
-const QNS_THRESHOLD = 15;     // minutes
+const QNS_THRESHOLD = 15;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ async function init() {
   _user = await requireAuth();
   if (!_user) return;
 
-  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.ADMIN, ROLES.PRC_STAFF])) return;
+  if (!requireRole(_user, [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.PRC_STAFF])) return;
 
   renderNavbar(_user, 0);
   clearSidebar();
@@ -91,7 +92,7 @@ async function init() {
 
   revealAppShell();
 
-  // Load active drive and phlebotomist list in parallel with donor data
+  // Load active drive and phlebotomists in parallel with donor data
   await Promise.all([
     _initDonorDropdown(),
     _loadPhlebotomists(),
@@ -101,62 +102,66 @@ async function init() {
   _setupCollectionForm();
 }
 
-// ─── Phlebotomist Loader ──────────────────────────────────────────────────────
+// ─── Phlebotomist Searchable Dropdown ────────────────────────────────────────
 
 async function _loadPhlebotomists() {
-  try {
-    // Try to find active drive first — needed for participant list
-    _activeDrive = await getMyActiveDrive();
+  const hint   = document.getElementById('phlebotomist-hint');
+  const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
 
-    if (_activeDrive) {
-      _phlebotomists = await getDrivePhlebotomists(_activeDrive.drive_id);
+  try {
+    if (isFieldRole) {
+      // Field roles: must have an active drive — load only assigned phlebotomists
+      _activeDrive = await getMyActiveDrive();
+      if (_activeDrive) {
+        _phlebotomists = await getDrivePhlebotomists(_activeDrive.drive_id);
+      } else {
+        _phlebotomists = [];
+      }
+      if (hint) hint.textContent = _phlebotomists.length
+        ? 'Phlebotomists assigned to this blood drive.'
+        : 'No phlebotomists found for this drive. Ensure phlebotomists are assigned.';
     } else {
-      // No active drive (Admin/Staff walk-in) — use available phlebotomists list
+      // Admin/Staff walk-in: show all active phlebotomists — no drive required
       _phlebotomists = await getAvailablePhlebotomists();
+      if (hint) hint.textContent = 'All active phlebotomists (walk-in session — no drive required).';
     }
   } catch (_err) {
     _phlebotomists = [];
-    // Non-fatal — the dropdown will show empty with a message
-  }
-  _renderPhlebotomistDropdown();
-}
-
-function _renderPhlebotomistDropdown() {
-  const select  = document.getElementById('input-phlebotomist');
-  const hint    = document.getElementById('phlebotomist-hint');
-  if (!select) return;
-
-  // Clear existing options except the placeholder
-  select.innerHTML = '<option value="">— Select phlebotomist —</option>';
-
-  if (_phlebotomists.length === 0) {
-    const opt = document.createElement('option');
-    opt.value    = '';
-    opt.disabled = true;
-    opt.textContent = 'No phlebotomists found for this drive';
-    select.appendChild(opt);
-
-    if (hint) hint.textContent = 'No assigned phlebotomists found. Ensure phlebotomists are assigned to this drive.';
-    return;
+    if (hint) hint.textContent = 'Could not load phlebotomist list. Refresh to try again.';
   }
 
-  _phlebotomists.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value       = p.user_id;
-    opt.textContent = `${p.first_name} ${p.last_name}`;
-    select.appendChild(opt);
+  // Pre-select self if logged-in user is a Phlebotomist and is in the list
+  const selfId = (_user.role_id === ROLES.PHLEBOTOMIST)
+    ? _user.user_id
+    : null;
+
+  _phlebDropdown = initSearchableDropdown({
+    inputId:      'phlebotomist-search-input',
+    listId:       'phlebotomist-search-list',
+    items:         _phlebotomists,
+    displayFn:    (p) => `${p.first_name} ${p.last_name}`,
+    subDisplayFn: (p) => p.role_name || 'Phlebotomist',
+    filterFn:     (p, q) =>
+      `${p.first_name} ${p.last_name}`.toLowerCase().includes(q),
+    onSelect:     (p) => {
+      // Write selected user_id to hidden input — read on form submit
+      const hidden = document.getElementById('input-phlebotomist');
+      if (hidden) hidden.value = p.user_id;
+      // Clear any error
+      const errEl = document.getElementById('error-phlebotomist');
+      if (errEl) errEl.classList.add('field-error-hidden');
+    },
+    placeholder:  isFieldRole
+      ? 'Click to browse phlebotomists in this drive…'
+      : 'Click to browse or type to filter phlebotomists…',
+    emptyMessage: isFieldRole
+      ? 'No phlebotomists assigned to this drive.'
+      : 'No active phlebotomists found.',
   });
 
-  if (hint) {
-    hint.textContent = _activeDrive
-      ? 'Phlebotomists assigned to this blood drive.'
-      : 'Available phlebotomists (walk-in session).';
-  }
-
-  // If logged-in user is a phlebotomist and is in the list, pre-select them
-  if (_user.role_id === ROLES.PHLEBOTOMIST) {
-    const self = _phlebotomists.find(p => p.user_id === _user.user_id);
-    if (self) select.value = String(_user.user_id);
+  // Auto-select self if Phlebotomist
+  if (selfId) {
+    _phlebDropdown.selectByPredicate(p => p.user_id === selfId);
   }
 }
 
@@ -444,7 +449,8 @@ async function _handleDonationSubmit(e) {
 
     const data = {
       screening_id:    screeningId,
-      extraction_time: rawTime !== '' ? parseInt(rawTime, 10) : undefined,
+      // Enforce whole minutes — Math.round drops any decimal from copy-paste
+      extraction_time: rawTime !== '' ? Math.round(parseFloat(rawTime)) : undefined,
       phlebotomist_id: Number(phlebotomistId),
     };
 
@@ -519,6 +525,9 @@ async function _handleCollectionSubmit(e) {
       return;
     }
 
+    // Branch is resolved server-side:
+    // - Staff: req.user.branch_id from JWT
+    // - Volunteer/Phlebotomist: drive's branch_id via bloodDriveMiddleware
     const data = {
       donation_id: donationId,
       blood_type:  document.getElementById('input-blood-type').value  || undefined,

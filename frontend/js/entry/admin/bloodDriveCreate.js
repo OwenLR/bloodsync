@@ -682,7 +682,7 @@ async function init() {
     document.getElementById('page-title').textContent = 'Edit Blood Drive';
     document.getElementById('submit-btn').textContent = 'Save Changes';
     document.getElementById('submit-btn').disabled = true;
-    document.title = 'Edit Blood Drive — BloodSync';
+    document.title = 'Edit Blood Drive - BloodSync';
 
     document.getElementById('drive-form').classList.add('form-loading');
 
