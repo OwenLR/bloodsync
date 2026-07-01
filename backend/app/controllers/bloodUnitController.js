@@ -1,6 +1,7 @@
 const bloodUnitModel   = require('../repositories/bloodUnitModel');
 const bloodUnitService = require('../services/bloodUnitService');
 const response         = require('../../utils/responseHelper');
+const ROLES             = require('../../constants/roles');
 const {
     validateUpdateUnitStatus,
     validateSeparate,
@@ -8,6 +9,11 @@ const {
 
 const getAllUnits = async (req, res) => {
     try {
+        // PRC Staff cannot see other branches' units — Admin sees all
+        if (req.user.role_id === ROLES.PRC_STAFF) {
+            const units = await bloodUnitModel.getUnitsByBranchAll(req.user.branch_id);
+            return response.success(res, units);
+        }
         const units = await bloodUnitModel.getAllUnits();
         return response.success(res, units);
     } catch (error) {
@@ -27,7 +33,12 @@ const getUnitById = async (req, res) => {
 
 const getUnitsByBranch = async (req, res) => {
     try {
-        const units = await bloodUnitModel.getUnitsByBranch(req.params.branch_id);
+        // PRC Staff can only view their own branch's inventory
+        if (req.user.role_id === ROLES.PRC_STAFF &&
+            Number(req.params.branch_id) !== req.user.branch_id) {
+            return response.forbidden(res, 'You can only view your own branch inventory');
+        }
+        const units = await bloodUnitModel.getUnitsByBranchAll(req.params.branch_id);
         return response.success(res, units);
     } catch (error) {
         return response.handleError(res, error);

@@ -1,0 +1,63 @@
+/* ── Blood Units (Main Inventory) Feature Styles ────────────────────── */
+/* Reuses .data-table, .btn-xs, .empty-state, .table-actions from
+   bloodDrives.css — only net-new classes for this feature live here. */
+
+/* ── Status badges — extends the badge pattern from bloodDrives.css ── */
+.status-badge--available { background: #e6f4ea; color: #1e7e34; }
+.status-badge--reserved  { background: #e8eefc; color: #1a56db; }
+.status-badge--released  { background: #ededed; color: #555;    }
+.status-badge--disposed  { background: #fce8e6; color: #c5221f; }
+.status-badge--withdrawn { background: #fce8e6; color: #c5221f; }
+.status-badge--expired   { background: #f3e8fd; color: #7b3fa0; }
+.status-badge--separated { background: #fff4e0; color: #b06000; }
+
+/*
+ * NOTE — duplicated from features/bloodCollections.css:
+ * .modal-field-label / .modal-textarea / .detail-list are generic modal
+ * patterns, not specific to either feature. Both bloodCollectionsUI.js
+ * (reject reason modal, detail modal) and bloodUnitsUI.js (dispose/withdraw
+ * reason modal, detail modal) need them identically. Duplicating here
+ * rather than reaching into main.css unasked — these three classes should
+ * move to main.css in a cleanup pass so no feature file has to carry them.
+ */
+
+/* ── Dispose/Withdraw modal — reason textarea ───────────────────── */
+.modal-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.modal-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.modal-textarea:focus {
+  outline: 2px solid #c00;
+  outline-offset: 1px;
+}
+
+/* ── Detail modal — definition list layout ──────────────────────── */
+.detail-list {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 12px;
+}
+
+.detail-list dt {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.detail-list dd {
+  font-size: 0.88rem;
+  color: #111;
+}

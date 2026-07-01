@@ -10,7 +10,11 @@ const getAllUnits = async () => {
             bu.barcode,
             bu.collection_date,
             bu.expiration_date,
-            bu.status,
+            CASE
+                WHEN bu.status = 'Available' AND bu.expiration_date <= NOW()
+                THEN 'Expired'
+                ELSE bu.status
+            END AS status,
             bu.processed_at,
             bu.created_at,
             d.donor_id,
@@ -43,7 +47,11 @@ const getUnitById = async (id) => {
             bu.barcode,
             bu.collection_date,
             bu.expiration_date,
-            bu.status,
+            CASE
+                WHEN bu.status = 'Available' AND bu.expiration_date <= NOW()
+                THEN 'Expired'
+                ELSE bu.status
+            END AS status,
             bu.disposal_reason,
             bu.withdrawal_reason,
             bu.processed_at,
@@ -78,6 +86,44 @@ const getUnitsByBranch = async (branch_id) => {
          WHERE bu.branch_id = $1
          AND bu.status = 'Available'
          AND bu.expiration_date > NOW()
+         ORDER BY bu.expiration_date ASC`,
+        [branch_id]
+    );
+    return result.rows;
+};
+
+/**
+ * Get ALL units for a branch, regardless of status or expiration.
+ * Used by the Staff Main Inventory page — needs to show terminal-state
+ * units (Disposed/Withdrawn/Released/Separated/Expired) as read-only
+ * history, not just Available ones.
+ * Unlike getUnitsByBranch (FEFO/fulfillment use — Available + non-expired only),
+ * this is the full branch-scoped list.
+ */
+const getUnitsByBranchAll = async (branch_id) => {
+    const result = await pool.query(
+        `SELECT
+            bu.unit_id,
+            bu.blood_type,
+            bu.component,
+            bu.volume_ml,
+            bu.barcode,
+            bu.collection_date,
+            bu.expiration_date,
+            CASE
+                WHEN bu.status = 'Available' AND bu.expiration_date <= NOW()
+                THEN 'Expired'
+                ELSE bu.status
+            END AS status,
+            bu.disposal_reason,
+            bu.withdrawal_reason,
+            bu.created_at,
+            d.donor_id,
+            d.first_name,
+            d.last_name
+         FROM blood_units bu
+         JOIN donors d ON bu.donor_id = d.donor_id
+         WHERE bu.branch_id = $1
          ORDER BY bu.expiration_date ASC`,
         [branch_id]
     );
@@ -277,6 +323,7 @@ module.exports = {
     getAllUnits,
     getUnitById,
     getUnitsByBranch,
+    getUnitsByBranchAll,
     getInventoryByBloodType,
     getInventoryAvailability,
     getAvailableCountByBranch,

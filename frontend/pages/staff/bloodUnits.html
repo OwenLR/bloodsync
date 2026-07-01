@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blood Units | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodUnits.css" />
+  <link rel="stylesheet" href="/assets/css/pages/staff/bloodUnits.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1>Blood Units</h1>
+      </div>
+
+      <div id="units-skeleton"></div>
+      <div id="units-error"></div>
+
+      <div id="units-table-container" style="display:none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Blood Type</th>
+              <th>Component</th>
+              <th>Volume</th>
+              <th>Barcode</th>
+              <th>Donor</th>
+              <th>Expiration Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="units-tbody"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/staff/bloodUnits.js"></script>
+</body>
+</html>

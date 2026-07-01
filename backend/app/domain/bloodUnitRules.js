@@ -19,13 +19,27 @@ const REASON_REQUIRED_STATUSES = ['Disposed', 'Withdrawn'];
 /**
  * Assert that a blood unit is not in a terminal state.
  *
- * @param {{ status: string }} unit
- * @throws {Error} if unit status is terminal
+ * Two terminal conditions:
+ * 1. status is one of TERMINAL_STATUSES (set explicitly via dispose/withdraw/
+ *    release/separate actions)
+ * 2. expiration_date has passed — no cron or trigger ever flips status to
+ *    'Expired' in this system, so a unit can sit at status='Available' long
+ *    after its expiration_date unless this is checked here. Computed from
+ *    the unit's own expiration_date rather than relying on a stored status
+ *    string that nothing sets.
+ *
+ * @param {{ status: string, expiration_date: string|Date }} unit
+ * @throws {Error} if unit status is terminal or unit has expired
  */
 const assertNotTerminal = (unit) => {
     if (TERMINAL_STATUSES.includes(unit.status)) {
         throw new Error(
             `Cannot update. Unit is already ${unit.status}`
+        );
+    }
+    if (unit.expiration_date && new Date(unit.expiration_date) <= new Date()) {
+        throw new Error(
+            'Cannot update. Unit has expired'
         );
     }
 };

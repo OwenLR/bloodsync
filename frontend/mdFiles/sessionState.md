@@ -1,33 +1,50 @@
 # BloodSync Frontend — Session State
 
 ## Status
-Phase 2 in progress — Dashboards complete, Blood Drives complete (admin),
+Phase 2 in progress — Dashboards complete, Blood Drives complete (admin + staff),
 Settings complete (admin/staff), Donors feature complete (admin),
 Field workflow: ALL 4 STEPS COMPLETE (donation + collection merged).
-Next: Blood Units (Staff + Admin view only).
+Blood Units / Testing / Inventory feature: STAFF ONLY (no admin variant) —
+Section 1 (Blood Testing / Blood Collections queue) COMPLETE.
+Next: Section 2 — Blood Units (Main Inventory), staff only.
 
 ## Current Phase
 Phase 2 — Features / Web
 
 ## Current Task
-- Blood Units page (PRC Staff + Admin view/manage only — no workflow)
-- After Blood Units: Blood Requests, Notifications
+- Blood Units / Inventory feature — being built in sections, STAFF ONLY:
+  1. ✅ Blood Testing (Blood Collections queue) — COMPLETE
+  2. ⬜ Blood Units (Main Inventory) — NEXT
+  3. ⬜ Inventory Cleaning (expiration highlighting, bulk removal)
+  4. ⬜ Blood Separation (Whole Blood → RBC/Plasma/Platelets)
+
+⚠ IMPORTANT — scope correction made this session:
+This entire feature area (Blood Units / Blood Testing / Inventory Cleaning /
+Separation) is STAFF ONLY at the frontend level. Although the backend routes
+in bloodUnitRoutes.js and bloodCollectionRoutes.js allow both ROLES.ADMIN and
+ROLES.PRC_STAFF, no Admin-side pages exist or are planned for any of these
+4 sections. This is a deliberate departure from the earlier plan in this file
+("build on Admin first, then replicate for Staff") — that plan is SUPERSEDED
+for this feature area only. Do not build Admin variants for Blood
+Testing / Blood Units / Inventory Cleaning / Separation unless explicitly
+requested again.
 
 ---
 
-## DEVELOPMENT APPROACH — STAFF FIRST FOR WORKFLOW (REVISED THIS SESSION)
+## DEVELOPMENT APPROACH — STAFF FIRST FOR WORKFLOW
 
 Field workflow pages (/pages/field/) are shared by PRC Staff, Volunteer,
 and Phlebotomist ONLY. Admin is explicitly excluded from all field workflow
-pages. This was a deliberate architectural correction made this session.
+pages. This was a deliberate architectural correction made in a prior session.
 
 Rationale: Admin has no fixed branch_id and is never physically present at
 a blood drive. Admin-initiated donation records produce orphaned data
 (null drive_id + wrong branch_id auto-assigned from last branch). Admin's
 role is system management only — not blood donation workflow.
 
-For non-workflow features (Blood Units, Blood Requests, Reports):
-build and validate on Admin first, then replicate for Staff.
+Blood Drives: built Admin-first, then replicated to Staff (COMPLETE both sides).
+This pattern does NOT apply to Blood Units / Testing / Inventory — see scope
+correction above. That feature is Staff-only by design, not by replication order.
 
 ---
 
@@ -40,6 +57,11 @@ build and validate on Admin first, then replicate for Staff.
 | Volunteer | ✅ Drive only (must be assigned) | ❌ No |
 | Phlebotomist | ✅ Drive only (must be assigned) | ❌ No |
 
+Note: "Admin ✅ Full" above refers to general management scope per the
+original role table. Blood Testing / Blood Units / Inventory Cleaning /
+Separation are a carved-out exception — Staff only, no Admin frontend page,
+per this session's scope correction.
+
 ---
 
 ## PENDING FEATURES (backlog — not blocking current work)
@@ -47,11 +69,13 @@ build and validate on Admin first, then replicate for Staff.
 - Requestor self-profile endpoint — backend not scoped yet, backlog.
 - Volunteer/Phlebotomist Settings frontend UI — backend ready, frontend not built.
 - Requestor Settings frontend UI — backend partial (password change only).
-- Staff per-role pages for Blood Units, Blood Requests (replicate after admin validated).
 
 ---
 
 ## Phase 1 — Core Wiring (COMPLETE ✅)
+
+(unchanged from prior session — see Constants / Core / Layouts / Components /
+Pages / Entry Files / CSS lists below, all still accurate)
 
 ### Constants
 - [x] `js/constants/apiConfig.js` — API_BASE_URL, API_ENDPOINTS
@@ -84,7 +108,7 @@ All page navigation lives in sidebar only.
 ### Components
 - [x] `js/components/feedback.js` — showError(), showSuccess(), clearFeedback()
 - [x] `js/components/toast.js` — showToast(message, type, duration)
-- [x] `js/components/modal.js` — openModal(), closeModal(), confirmModal()
+- [x] `js/components/modal.js` — openModal(title, body, actions), closeModal(), confirmModal(message, confirmLabel, cancelLabel)
 - [x] `js/components/skeleton.js` — showSkeleton(), hideSkeleton()
 - [x] `js/components/errorBoundary.js` — showErrorBoundary(), clearErrorBoundary()
 - [x] `js/components/infiniteScroll.js` — initInfiniteScroll(), destroyInfiniteScroll()
@@ -110,22 +134,7 @@ All page navigation lives in sidebar only.
 ---
 
 ## Phase 1 — Test Verification (COMPLETE ✅)
-
-- [x] Login with valid credentials → redirects to correct dashboard per role
-- [x] Login with invalid credentials → shows error message, does not redirect
-- [x] Already-logged-in user visiting index.html → redirected immediately
-- [x] GET /api/auth/me returns first_name and last_name
-- [x] Navbar renders correct nav items and full name on every page
-- [x] Logout → cookies cleared, redirected to login
-- [x] roleGuard — wrong role redirects to own dashboard, not login
-- [x] authGuard — no cookies redirects to login
-- [x] 404 page logged out → "Back to login" works
-- [x] 404 page logged in → "Go to dashboard" works, correct role
-- [x] Socket connects — [Socket] Connected visible in console
-- [x] Toast, modal, skeleton, error boundary render correctly
-- [x] Invalid credentials → inline error message shown
-- [x] 401 auto-refresh — confirmed working (auth.js syntax error was the break, now fixed)
-- [x] Refresh token expired → clean redirect — confirmed
+(unchanged — see prior session notes)
 
 ---
 
@@ -139,11 +148,11 @@ All page navigation lives in sidebar only.
 - [x] `pages/requestor/dashboard.html` + `js/entry/requestor/dashboard.js`
 - [x] `assets/css/pages/[role]/dashboard.css` — all 5 roles
 
-### Blood Drives — Admin + PRC Staff (COMPLETE ✅)
+### Blood Drives — Admin + PRC Staff (COMPLETE ✅ — both sides)
 - [x] `pages/admin/bloodDrives.html` + `js/entry/admin/bloodDrives.js`
 - [x] `pages/admin/bloodDriveCreate.html` + `js/entry/admin/bloodDriveCreate.js`
-- [x] `pages/staff/bloodDrives.html` + `js/entry/staff/bloodDrives.js` (shares admin JS)
-- [x] `pages/staff/bloodDriveCreate.html`
+- [x] `pages/staff/bloodDrives.html` — NEW this session — shares admin entry JS as-is
+- [x] `pages/staff/bloodDriveCreate.html` — NEW this session — shares admin entry JS as-is
 - [x] `js/features/bloodDrives/bloodDrivesApi.js`
 - [x] `js/features/bloodDrives/bloodDrivesUI.js`
 - [x] `js/features/bloodDrives/bloodDrivesValidation.js`
@@ -151,125 +160,114 @@ All page navigation lives in sidebar only.
 - [x] `assets/css/pages/admin/bloodDrives.css`
 - [x] `assets/css/features/bloodDrives.css`
 
+KEY ARCHITECTURAL NOTE confirmed this session: js/entry/admin/bloodDrives.js
+and js/entry/admin/bloodDriveCreate.js are ALREADY fully role-aware internally
+(role checks via requireRole([ROLES.ADMIN, ROLES.PRC_STAFF]), branch-locking
+for Staff in bloodDriveCreate.js's populateBranches(), dynamic ROUTES.ADMIN
+vs ROUTES.STAFF routing for back/cancel/new-drive links). Staff needed ONLY
+two new HTML shell files pointing at the SAME admin entry scripts — no new
+JS files, no duplicate entry files. Do not copy entry files into
+js/entry/staff/ for this feature — the existing js/entry/admin/ files ARE
+the shared implementation. This pattern (audit for role-awareness before
+creating new files) should be applied to any future "replicate to Staff"
+request.
+
 #### Map Picker — ALL SECTIONS COMPLETE ✅
-- Section A: Leaflet map, click to drop pin, coordinates saved to hidden inputs
-- Section B: Nominatim reverse geocode on pin drop → auto-fills address fields.
-  ALWAYS overwrites — map is source of truth, not "only if empty".
-- Section C: Address search bar above map. Forward geocode → map flies to result
-  → pin drops → address auto-fills. Search input does NOT clear after result.
-- Section D: Expand button opens map in fullscreen modal. Two separate Leaflet
-  instances (inline + modal) — Leaflet cannot be moved between DOM containers.
-  Both stay in sync via shared hidden inputs. Closing modal pans inline map to pin.
+(unchanged — see prior session notes, Sections A–D)
 
 ### Settings — Admin + PRC Staff (COMPLETE ✅)
-- [x] `js/features/settings/settingsApi.js`
-- [x] `js/features/settings/settingsValidation.js`
-- [x] `js/features/settings/settingsUI.js`
-- [x] `pages/admin/settings.html` + `js/entry/admin/settings.js`
-- [x] `pages/staff/settings.html` + `js/entry/staff/settings.js`
-- [x] `assets/css/features/settings.css`
+(unchanged — see prior session notes)
 
 ### Donors — Admin (COMPLETE ✅)
-- [x] `js/features/donors/donorsApi.js`
-- [x] `js/features/donors/donorsValidation.js`
-- [x] `js/features/donors/donorsUI.js`
-- [x] `pages/admin/donors.html`
-- [x] `js/entry/admin/donors.js`
-- [x] `assets/css/features/donors.css`
+(unchanged — see prior session notes)
 
 ### Field Workflow Foundation (COMPLETE ✅)
-- [x] `js/features/fieldWorkflow/fieldWorkflowApi.js`
-- [x] `js/features/fieldWorkflow/fieldWorkflowValidation.js`
-- [x] `assets/css/features/fieldWorkflow.css`
-- [x] `js/components/searchableDropdown.js`
+(unchanged — see prior session notes)
 
 ### Field Workflow Pages — 4-Step Flow (COMPLETE ✅)
-
-Roles: PRC Staff, Volunteer, Phlebotomist ONLY.
-Admin is explicitly excluded from all field workflow pages.
-
-Step indicator is now 4 steps across all pages:
-  Register → Interview → Screening → Donation & Collection
-
-#### Step 1: donorRegistration (COMPLETE ✅)
-- [x] `pages/field/donorRegistration.html`
-- [x] `js/entry/field/donorRegistration.js`
-
-Key details:
-- requireRole: [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.PRC_STAFF] — Admin excluded
-- Search-first flow with searchableDropdown
-- Deferred donor badge in dropdown (⚠ Deferred at interview/screening · date)
-- Deferred donor block notice (#donor-deferred-notice) on select
-- Inline duplicate detection: name+birthdate OR government ID
-- Contact update branches by role: Vol/Phleb → PATCH /api/donors/:id/contact,
-  Staff → PATCH /api/donors/:id
-- "Register Another Donor" button resets form and sessionStorage
-- Birthdate max = today, age 18+ enforced
-
-#### Step 2: donorInterview (COMPLETE ✅)
-- [x] `pages/field/donorInterview.html`
-- [x] `js/entry/field/donorInterview.js`
-
-Key details:
-- requireRole: [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.PRC_STAFF] — Admin excluded
-- Deferred donors excluded from dropdown for field roles; Staff sees all
-- Live per-question deferral warnings during answering
-- After submit: re-fetches interview to check interview_result
-- If deferred: shows #interview-deferred-notice, hides proceed button
-- If passed: shows proceed to screening
-- #interview-deferred-notice element in HTML required
-
-#### Step 3: donorScreening (COMPLETE ✅)
-- [x] `pages/field/donorScreening.html`
-- [x] `js/entry/field/donorScreening.js`
-
-Key details:
-- requireRole: [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.PRC_STAFF] — Admin excluded
-- Excludes interview-deferred donors from dropdown
-- hemoglobin_status and screening_result are AUTO-COMPUTED, never manually selected
-- blood_type_confirmed required
-
-#### Step 4: donorDonation (COMPLETE ✅) — combined with collection
-- [x] `pages/field/donorDonation.html`
-- [x] `js/entry/field/donorDonation.js`
-
-RETIRED (DELETE FROM PROJECT):
-- `pages/field/donorCollection.html` — merged into donorDonation.html
-- `js/entry/field/donorCollection.js` — merged into donorDonation.js
-
-Key details:
-- requireRole: [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST, ROLES.PRC_STAFF] — Admin excluded
-- Single page handles both extraction (POST /api/donations) and
-  collection (POST /api/blood-collections) sequentially
-- Phlebotomist: searchableDropdown (not a <select>)
-  Field roles: phlebotomists assigned to their active drive
-  Staff: all active phlebotomists (GET /api/volunteers/available?role=6)
-  Logged-in Phlebotomist auto-selected if in list
-  Hidden input #input-phlebotomist stores selected user_id
-- Component defaults to "Whole Blood", volume defaults to 450 mL (editable)
-- Extraction time: whole minutes only (step="1", Math.round on submit)
-- QNS warning fires live when extraction > 15 min, still allows submit
-- Branch routing is server-side only — no branch selector on this page:
-  Staff: req.user.branch_id from JWT
-  Vol/Phleb: drive's branch_id via bloodDriveMiddleware
-- Backend: phlebotomist_id column added to donations table (migration required)
-  donationModel.js and donationService.js updated to accept phlebotomist_id
-  Drive-assignment validation for phlebotomist when drive is active
+(unchanged — see prior session notes, Steps 1–4)
 
 ### Backend Changes — Field Workflow (COMPLETE ✅)
-- [x] `donations` table: `phlebotomist_id` column added (FK to users, nullable)
-      Migration: `ALTER TABLE donations ADD COLUMN phlebotomist_id integer REFERENCES users(user_id);`
-- [x] `repositories/donationModel.js` — phlebotomist_id in INSERT + all SELECTs
-- [x] `services/donationService.js` — phlebotomist_id validation + QNS detection fixed
-- [x] `middleware/authMiddleware.js` — response shape fixed to { success: false }
-- [x] `js/core/auth.js` — syntax error fixed (duplicate line in getCurrentUserSilent)
+(unchanged — see prior session notes)
 
-### Blood Units (NOT STARTED)
-- [ ] Blood units list with status badges
-- [ ] Separate action: Whole Blood + Available only
-- [ ] Status update (Disposed, Withdrawn) — confirm modal required
-- [ ] Terminal states — hide all action buttons
-- [ ] Inventory cleaning view
+---
+
+### Blood Testing (Blood Collections queue) — PRC Staff ONLY (COMPLETE ✅)
+
+This is Section 1 of the Blood Units/Testing/Inventory feature area, built
+this session. STAFF ONLY — no Admin page, despite bloodCollectionRoutes.js
+allowing ROLES.ADMIN at the API level. See scope correction note at top
+of this file.
+
+Purpose: the "testing queue" — Staff decides Pending → Safe / Rejected for
+blood collections recorded during the donation workflow. Marking Safe
+auto-creates a blood unit in inventory (backend side, bloodCollectionService.js
+markAsSafe()) — frontend never creates blood units directly.
+
+- [x] `js/features/bloodCollections/bloodCollectionsApi.js`
+- [x] `js/features/bloodCollections/bloodCollectionsUI.js`
+- [x] `pages/staff/bloodCollections.html`
+- [x] `js/entry/staff/bloodCollections.js`
+- [x] `assets/css/features/bloodCollections.css`
+- [x] `assets/css/pages/staff/bloodCollections.css`
+- [x] `js/constants/routes.js` — added `STAFF.BLOOD_COLLECTIONS: '/pages/staff/bloodCollections.html'`
+- [x] `js/constants/sidebarItems.js` — added "Blood Testing" entry to PRC_STAFF.general,
+      between "Blood Drives" and "Blood Units"
+
+Key details:
+- requireRole: [ROLES.PRC_STAFF] only — not Admin, not Vol/Phleb
+- Data source: GET /api/blood-collections/branch/:branch_id (branch-scoped —
+  Staff only ever sees their own branch's collections, never cross-branch)
+- Two-state filter only: "Pending Review" (default) vs "Reviewed" (Safe +
+  Rejected combined). Disposed/Withdrawn statuses deliberately excluded from
+  this page's filter — those belong to Blood Unit Inventory (Section 2/3),
+  not the testing queue. Decided for UX focus — one page, one job.
+- Actions exposed: Mark Safe, Reject — Disposed/Withdrawn are NOT actions on
+  this page (those happen later, in inventory lifecycle management)
+- QNS collections (is_qns=true): Mark Safe button rendered disabled with an
+  inline reason — NOT hidden. This is a UX-only safeguard; the backend
+  (assertNotQns() in bloodCollectionService.js) is the actual enforcer
+  regardless of frontend state. Security boundary stays backend-side.
+- Reject requires a reason — dedicated modal with textarea (not the generic
+  confirmModal(), which has no input field). Reason is required client-side
+  for UX and required server-side by bloodCollectionModel.js regardless.
+- Detail view is a modal (openModal from components/modal.js), fetched via
+  GET /api/blood-collections/:id on demand — list payload stays lightweight,
+  modal fetch carries the full record (approved_by, rejected_at,
+  rejection_reason, notes, etc. — fields NOT in the branch-scoped list query)
+- Status badge classes added: .status-badge--pending/--safe/--rejected
+  (status-badge base class itself already existed in bloodDrives.css)
+
+### Backend change made this session — required for Section 1
+- [x] `repositories/bloodCollectionModel.js` — getCollectionsByBranch() query
+      was missing fields needed by the frontend list view. Added: is_qns,
+      qns_reason, notes, created_at, donor_id, collected_by_first,
+      collected_by_last. Confirmed applied by developer before frontend
+      bloodCollectionsApi.js was built against it.
+
+---
+
+### Blood Units (Main Inventory) — PRC Staff ONLY (NOT STARTED — NEXT)
+- [ ] Blood units list with status badges (branch-scoped — GET /api/blood-units/branch/:branch_id)
+- [ ] Separate action: Whole Blood + Available only (POST /api/blood-units/:id/separate)
+      — NOTE: per bloodUnitService.js separateUnit(), this performs the
+      separation AND status update — likely belongs with Section 4
+      (Blood Separation), not bundled into this section. Confirm scope
+      boundary at start of Section 2 before building.
+- [ ] Status update (Disposed, Withdrawn) — confirm modal required,
+      PATCH /api/blood-units/:id/status, reason required
+      (see bloodUnitRules.js assertReasonProvided — need to request this file)
+- [ ] Terminal states (Released, Disposed, Withdrawn, Separated, Expired) —
+      hide all action buttons per contract.md business rules table
+- [ ] Inventory Cleaning view — likely Section 3, not Section 2 — confirm
+
+Backend reference files already provided (prior session, available to re-upload
+if needed in new chat): bloodUnitRoutes.js, bloodUnitService.js. NOT yet
+provided: bloodUnitModel.js (repository), bloodUnitRules.js (domain rules —
+assertNotTerminal, assertReasonProvided, assertSeparable referenced in
+bloodUnitService.js but file contents not yet seen), bloodUnitController.js,
+bloodUnitValidator.js (if exists). Per rules.md, request these before writing
+bloodUnitsApi.js — same pattern followed for Section 1.
 
 ### Blood Requests + real-time socket (NOT STARTED)
 - [ ] Requestor submit request page
@@ -306,6 +304,13 @@ Admin has no branch_id and is never at a blood drive. Admin-created donation
 records produce orphaned data (null drive_id, wrong branch_id). Admin is
 management only. This is non-negotiable going forward.
 
+### Admin excluded from Blood Testing / Blood Units / Inventory / Separation (THIS SESSION)
+New scope decision, distinct from the field-workflow exclusion above (different
+rationale). This entire feature area is Staff-only at the frontend by product
+decision, even though the backend API routes technically allow Admin too.
+No Admin pages planned for any of: Blood Testing, Blood Units, Inventory
+Cleaning, Blood Separation. If this changes, it will be stated explicitly.
+
 ### Donation + Collection merged into one page
 donorDonation.html now handles both steps. donorCollection.html and
 donorCollection.js are retired and must be deleted from the project.
@@ -319,6 +324,26 @@ All HTML step indicators updated to reflect this.
 ### Phlebotomist dropdown is searchableDropdown (not <select>)
 Same component pattern as donor search. Hidden input stores selected user_id.
 Auto-selects logged-in user if they are a Phlebotomist.
+
+### Blood Drives shared entry-file pattern (clarified this session)
+When a feature's JS entry file is already written to check role_id internally
+and branch by role (see js/entry/admin/bloodDrives.js,
+js/entry/admin/bloodDriveCreate.js), replicating that feature to a new role
+folder requires ONLY a new HTML shell pointing at the SAME entry script —
+never a duplicate JS file. Always audit existing entry files for
+role-awareness before creating anything new. This avoids drift between
+admin/staff copies of what should be one shared implementation.
+
+### Blood Testing / Blood Units frontend exposes a narrower action set than the
+### backend route file allows (clarified this session)
+bloodCollectionRoutes.js's PATCH /:id/status technically accepts any of
+Safe/Rejected/Disposed/Withdrawn. The Blood Testing page only exposes
+Mark Safe and Reject as UI actions — Disposed/Withdrawn are reachable via
+the API but intentionally not surfaced on this page; they belong to
+inventory-lifecycle pages instead (Blood Units / Inventory Cleaning,
+Sections 2–3). Keep this narrowing in mind for Blood Units: that page should
+likewise expose only the actions that make sense for ITS job, not every
+status the backend route theoretically allows.
 
 ### SessionStorage chain (current — 4 steps)
 field_donor_id            set by donorRegistration, read + cleared by donorInterview
