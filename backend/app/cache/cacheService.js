@@ -31,11 +31,10 @@ const cache = (ttl = 60, keyFn = null) => {
         try {
             const cached = await redis.get(key);
             if (cached) {
-                return res.status(200).json({
-                    status: 'success',
-                    cached: true,
-                    data: cached,
-                });
+                const response = { success: true, cached: true };
+                if (Array.isArray(cached)) response.count = cached.length;
+                response.data = cached;
+                return res.status(200).json(response);
             }
         } catch (err) {
             // Redis failure never blocks the request
@@ -45,7 +44,7 @@ const cache = (ttl = 60, keyFn = null) => {
         // Intercept res.json to store the response before sending
         const originalJson = res.json.bind(res);
         res.json = async (body) => {
-            if (res.statusCode === 200 && body.status === 'success') {
+            if (res.statusCode === 200 && body.success === true) {
                 try {
                     await redis.set(key, body.data, { ex: ttl });
                 } catch (err) {

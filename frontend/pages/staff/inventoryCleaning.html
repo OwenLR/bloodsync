@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Cleaning | BloodSync</title>
+
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/features/bloodUnits.css">
+  <link rel="stylesheet" href="/assets/css/features/inventoryCleaning.css">
+  <link rel="stylesheet" href="/assets/css/pages/staff/inventoryCleaning.css">
+</head>
+<body class="app-loading">
+
+  <div id="navbar"></div>
+  <div id="sidebar"></div>
+
+  <div class="page-shell">
+  <main class="page-content">
+    <div class="page-header">
+      <h1 class="page-title">Inventory Cleaning</h1>
+      <p class="page-subtitle">Review and remove expired blood units from your branch inventory.</p>
+    </div>
+
+    <div id="cleaning-error" class="field-error" aria-live="polite"></div>
+
+    <div id="cleaning-skeleton" aria-hidden="true">
+      <div class="skeleton-table-row">
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+      </div>
+      <div class="skeleton-table-row">
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+      </div>
+      <div class="skeleton-table-row">
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+        <div class="skeleton-cell"></div><div class="skeleton-cell"></div>
+      </div>
+    </div>
+
+    <div id="cleaning-table-container">
+      <div class="table-toolbar">
+        <div class="table-toolbar-legend">
+          <span class="legend-swatch legend-swatch--expired"></span> Expired
+          <span class="legend-swatch legend-swatch--near-expiry"></span> Near Expiry
+          <span class="legend-swatch legend-swatch--good"></span> Good
+        </div>
+        <button id="cleaning-remove-btn" type="button" class="btn-danger" disabled>
+          Remove Selected
+        </button>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>
+              <input type="checkbox" id="cleaning-select-all" aria-label="Select all expired units">
+            </th>
+            <th>Blood Type</th>
+            <th>Component</th>
+            <th>Volume</th>
+            <th>Barcode</th>
+            <th>Donor</th>
+            <th>Expiration Date</th>
+            <th>Expiry Status</th>
+          </tr>
+        </thead>
+        <tbody id="cleaning-tbody"></tbody>
+      </table>
+    </div>
+  </main>
+  </div>
+
+  <script type="module" src="/js/entry/staff/inventoryCleaning.js"></script>
+</body>
+</html>

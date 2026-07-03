@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blood Separation | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodUnits.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodSeparation.css" />
+  <link rel="stylesheet" href="/assets/css/pages/staff/bloodSeparation.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1>Blood Separation</h1>
+      </div>
+
+      <div id="separation-skeleton"></div>
+      <div id="separation-error"></div>
+
+      <div id="separation-table-container" style="display:none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Blood Type</th>
+              <th>Volume</th>
+              <th>Barcode</th>
+              <th>Donor</th>
+              <th>Expiration Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="separation-tbody"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/staff/bloodSeparation.js"></script>
+</body>
+</html>

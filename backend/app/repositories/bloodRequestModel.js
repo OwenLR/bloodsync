@@ -22,6 +22,35 @@ const getAllRequests = async () => {
     return result.rows;
 };
 
+/**
+ * Get all requests scoped to a single branch.
+ * Used by PRC Staff — they cannot see or manage other branches' requests.
+ * Same field shape as getAllRequests(), just WHERE-scoped.
+ */
+const getRequestsByBranch = async (branchId) => {
+    const result = await pool.query(
+        `SELECT br.request_id, br.user_id,
+                u.first_name, u.last_name,
+                br.hospital_id, h.hospital_name,
+                br.branch_id, b.branch_name,
+                br.patient_name, br.patient_age, br.diagnosis,
+                br.urgency_level, br.request_form_path,
+                br.fulfillment_type, br.delivery_address,
+                br.preferred_branch_id,
+                br.status, br.denial_reason,
+                br.reviewed_by, br.reviewed_at,
+                br.notes, br.created_at, br.updated_at
+         FROM blood_requests br
+         LEFT JOIN users u ON br.user_id = u.user_id
+         LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
+         LEFT JOIN branches b ON br.branch_id = b.branch_id
+         WHERE br.branch_id = $1
+         ORDER BY br.created_at DESC`,
+        [branchId]
+    );
+    return result.rows;
+};
+
 const getRequestById = async (id) => {
     const result = await pool.query(
         `SELECT br.request_id, br.user_id,
@@ -234,6 +263,7 @@ const updateReservationStatus = async (reservationId, status, releasedAt = null)
 
 module.exports = {
     getAllRequests,
+    getRequestsByBranch,
     getRequestById,
     getRequestsByUser,
     createRequest,

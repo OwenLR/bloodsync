@@ -1,0 +1,7 @@
+/* Staff — Blood Separation page layout */
+/* No page-specific overrides needed — .page-header uses the main.css
+   default (no filter control on this page, unlike Blood Testing's
+   status dropdown). Deliberately NOT redefining .page-header here —
+   see gochas.md CSS anti-pattern note (staff/bloodUnits.css,
+   staff/bloodCollections.css both override it directly; that pattern
+   is flagged for cleanup, not to be replicated further). */

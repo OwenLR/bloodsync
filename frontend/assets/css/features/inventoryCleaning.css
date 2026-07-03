@@ -1,0 +1,78 @@
+/* assets/css/features/inventoryCleaning.css
+   New classes introduced by this feature — not present in any previously
+   uploaded CSS file. main.css has no CSS custom-property/design-token
+   system yet ("minimal functional styles only — design pass happens in
+   Phase 4"), so colors here are plain hex, matching that project-wide
+   convention, not var()-based tokens.
+   Everything else (status-badge base, modal-*, detail-list, btn-*,
+   .data-table, .empty-state, .table-actions) reuses existing classes and
+   is NOT redefined here.
+*/
+
+/* Row highlighting — expiry state.
+   Per bloodsync.md #6: expired = red, nearing = orange, good = no highlight.
+   Deliberately independent from the .status-badge--expired color (which is
+   purple, reused from the generic status-badge system) — the row highlight
+   is a distinct visual signal bloodsync.md calls for specifically on this
+   page, not the same thing as the badge pill. */
+.row-highlight--expired {
+  background-color: #fdecea;
+}
+
+.row-highlight--near-expiry {
+  background-color: #fff4e5;
+}
+
+/* New status-badge modifier — near-expiry only. --expired (#f3e8fd/#7b3fa0,
+   purple) and --available (#e6f4ea/#1e7e34, green) already exist in
+   bloodUnits.css. Picked a color here visually distinct from --separated
+   (#fff4e0/#b06000) since both are in the amber family. */
+.status-badge--near-expiry {
+  background: #fff8db;
+  color: #8a6d00;
+}
+
+/* Toolbar above the table — legend + bulk action button */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.table-toolbar-legend {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: #666;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  margin-left: 12px;
+  margin-right: 4px;
+}
+
+.legend-swatch:first-child {
+  margin-left: 0;
+}
+
+.legend-swatch--expired {
+  background-color: #fdecea;
+  border: 1px solid #c5221f;
+}
+
+.legend-swatch--near-expiry {
+  background-color: #fff4e5;
+  border: 1px solid #b06000;
+}
+
+.legend-swatch--good {
+  background-color: transparent;
+  border: 1px solid #ccc;
+}

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notifications | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/notifications.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header page-header--with-action">
+        <h1>Notifications</h1>
+        <button id="btn-mark-all-read" class="btn-secondary">Mark all as read</button>
+      </div>
+
+      <div id="notifications-skeleton"></div>
+      <div id="notifications-error"></div>
+
+      <div id="notifications-list" style="display:none;"></div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/shared/notifications.js"></script>
+</body>
+</html>

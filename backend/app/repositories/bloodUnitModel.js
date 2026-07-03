@@ -15,6 +15,18 @@ const getAllUnits = async () => {
                 THEN 'Expired'
                 ELSE bu.status
             END AS status,
+            -- near_expiry thresholds mirror NEAR_EXPIRY_DAYS in
+            -- constants/inventoryRulesConstant.js — keep both in sync if changed
+            CASE
+                WHEN bu.status = 'Available' AND bu.expiration_date > NOW() AND (
+                    (bu.component = 'Whole Blood'              AND bu.expiration_date <= NOW() + INTERVAL '7 days')  OR
+                    (bu.component = 'Packed Red Blood Cells'    AND bu.expiration_date <= NOW() + INTERVAL '7 days')  OR
+                    (bu.component = 'Platelets'                 AND bu.expiration_date <= NOW() + INTERVAL '2 days')  OR
+                    (bu.component = 'Fresh Frozen Plasma'       AND bu.expiration_date <= NOW() + INTERVAL '30 days')
+                )
+                THEN true
+                ELSE false
+            END AS near_expiry,
             bu.processed_at,
             bu.created_at,
             d.donor_id,
@@ -52,6 +64,18 @@ const getUnitById = async (id) => {
                 THEN 'Expired'
                 ELSE bu.status
             END AS status,
+            -- near_expiry thresholds mirror NEAR_EXPIRY_DAYS in
+            -- constants/inventoryRulesConstant.js — keep both in sync if changed
+            CASE
+                WHEN bu.status = 'Available' AND bu.expiration_date > NOW() AND (
+                    (bu.component = 'Whole Blood'              AND bu.expiration_date <= NOW() + INTERVAL '7 days')  OR
+                    (bu.component = 'Packed Red Blood Cells'    AND bu.expiration_date <= NOW() + INTERVAL '7 days')  OR
+                    (bu.component = 'Platelets'                 AND bu.expiration_date <= NOW() + INTERVAL '2 days')  OR
+                    (bu.component = 'Fresh Frozen Plasma'       AND bu.expiration_date <= NOW() + INTERVAL '30 days')
+                )
+                THEN true
+                ELSE false
+            END AS near_expiry,
             bu.disposal_reason,
             bu.withdrawal_reason,
             bu.processed_at,
@@ -115,6 +139,18 @@ const getUnitsByBranchAll = async (branch_id) => {
                 THEN 'Expired'
                 ELSE bu.status
             END AS status,
+            -- near_expiry thresholds mirror NEAR_EXPIRY_DAYS in
+            -- constants/inventoryRulesConstant.js — keep both in sync if changed
+            CASE
+                WHEN bu.status = 'Available' AND bu.expiration_date > NOW() AND (
+                    (bu.component = 'Whole Blood'              AND bu.expiration_date <= NOW() + INTERVAL '7 days')  OR
+                    (bu.component = 'Packed Red Blood Cells'    AND bu.expiration_date <= NOW() + INTERVAL '7 days')  OR
+                    (bu.component = 'Platelets'                 AND bu.expiration_date <= NOW() + INTERVAL '2 days')  OR
+                    (bu.component = 'Fresh Frozen Plasma'       AND bu.expiration_date <= NOW() + INTERVAL '30 days')
+                )
+                THEN true
+                ELSE false
+            END AS near_expiry,
             bu.disposal_reason,
             bu.withdrawal_reason,
             bu.created_at,

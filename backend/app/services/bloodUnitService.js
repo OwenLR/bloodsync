@@ -1,12 +1,9 @@
-/**
- * bloodUnitService.js — Blood unit status management.
- */
-
 const pool               = require('../../config/db');
 const bloodUnitModel     = require('../repositories/bloodUnitModel');
 const bloodCollectionModel = require('../repositories/bloodCollectionModel');
 const BusinessError      = require('../../utils/businessError');
 const ROLES              = require('../../constants/roles');
+const { invalidateCache } = require('../cache/cacheService');
 const {
     assertNotTerminal,
     assertReasonProvided,
@@ -41,22 +38,19 @@ const updateUnitStatus = async (unitId, status, reason, updatedBy) => {
         updatedBy
     );
 
+    // Status change (Disposed/Withdrawn) removes the unit from the
+    // Available pool — availability + inventory caches are now stale.
+    // Same invalidation bloodCollectionService.markAsSafe() already does
+    // when a unit is first created.
+    await invalidateCache('cache:blood-units:availability');
+    await invalidateCache('cache:blood-units:inventory');
+
     return updated;
 };
 
 /**
  * Separate a whole blood unit into 3 component collections.
- *
- * Steps:
- * 1. Fetch unit — 404 if not found
- * 2. Assert component is Whole Blood and status is Available
- * 3. Assert branch ownership for PRC Staff
- * 4. Fetch expiry days for the 3 components
- * 5. In a transaction: mark unit Separated + insert 3 derived collections
- *
- * @param {number} unitId
- * @param {{ user_id: number, role_id: number, branch_id: number }} staffUser
- * @returns {Promise<{ separated_unit: object, derived_collections: object[] }>}
+ * ...(unchanged docblock)...
  */
 const separateUnit = async (unitId, staffUser) => {
     const unit = await bloodUnitModel.getUnitById(unitId);
@@ -112,6 +106,12 @@ const separateUnit = async (unitId, staffUser) => {
         );
 
         await client.query('COMMIT');
+
+        // Source unit leaves the Available pool (→ Separated). Same
+        // invalidation as updateUnitStatus above — separation is a status
+        // mutation too, just a more involved one.
+        await invalidateCache('cache:blood-units:availability');
+        await invalidateCache('cache:blood-units:inventory');
 
         return { separated_unit: separatedUnit, derived_collections: derivedCollections };
     } catch (err) {

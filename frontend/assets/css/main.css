@@ -162,12 +162,78 @@ a {
   display: none;
 }
 
+/* ── Shared modal field patterns ────────────────────────────────── */
+/* Used by any feature's reason/confirm modals (Blood Testing, Blood
+   Units, Blood Separation, etc.) and detail-view modals. Moved here
+   from bloodUnits.css / bloodCollections.css (previously duplicated
+   identically in both) — see gochas.md DRY gap note. Any feature CSS
+   file must NOT redefine these — extend with a modifier class instead,
+   same rule as .btn-primary / .page-header. */
+.modal-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.modal-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.modal-textarea:focus {
+  outline: 2px solid #c00;
+  outline-offset: 1px;
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 12px;
+}
+
+.detail-list dt {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.detail-list dd {
+  font-size: 0.88rem;
+  color: #111;
+}
+
 /* ── Page header ─────────────────────────────────────────────────── */
 .page-header {
   margin-bottom: 24px;
 }
 
 .page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111;
+}
+
+/* Modifier — page header with a right-aligned action button (e.g. "Mark
+   all as read"). Use this instead of overriding .page-header directly in
+   page-specific CSS. staff/bloodUnits.css and staff/bloodCollections.css
+   both redefine .page-header directly (flex/space-between + h1 sizing) —
+   that's flagged as an anti-pattern in gochas.md and intentionally NOT
+   replicated here or fixed in those two files (out of scope for this
+   change). Any new page needing a title+action header layout should use
+   this modifier instead of a third copy of that override. */
+.page-header--with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-header--with-action h1 {
   font-size: 20px;
   font-weight: 700;
   color: #111;

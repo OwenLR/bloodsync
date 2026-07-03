@@ -133,15 +133,22 @@ export function closeModal() {
 // ---------------------------------------------------------------------------
 
 /**
- * @param {string} message — confirmation question
- * @param {string} confirmLabel — confirm button label (default 'Confirm')
- * @param {string} cancelLabel  — cancel button label (default 'Cancel')
+ * @param {string}  message      — confirmation question
+ * @param {string}  confirmLabel — confirm button label (default 'Confirm')
+ * @param {string}  cancelLabel  — cancel button label (default 'Cancel')
+ * @param {boolean} danger       — true styles the confirm button as btn-danger
+ *                                 (destructive actions: dispose, reject, separate).
+ *                                 false styles it as btn-primary (non-destructive
+ *                                 confirmations: mark safe). Default true — matches
+ *                                 every existing caller's prior behavior, so no
+ *                                 caller breaks by omitting this param.
  * @returns {Promise<boolean>}
  */
 export function confirmModal(
   message,
   confirmLabel = 'Confirm',
-  cancelLabel  = 'Cancel'
+  cancelLabel  = 'Cancel',
+  danger       = true
 ) {
   return new Promise((resolve) => {
     const body       = document.createElement('p');
@@ -155,7 +162,7 @@ export function confirmModal(
       },
       {
         label:     confirmLabel,
-        className: 'btn-danger',
+        className: danger ? 'btn-danger' : 'btn-primary',
         onClick:   () => { closeModal(); resolve(true); },
       },
     ]);

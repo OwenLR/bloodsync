@@ -2,6 +2,7 @@ const bloodRequestService  = require('../services/bloodRequestService');
 const fulfillmentService   = require('../services/fulfillmentService');
 const bloodRequestModel    = require('../repositories/bloodRequestModel');
 const response             = require('../../utils/responseHelper');
+const ROLES                = require('../../constants/roles');
 const { uploadToCloudinary } = require('../../utils/uploadHelper');
 const {
     validateCreateRequest,
@@ -13,6 +14,11 @@ const {
 
 const getAllRequests = async (req, res) => {
     try {
+        // PRC Staff cannot see other branches' requests — Admin sees all
+        if (req.user.role_id === ROLES.PRC_STAFF) {
+            const requests = await bloodRequestModel.getRequestsByBranch(req.user.branch_id);
+            return response.success(res, requests);
+        }
         const requests = await bloodRequestModel.getAllRequests();
         return response.success(res, requests);
     } catch (error) {
@@ -24,6 +30,12 @@ const getRequestById = async (req, res) => {
     try {
         const request = await bloodRequestModel.getRequestById(req.params.id);
         if (!request) return response.notFound(res, 'Blood request not found');
+
+        // PRC Staff cannot view another branch's request
+        if (req.user.role_id === ROLES.PRC_STAFF &&
+            request.branch_id !== req.user.branch_id) {
+            return response.forbidden(res, 'You can only view requests from your own branch');
+        }
 
         const items        = await bloodRequestModel.getItemsByRequest(req.params.id);
         const reservations = await bloodRequestModel.getReservationsByRequest(req.params.id);
@@ -39,6 +51,15 @@ const updateRequestStatus = async (req, res) => {
     try {
         const errors = validateUpdateRequestStatus(req.body);
         if (errors.length > 0) return response.badRequest(res, errors[0]);
+
+        const existing = await bloodRequestModel.getRequestById(req.params.id);
+        if (!existing) return response.notFound(res, 'Blood request not found');
+
+        // PRC Staff cannot manage another branch's request
+        if (req.user.role_id === ROLES.PRC_STAFF &&
+            existing.branch_id !== req.user.branch_id) {
+            return response.forbidden(res, 'You can only manage requests from your own branch');
+        }
 
         const { status, denial_reason } = req.body;
 
@@ -158,6 +179,15 @@ const cancelRequest = async (req, res) => {
  */
 const markReadyForPickup = async (req, res) => {
     try {
+        const existing = await bloodRequestModel.getRequestById(req.params.id);
+        if (!existing) return response.notFound(res, 'Blood request not found');
+
+        // PRC Staff cannot manage another branch's request
+        if (req.user.role_id === ROLES.PRC_STAFF &&
+            existing.branch_id !== req.user.branch_id) {
+            return response.forbidden(res, 'You can only manage requests from your own branch');
+        }
+
         const result = await bloodRequestService.markReadyForPickup(
             req.params.id,
             req.user.user_id

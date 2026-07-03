@@ -167,7 +167,9 @@ function actionsCell(collection) {
 async function handleMarkSafe(collection) {
   const confirmed = await confirmModal(
     `Mark this ${collection.component} collection as Safe? This will create a blood unit in inventory.`,
-    'Mark Safe'
+    'Mark Safe',
+    'Cancel',
+    false
   );
   if (!confirmed) return;
 

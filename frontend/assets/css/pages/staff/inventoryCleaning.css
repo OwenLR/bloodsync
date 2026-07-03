@@ -1,0 +1,20 @@
+/* assets/css/pages/staff/inventoryCleaning.css
+   Page-specific overrides only. .page-header and .page-title come from
+   main.css as-is and are NOT redefined here.
+
+   NOTE: the uploaded staff/bloodUnits.css DOES redefine .page-header
+   (display:flex/space-between + h1 font-size) directly in a page file.
+   Per rules.md ("Never override a shared class in page CSS — use modifier
+   classes instead") and the known bug already logged in gochas.md
+   (".btn-primary overridden in page CSS → style leaks across pages"),
+   that's a pre-existing rule violation in bloodUnits.css, not a pattern
+   to copy forward. This page doesn't need a flex/space-between header
+   anyway (its action button lives in the table toolbar, not the header),
+   so main.css's plain .page-header is used unmodified.
+*/
+
+.page-subtitle {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+}

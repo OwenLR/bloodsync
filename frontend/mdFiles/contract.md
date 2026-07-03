@@ -331,8 +331,24 @@ Request: `screening_id`, `extraction_time`, `phlebotomist_id` (optional)
 
 ### GET /api/blood-collections  [Admin, Staff only]
 ### GET /api/blood-collections/:id  [Admin, Staff only]
+Response fields: `collection_id`, `blood_type`, `component`, `volume_ml`, `barcode`,
+  `collection_date`, `expiration_date`, `status`, `is_qns`, `qns_reason`, `notes`,
+  `created_at`, `approved_at`, `rejected_at`, `rejection_reason`, `donor_id`,
+  `first_name`, `last_name`, `branch_name`, `collected_by_first`, `collected_by_last`,
+  `approved_by_first`, `approved_by_last`,
+  `source_unit_id` (nullable — set ONLY on collections created via
+  POST /api/blood-units/:id/separate; links back to the whole blood unit
+  it was derived from. NULL for normal donation-flow collections. Frontend
+  can use this to distinguish "collection from a donor donation" vs
+  "collection derived from separation" if a display distinction is ever needed —
+  not currently surfaced in the UI, but the field exists on every collection row.)
+
 ### GET /api/blood-collections/branch/:branch_id  [Admin, Staff only]
 ⚠ Returns 403 for Vol/Phleb — catch silently with .catch(() => [])
+Response fields (list — narrower than detail): `collection_id`, `blood_type`,
+  `component`, `volume_ml`, `barcode`, `expiration_date`, `status`, `collection_date`,
+  `is_qns`, `qns_reason`, `notes`, `created_at`, `donor_id`, `first_name`, `last_name`,
+  `collected_by_first`, `collected_by_last`
 
 ### POST /api/blood-collections  [All roles — Vol/Phleb need active drive]
 Request: `donation_id`, `blood_type`, `component`, `volume_ml`
@@ -348,17 +364,94 @@ Request: `status`, `reason`
 ## Blood Unit Endpoints
 
 ### GET /api/blood-units  [Admin, Staff]
+⚠ PRC Staff: automatically scoped to own branch — backend returns branch-only
+  units via getUnitsByBranchAll, not getAllUnits. Admin sees all branches.
+  (Fixed this session — previously no branch enforcement for Staff on this route.)
+
+### GET /api/blood-units/branch/:branch_id  [Admin, Staff]
+⚠ PRC Staff: 403 if branch_id in URL does not match JWT branch_id.
+  (Fixed this session — previously no ownership check.)
+⚠ Returns ALL statuses (Available, Reserved, Released, Disposed, Withdrawn,
+  Separated, Expired) — not just Available. Use this for the Staff inventory page.
+  (Fixed this session — previously returned Available + non-expired only.)
+
 ### GET /api/blood-units/:id  [Admin, Staff]
-Response fields: `unit_id`, `blood_type`, `component`, `status`, `expiration_date`,
-  `volume_ml`, `branch_id`, `drive_id`, `donation_id`, `donor_id`, `collection_id`
+Response fields (GET / and GET /branch/:branch_id list):
+  `unit_id`, `blood_type`, `component`, `volume_ml`, `barcode`,
+  `collection_date`, `expiration_date`, `status`, `near_expiry`,
+  `disposal_reason`, `withdrawal_reason`, `created_at`,
+  `donor_id`, `first_name`, `last_name`
+
+Response fields (GET /:id detail):
+  All list fields plus: `collection_id`, `donation_id`, `branch_id`, `drive_id`,
+  `branch_name`, `processed_at`, `processed_by_first`, `processed_by_last`
+
+⚠ status field — 'Expired' is computed server-side via SQL CASE expression
+  in ALL three GET query functions (getAllUnits, getUnitsByBranchAll, getUnitById).
+  A unit with status='Available' AND expiration_date <= NOW() returns status='Expired'
+  in the API response. The DB row still says 'Available' — never set to 'Expired'
+  by any write operation. Frontend never needs to compute expiry from the date field
+  for display purposes. (Fixed this session.)
+
+⚠ near_expiry field — boolean, added this session to the same three GET query
+  functions as the Expired computation above (getAllUnits, getUnitById,
+  getUnitsByBranchAll — NOT getUnitsByBranch, which is FEFO-only). True only
+  when status is Available, not yet expired, and expiration_date falls within
+  the per-component NEAR_EXPIRY_DAYS threshold from
+  constants/inventoryRulesConstant.js (Whole Blood: 7 days, Packed Red Blood
+  Cells: 7 days, Platelets: 2 days, Fresh Frozen Plasma: 30 days). Frontend
+  never computes this client-side — reads the boolean directly, same pattern
+  as the Expired status field.
 
 ### PATCH /api/blood-units/:id/status  [Admin, Staff]
 Request: `status`, `reason`
-⚠ Terminal states (no update): Released, Disposed, Withdrawn, Separated, Expired
+⚠ Terminal states (no update allowed): Released, Disposed, Withdrawn, Separated,
+  Expired. Backend (assertNotTerminal in bloodUnitRules.js) now also rejects if
+  expiration_date has passed, regardless of stored status string.
+  (Fixed this session — previously assertNotTerminal only checked status column,
+  not expiration_date, so expired Available units could still accept status updates.)
+⚠ reason required for: Disposed, Withdrawn (backend: REASON_REQUIRED_STATUSES)
+⚠ Staff inventory page (Section 2) only exposes Disposed and Withdrawn as UI
+  actions — Available/Reserved/Released/Separated/Expired are not triggerable
+  from the frontend on this page.
+⚠ Both this route and /:id/separate below now invalidate
+  cache:blood-units:availability and cache:blood-units:inventory on success
+  (fixed this session — previously only blood unit creation via markAsSafe
+  invalidated these keys; status changes and separation left stale cache
+  entries for up to 60s).
 
 ### POST /api/blood-units/:id/separate  [Admin, Staff]
-Only for: component=Whole Blood AND status=Available
-On success: source → Separated (terminal), 3 new Pending collections created (PRBC, Platelets, FFP)
+No request body — unit_id from URL only.
+Only valid for: component=Whole Blood AND status=Available (backend: assertSeparable
+  in bloodUnitRules.js). Uses the same server-computed status field as above —
+  an Available-but-expired unit is already returned as status='Expired', so no
+  extra date check is needed frontend-side beyond checking the status string.
+Staff: 403 if unit's branch_id doesn't match JWT branch_id
+Response: `{ separated_unit, derived_collections: [...] }`
+  `separated_unit` — the source unit's raw row (status now 'Separated', terminal) —
+    NOT joined with donor/branch display names. UI must source display fields
+    (donor name, blood type, branch) from the unit row already in hand before
+    calling this endpoint, not from this response.
+  `derived_collections` — array of 3 new blood_collections rows (Packed Red
+    Blood Cells, Platelets, Fresh Frozen Plasma), each `status: 'Pending'`,
+    with a fresh `collection_date` (NOW()) and `expiration_date` computed from
+    the moment of separation — NOT inherited from the source unit's own
+    expiration_date. Each carries `source_unit_id` pointing back to the
+    original whole blood unit (see source_unit_id note under Blood Collection
+    Endpoints above). Each must pass Blood Testing again (PATCH
+    /api/blood-collections/:id/status) before becoming its own blood unit —
+    same lifecycle as any donation-flow collection.
+Errors: 404 unit not found | 400 not Whole Blood / not Available |
+  403 wrong branch (Staff) | 500 expiry days not configured for a component
+  (component_expiry_days table missing a row — not expected in normal operation)
+⚠ Runs as a DB transaction — marking the unit Separated and inserting the
+  3 derived collections either both succeed or both roll back. Frontend
+  never needs to handle a partial-separation state.
+⚠ Frontend (Section 4, Blood Separation page) exposes this as a single-unit
+  action with a plain confirm dialog (not the typed-word pattern used for
+  Inventory Cleaning's bulk removal) — separation isn't a bulk/multi-select
+  action, so the extra confirmation friction wasn't judged necessary; the
+  confirm message itself states the action is irreversible.
 
 ---
 
@@ -467,10 +560,15 @@ Rooms assigned server-side — never emit join_room manually.
 | Vol/Phleb identity fields read-only | Profile edit |
 | Drive Ended/Cancelled → no edit | Drive edit |
 | Blood unit terminal states → hide all action buttons | Blood units |
+| Blood unit Expired status — server-computed from expiration_date, never set by a write op. Frontend checks status string only — no date math needed. | Blood units |
 | QNS collection → hide Safe button | Blood collections |
-| Only Separate button for Whole Blood + Available | Blood units |
+| Only Separate button for Whole Blood + Available | Blood units / Blood Separation |
+| Separated components must pass Blood Testing again before becoming available inventory — each derived collection starts as Pending, same as a donation-flow collection | Blood Testing / Blood Separation |
 | Cancel button only on own Pending requests | Blood requests |
+| Only Expired blood units are selectable for bulk removal — near-expiry is visual-only, not actionable | Inventory Cleaning |
+| Bulk removal requires typing "remove" to confirm | Inventory Cleaning |
 | Donor email required before donation step | donorDonation.html |
 | answer values uppercase YES/NO | Interview form |
 | Deferred donors blocked from proceeding | All workflow steps |
 | Admin excluded from all field workflow pages | donorRegistration/Interview/Screening/Donation |
+| Admin excluded from Blood Testing / Blood Units / Inventory Cleaning / Blood Separation — Staff only, despite backend routes allowing Admin | All 4 sections |
