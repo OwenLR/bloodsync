@@ -8,6 +8,7 @@ const {
     validateCreateRequest,
     validateUpdateRequestStatus,
     validateFulfillmentOptions,
+    validateRequestFormFile,
 } = require('../../validators/bloodRequestValidator');
 
 // ── Staff / Admin ─────────────────────────────────────────────────────────────
@@ -97,10 +98,11 @@ const createRequest = async (req, res) => {
         const errors = validateCreateRequest({ ...requestData, items: parsedItems });
         if (errors.length > 0) return response.badRequest(res, errors[0]);
 
-        let request_form_path = null;
-        if (req.file) {
-            request_form_path = await uploadToCloudinary(req.file.buffer, 'request_forms');
-        }
+        // Request form document is required — bloodsync.md #18
+        const fileErrors = validateRequestFormFile(req.file);
+        if (fileErrors.length > 0) return response.badRequest(res, fileErrors[0]);
+
+        const request_form_path = await uploadToCloudinary(req.file.buffer, 'request_forms');
 
         const result = await bloodRequestService.createRequest(
             { ...requestData, request_form_path },

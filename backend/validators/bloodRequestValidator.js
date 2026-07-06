@@ -26,7 +26,7 @@ const VALID_COMPONENTS = [
 const validateItems = (items, errors) => {
     if (!items || !Array.isArray(items) || items.length === 0) {
         errors.push('items is required and must be a non-empty array');
-        return;
+        return errors;   // ← was: return;
     }
 
     let totalUnits = 0;
@@ -58,6 +58,8 @@ const validateItems = (items, errors) => {
     if (totalUnits > MAX_UNITS_PER_REQUEST) {
         errors.push(`Total units requested (${totalUnits}) exceeds the maximum allowed per request (${MAX_UNITS_PER_REQUEST})`);
     }
+
+    return errors; 
 };
 
 const validateCreateRequest = (data) => {
@@ -119,9 +121,18 @@ const validateFulfillmentOptions = (data) => {
     return errors;
 };
 
+const validateRequestFormFile = (file) => {
+    const errors = [];
+    if (!file) {
+        errors.push('A request form document is required.');
+    }
+    return errors;
+};
+
 module.exports = {
     validateItems,
     validateCreateRequest,
     validateUpdateRequestStatus,
     validateFulfillmentOptions,
+    validateRequestFormFile, // ← NEW
 };

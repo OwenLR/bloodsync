@@ -138,10 +138,10 @@ const SIDEBAR_DEFINITIONS = {
 
   [ROLES.REQUESTOR]: {
     general: [
-      { label: 'Dashboard',          href: ROUTES.REQUESTOR.DASHBOARD    },
-      { label: 'Submit Request',     href: ROUTES.REQUESTOR.REQUESTS     },
-      { label: 'My Requests',        href: ROUTES.REQUESTOR.REQUESTS     },
-      { label: 'Blood Availability', href: ROUTES.REQUESTOR.AVAILABILITY },
+      { label: 'Dashboard',          href: ROUTES.REQUESTOR.DASHBOARD       },
+      { label: 'Submit Request',     href: ROUTES.REQUESTOR.SUBMIT_REQUEST  },
+      { label: 'My Requests',        href: ROUTES.REQUESTOR.REQUESTS        },
+      { label: 'Blood Availability', href: ROUTES.REQUESTOR.AVAILABILITY    },
     ],
   },
 

@@ -4,6 +4,7 @@ import { renderNavbar }       from '../../layouts/navbar.js';
 import { renderSidebar,
          clearSidebar }       from '../../layouts/sidebar.js';
 import { revealAppShell }     from '../../layouts/appShell.js';
+import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 import { getSidebarItems }    from '../../constants/sidebarItems.js';
 import { ROLES }              from '../../constants/roles.js';
 import { showToast }          from '../../components/toast.js';
@@ -73,6 +74,8 @@ async function init() {
   }
 
   revealAppShell();
+
+  refreshBadge(); // non-blocking, sets navbar badge to the real unread count
 
   // Set birthdate max to today (no future dates, age validation in validation.js)
   const bdInput = document.getElementById('reg-birthdate');

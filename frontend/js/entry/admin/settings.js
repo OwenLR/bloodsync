@@ -14,6 +14,7 @@ import { getSidebarItems }      from '../../constants/sidebarItems.js';
 import { ROLES }                from '../../constants/roles.js';
 import { initPasswordForm,
          initProfilePhotoForm } from '../../features/settings/settingsUI.js';
+import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 
 async function init() {
   const user = await requireAuth();
@@ -28,6 +29,7 @@ async function init() {
   renderSidebar(getSidebarItems(user.role_id, 'management'), 'Management');
 
   revealAppShell();
+  refreshBadge(); // non-blocking, sets navbar badge to the real unread count
 
   // Settings forms are static — no async data fetch needed before render
   initPasswordForm();

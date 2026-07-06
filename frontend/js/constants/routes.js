@@ -74,6 +74,7 @@ export const ROUTES = Object.freeze({
 
   REQUESTOR: Object.freeze({
     DASHBOARD:     '/pages/requestor/dashboard.html',
+    SUBMIT_REQUEST:  '/pages/requestor/submitRequest.html',
     REQUESTS:      '/pages/requestor/requests.html',
     AVAILABILITY:  '/pages/requestor/availability.html',
     NOTIFICATIONS: '/pages/requestor/notifications.html',

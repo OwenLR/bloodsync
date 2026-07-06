@@ -13,6 +13,7 @@ import { showErrorBoundary }                from '../../components/errorBoundary
 import { showToast }                        from '../../components/toast.js';
 import { getBranches, createDrive, getDriveById, updateDrive } from '../../features/bloodDrives/bloodDrivesApi.js';
 import { validateDriveForm }                from '../../features/bloodDrives/bloodDrivesValidation.js';
+import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 
 const FORM_KEY    = 'blood-drive-create';
 const REQUIRED    = ['name', 'branch_id', 'start_datetime', 'end_datetime'];
@@ -667,6 +668,7 @@ async function init() {
   renderSidebar(getSidebarItems(user.role_id, 'management'), 'Management');
 
   revealAppShell();
+  refreshBadge(); // non-blocking, sets navbar badge to the real unread count
 
   // Set back/cancel links to the correct role's blood drives page
   const drivesRoute = user.role_id === ROLES.ADMIN

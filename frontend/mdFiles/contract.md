@@ -32,16 +32,24 @@
 | Hemoglobin status | `Allowed \| Not Allowed` | Auto-computed — never a manual select |
 | Blood Collection | `Pending \| Safe \| Rejected \| Disposed \| Withdrawn` | |
 | Blood Unit | `Available \| Reserved \| Released \| Disposed \| Withdrawn \| Expired \| Separated` | Released/Disposed/Withdrawn/Expired/Separated = terminal |
-| Blood Request | `Pending \| Approved \| Released \| Rejected \| Cancelled` | Cancelled = display only, never a staff action |
+| Blood Request | `Pending \| Approved \| Waiting \| Released \| Rejected \| Cancelled` | Cancelled = requestor self-cancel only, never a staff action — see transitions below |
 | Donor | `Active \| Inactive \| Deferred` | |
 | User | `Active \| Inactive \| Pending \| Declined` | |
 | Urgency | `Routine \| STAT` | |
 | Venue type | `School \| Hospital \| Community Center \| Church \| Government \| Other` | |
 
 ### Blood Request Transitions
+Source of truth: `bloodRequestRules.js` VALID_TRANSITIONS.
 `Pending → Approved | Rejected`
-`Approved → Released | Rejected`
-Cancelled: set only via PATCH /:id/cancel (requestor self-cancel, Pending only)
+`Approved → Waiting | Rejected`
+`Waiting → Released | Rejected`
+`Released`, `Rejected` — terminal, no further transitions.
+Cancelled: NOT part of VALID_TRANSITIONS — reachable ONLY via
+PATCH /:id/cancel (requestor self-cancel, Pending only, direct DB update,
+bypasses the transition table entirely). Cannot be set through
+PATCH /:id/status.
+Waiting → Released can happen two ways: requestor confirms receipt via
+PATCH /:id/received, OR staff manually releases via PATCH /:id/status.
 
 ### Validation Rules
 | Field | Rule |
@@ -457,27 +465,114 @@ Errors: 404 unit not found | 400 not Whole Blood / not Available |
 
 ## Blood Request Endpoints
 
-### GET /api/blood-requests  [Admin, Staff, Requestor]
-Requestor: scoped to own requests server-side — no frontend filter needed
-Response fields: `request_id`, `status`, `urgency_level`, `diagnosis`, `hospital_id`,
-  `hospital_name`, `created_at`, `items: [{ blood_type, component, quantity }]`
+Two-step submission flow (per bloodsync.md items 9–17): the backend does
+NOT auto-pick a branch at submit time. The requestor must call
+POST /fulfillment-options first to see branch availability / split
+options, then submit POST / with whichever branch_id they chose. Do not
+build a submit form that sends items directly without this first step.
 
-### GET /api/blood-requests/:id  [Admin, Staff, Requestor]
+### GET /api/blood-requests  [Admin, Staff]
+Admin: sees all branches. PRC Staff: scoped to own branch server-side
+(getRequestsByBranch) — no frontend filter needed, and no 403 either;
+the endpoint just silently returns only that branch's requests.
+(Branch-scoping fixed this session — previously returned all branches to
+every role.)
+Response fields: `request_id`, `user_id`, `first_name`, `last_name`,
+  `hospital_id`, `hospital_name`, `branch_id`, `branch_name`,
+  `patient_name`, `patient_age`, `diagnosis`, `urgency_level`,
+  `request_form_path`, `fulfillment_type`, `delivery_address`,
+  `preferred_branch_id`, `status`, `denial_reason`, `reviewed_by`,
+  `reviewed_at`, `notes`, `created_at`, `updated_at`
 
-### POST /api/blood-requests  [Requestor only]
-Request: `hospital_id`, `diagnosis`, `items: [{ blood_type, component, quantity }]`
-On success: socket event blood_request_new emitted to branch staff rooms
+### GET /api/blood-requests/:id  [Admin, Staff]
+PRC Staff: 403 if the request's branch_id doesn't match JWT branch_id
+(fixed this session — previously no check).
+Response: all fields from the list endpoint above, plus:
+  `items: [{ item_id, request_id, blood_type, component, units_requested,
+  units_fulfilled }]`,
+  `reservations: [{ reservation_id, request_id, item_id, unit_id,
+  reserved_by, notes, branch_id, status, released_at, blood_type,
+  component, expiration_date, barcode, branch_name }]`,
+  `logs: [{ log_id, request_id, old_status, new_status, changed_by_type,
+  changed_by_id, notes, created_at }]`
 
-### PATCH /api/blood-requests/:id/status  [Admin, Staff]
-Request: `status`, `reason`
-Valid: Pending→Approved, Pending→Rejected, Approved→Released, Approved→Rejected
-On Approved: FEFO auto-assignment of blood units
+### GET /api/blood-requests/my-requests  [Requestor]
+Scoped to own requests server-side — no frontend filter needed.
+Response fields (narrower than the staff list — no reviewed_by/notes):
+  `request_id`, `hospital_id`, `hospital_name`, `branch_id`,
+  `branch_name`, `patient_name`, `urgency_level`, `fulfillment_type`,
+  `delivery_address`, `status`, `denial_reason`, `created_at`
 
-### PATCH /api/blood-requests/:id/cancel  [Requestor only]
-No body. Own Pending requests only. Returns 404 if not Pending or not owned.
+### POST /api/blood-requests  [Requestor only — multipart/form-data]
+Request: `hospital_id`, `branch_id` (chosen from fulfillment-options —
+NOT auto-computed, see note above), `patient_name`, `patient_age`,
+`diagnosis`, `urgency_level`, `notes`, `fulfillment_type` (defaults
+'Pickup'), `delivery_address`, `preferred_branch_id`,
+`items: [{ blood_type, component, units_requested }]` (JSON string in
+multipart, parsed server-side), `request_form` (file field — uploaded to
+Cloudinary, stored as `request_form_path`)
+Validation (bloodRequestValidator.js): `hospital_id`, `branch_id`,
+`patient_name` required; each item needs `blood_type` (valid enum),
+`component` (valid enum), `units_requested` (positive integer, max 10 per
+item — MAX_UNITS_PER_ITEM); total units across all items capped at 10
+(MAX_UNITS_PER_REQUEST). Both caps are policy constants in
+bloodRequestConstant.js, not hardcoded — check there if PRC changes the
+limits.
+On success: notification created for branch staff + socket event
+blood_request_new emitted to `branch_{branch_id}` room.
 
 ### POST /api/blood-requests/fulfillment-options  [Requestor]
+Body: `items: [{ blood_type, component, units_requested }]`, `latitude`
+(optional), `longitude` (optional — system still works without location,
+just sorts branches alphabetically instead of by distance)
+Response: `{ plans: [{ ...item, plan: { canSingleBranch,
+singleBranchOption, splitOption, totalAvailable } }],
+recommendation: 'single_branch' | 'split', any_insufficient: boolean }`
+Read-only — no mutation, no notification, no cache write. Call this
+before POST / to get the branch_id(s) to present to the requestor.
+
 ### GET /api/blood-requests/estimate/:branch_id  [Requestor]
+Response: `{ pending_count, estimate: <label string>, next_open:
+<string|null>, is_open: boolean }`. Estimate label is queue-depth based
+(WAIT_TIME_ESTIMATES in bloodRequestConstant.js), not a fixed value —
+don't hardcode any of the label strings frontend-side.
+
+### PATCH /api/blood-requests/:id/status  [Admin, Staff]
+Request: `status`, `denial_reason` (required if status is 'Rejected')
+PRC Staff: 403 if the request's branch_id doesn't match JWT branch_id
+(fixed this session — previously no check).
+Valid transitions — see "Blood Request Transitions" above. This route
+can perform Pending→Approved, Pending→Rejected, Approved→Waiting,
+Approved→Rejected, Waiting→Released, Waiting→Rejected. It cannot set
+Cancelled.
+On Approved: FEFO auto-assignment/reservation of blood units, spilling
+across branches if the request's own branch is short (see
+fulfillmentService.js buildFulfillmentPlan logic, applied here via the
+service layer — reservations created, unit status Available→Reserved).
+On Rejected (from Approved or Waiting): any reserved units are freed back
+to Available.
+Notifies the requestor (DB notification + socket event
+blood_request_status to `user_{user_id}`) on Approved/Waiting/Released/
+Rejected — see gochas.md #44.
+
+### PATCH /api/blood-requests/:id/ready  [Admin, Staff]
+Staff marks units ready for pickup — Approved → Waiting only.
+PRC Staff: 403 if the request's branch_id doesn't match JWT branch_id
+(fixed this session — previously no check).
+No body. Notifies the requestor same as /status above.
+
+### PATCH /api/blood-requests/:id/cancel  [Requestor only]
+No body. Own Pending requests only — direct DB update, bypasses
+VALID_TRANSITIONS entirely (Cancelled is not reachable via /status).
+Returns 404 if not Pending or not owned.
+Does NOT send a notification or socket event — see gochas.md #44.
+
+### PATCH /api/blood-requests/:id/received  [Requestor only]
+Requestor confirms receipt — Waiting → Released. Reserved units'
+reservation status updates accordingly.
+No body. Does NOT send a notification or socket event — see gochas.md
+#44. Update the UI from this call's own response, not from a socket
+listener.
 
 ---
 
@@ -531,8 +626,18 @@ Response: `{ data: { count: 3 } }`
 ### blood_request_new
 Received by: Admin, Staff (via branch_{branch_id} room)
 Trigger: Requestor submits a blood request
-Payload: `request_id`, `status`, `created_at`, `branch_id`, `patient_name`, `urgency_level`
+Payload: `request_id`, `patient_name`, `urgency_level`
 Frontend: increment notification badge; if on blood-requests page, prepend new row
+
+### blood_request_status
+Received by: the requesting Requestor only (via user_{user_id} room)
+Trigger: staff/service-layer transitions to Approved, Waiting, Released, or
+Rejected via PATCH /:id/status or PATCH /:id/ready. Does NOT fire on
+cancelRequest or markReceived (those two are direct Requestor actions with
+no notification/socket side effect — see gochas.md #44; update the UI from
+the API response for those two instead of listening for this event).
+Payload: `request_id`, `new_status`, `patient_name`, `reason` (null unless
+Rejected)
 
 ### inventory_low
 Received by: Admin, Staff
@@ -565,6 +670,8 @@ Rooms assigned server-side — never emit join_room manually.
 | Only Separate button for Whole Blood + Available | Blood units / Blood Separation |
 | Separated components must pass Blood Testing again before becoming available inventory — each derived collection starts as Pending, same as a donation-flow collection | Blood Testing / Blood Separation |
 | Cancel button only on own Pending requests | Blood requests |
+| Submit flow is two steps: POST /fulfillment-options to choose a branch, then POST / with that branch_id — backend does not auto-pick a branch | Blood requests — submit |
+| Only show action buttons matching the real transition table (Pending→Approved/Rejected, Approved→Waiting/Rejected, Waiting→Released/Rejected) — Cancelled is requestor-only via a separate route, never a status-button option | Blood requests — staff management |
 | Only Expired blood units are selectable for bulk removal — near-expiry is visual-only, not actionable | Inventory Cleaning |
 | Bulk removal requires typing "remove" to confirm | Inventory Cleaning |
 | Donor email required before donation step | donorDonation.html |

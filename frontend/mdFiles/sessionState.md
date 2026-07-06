@@ -4,14 +4,18 @@
 Phase 2 in progress. Complete: Dashboards (all 5 roles), Blood Drives
 (admin+staff), Settings (admin/staff), Donors (admin), Field Workflow
 (4 steps), Blood Units/Inventory feature — all 4 sections (Testing, Units,
-Cleaning, Separation), Staff only.
-Not started: Blood Requests, Notifications, Reports, Vol/Phleb drive pages.
+Cleaning, Separation), Staff only, Notifications (all 5 roles).
+Not started: Blood Requests, Reports, Vol/Phleb drive pages.
 
 ## Current Phase
 Phase 2 — Features / Web
 
 ## Next Up
-No section queued. Pick from "Not Started" list at bottom.
+Blood Requests. Build order agreed: (1) Requestor Submit Request,
+(2) Requestor My Requests, (3) Staff/Admin Blood Requests management.
+Backend branch-scoping bug already fixed (see Permanent Rules) —
+frontend work can proceed without further backend blockers for the
+management page.
 
 ---
 
@@ -48,6 +52,24 @@ No section queued. Pick from "Not Started" list at bottom.
   Safe/Rejected/Disposed/Withdrawn, but Blood Testing page only exposes
   Mark Safe/Reject). Each page exposes only actions relevant to its own
   job — apply same narrowing to any new page in this feature area.
+- Shared entry file pattern (introduced by Notifications): when a
+  feature's logic and layout are identical across all roles (same
+  endpoints, no branch-locking, no role-specific business rules), use one
+  file in `js/entry/shared/` rather than 5 near-duplicate role-folder
+  entry files. Role differences (e.g. which sidebar sections to render)
+  are handled by branching inside that one file, same technique already
+  used for the Vol/Phleb vs Admin/Staff sidebar split in Field entry
+  files. Precedent: `entry/shared/notifications.js` used by all 5
+  `pages/[role]/notifications.html`.
+- Navbar badge live-update: every entry file calls `refreshBadge()`
+  (from `features/notifications/notificationsUI.js`) immediately after
+  `revealAppShell()`, before any other post-reveal setup. Non-blocking,
+  not awaited. Applied to all entry files as of this session — any new
+  entry file going forward must include this too.
+- PRC Staff branch-scoping is a recurring bug pattern in this codebase —
+  Blood Units and Blood Requests have both needed this fix after initial
+  build (see gochas.md #34 and #42). Check any new Staff-facing
+  controller for the same gap before considering a feature complete.
 
 ## Role Responsibilities (FINAL)
 | Role | Donation Workflow | Management |
@@ -77,7 +99,8 @@ Backend: `authController.js` me() does DB lookup for first/last name;
 
 ### Dashboards ✅
 All 5 roles: `pages/[role]/dashboard.html` + `entry/[role]/dashboard.js` +
-`css/pages/[role]/dashboard.css`.
+`css/pages/[role]/dashboard.css`. All 5 entry files updated this session
+to call `refreshBadge()` after `revealAppShell()` (Notifications Step B).
 
 ### Blood Drives — Admin + Staff ✅
 - `pages/admin/bloodDrives.html` + `entry/admin/bloodDrives.js`
@@ -93,11 +116,15 @@ Admin entry files already role-aware internally (requireRole([ADMIN,
 PRC_STAFF]), branch-locking for Staff in populateBranches(), dynamic
 ROUTES.ADMIN/STAFF routing) — Staff needed only new HTML shells, no new JS.
 Map Picker: all sections (A–D) complete.
+`entry/admin/bloodDrives.js` updated this session with `refreshBadge()`.
 
 ### Settings — Admin + Staff ✅
 ### Donors — Admin ✅
 ### Field Workflow Foundation ✅
 ### Field Workflow — 4 Steps ✅ (Register → Interview → Screening → Donation & Collection)
+All 4 field entry files updated this session with `refreshBadge()`,
+placed after `revealAppShell()` and before each page's own async
+setup (donor dropdown loads, form wiring, etc.).
 ### Backend Changes — Field Workflow ✅
 (all unchanged from prior sessions, stable)
 
@@ -265,12 +292,53 @@ adds a `.modal-body ul` rule for the result list.
 
 ---
 
+### Notifications — All 5 roles ✅
+Files:
+- `js/features/notifications/notificationsApi.js`
+- `js/features/notifications/notificationsUI.js` — exports
+  `renderNotificationsList()`, `initMarkAllRead()`, and `updateBadge()`/
+  `refreshBadge()` (the badge functions are reused by every other entry
+  file in the app, not just this page)
+- `js/entry/shared/notifications.js` — one shared entry file for all 5
+  roles (new `entry/shared/` folder — first feature to use it, see
+  Permanent Rules)
+- `pages/[role]/notifications.html` × 5 — byte-identical, all point to
+  the shared entry file
+- `assets/css/features/notifications.css`
+- `main.css`: added `.page-header--with-action` modifier (title + button
+  header layout) — additive only, does NOT touch the two existing files
+  that override `.page-header` directly (still open, see Not Started)
+
+Data: GET /api/notifications (own notifications, server-scoped), GET
+/unread-count, PATCH /:id/read, PATCH /read-all. Display-only — no
+click-to-navigate (reference_id/reference_type exist on the record but
+their target pages — Blood Requests, My Drive — don't exist yet; revisit
+once those are built). Unknown notification types fall back to a generic
+label rather than breaking the render (relevant since
+DONOR_POST_EXTRACTION will likely never actually appear in this list —
+donors have no login/frontend, so that notification type is email-only,
+see notificationService.js).
+
+Badge wiring (Step B, same session): every existing entry file across
+all roles/pages updated to call `refreshBadge()` immediately after
+`revealAppShell()`. Full list: all 5 dashboards, Blood Drives, Blood
+Drive Create, Settings (admin/staff), Donors, all 4 Field Workflow pages,
+Blood Testing, Blood Units, Inventory Cleaning, Blood Separation.
+
+No sidebar entry for Notifications on any role — reached via the navbar
+bell/link only, which already existed from Phase 1. `sidebarItems.js`
+and `routes.js` needed no changes — routes already existed for all 5
+roles from earlier scaffolding.
+
+---
+
 ## Not Started
 - [ ] Blood Requests + real-time socket — requestor submit page, requestor
       "my requests" with live status, staff/admin management page, socket
-      `blood_request_new` → badge increment + prepend row
-- [ ] Notifications — list page (all roles), updateBadge() in
-      notificationUI.js, mark read / mark all read
+      `blood_request_new`/`blood_request_status` → badge increment + row
+      updates. Backend confirmed ready (branch-scoping fixed this
+      session) — see gochas.md #42 and Contract.md's Blood Request
+      Endpoints section for the full up-to-date shape.
 - [ ] Reports — aggregate data display, read-only, build last
 - [ ] Drive pages — `pages/volunteer/drive.html` +
       `pages/phlebotomist/drive.html`, "My Assignment" view
@@ -280,9 +348,12 @@ adds a `.modal-body ul` rule for the result list.
 - [ ] Requestor Settings frontend — backend partial (password change only)
 - [ ] CSS cleanup: `.page-header` overridden directly in
       `staff/bloodUnits.css` and `staff/bloodCollections.css` (same
-      anti-pattern as old .btn-primary bug) — needs
-      `.page-header--with-action` modifier class instead. Not replicated
-      in inventoryCleaning.css or bloodSeparation.css.
+      anti-pattern as old .btn-primary bug). The proper fix —
+      `.page-header--with-action` modifier class — now EXISTS in
+      main.css (added this session for Notifications) and should be used
+      by any new page needing this layout. The two existing files
+      themselves are still unconverted; that conversion is still a
+      separate, not-yet-done cleanup pass.
 
 ---
 

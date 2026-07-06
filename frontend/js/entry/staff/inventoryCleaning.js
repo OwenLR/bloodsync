@@ -27,6 +27,7 @@ import {
   initSelectAllControl,
   initBulkRemoveButton,
 } from '../../features/inventoryCleaning/inventoryCleaningUI.js';
+import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 
 async function init() {
   const user = await requireAuth();
@@ -41,6 +42,7 @@ async function init() {
   renderSidebar(getSidebarItems(user.role_id, 'management'), 'Management');
 
   revealAppShell(); // MUST be before any await — per architecture.md
+  refreshBadge(); // non-blocking, sets navbar badge to the real unread count
 
   initSelectAllControl();
   initBulkRemoveButton();

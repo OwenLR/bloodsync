@@ -88,6 +88,76 @@
     unit it came from. NULL for normal donation-flow collections. Was present in
     the model/DB before this session but undocumented in contract.md — added
     this session when building Blood Separation (Section 4).
+42. GET /api/blood-requests, GET /api/blood-requests/:id, PATCH
+    /api/blood-requests/:id/status, PATCH /api/blood-requests/:id/ready —
+    previously had no branch ownership check for PRC Staff (same bug class as
+    fix #34 for Blood Units). Fixed this session: bloodRequestModel.js gained
+    getRequestsByBranch(branchId); bloodRequestController.js now checks
+    req.user.role_id === PRC_STAFF and compares branch_id before allowing
+    getAllRequests (scopes to branch instead of erroring), getRequestById,
+    updateRequestStatus, and markReadyForPickup (403 if branch mismatch on the
+    latter three). Admin unaffected — still sees/manages all branches. Backend
+    approveRequest's FEFO reservation logic already correctly used
+    request.branch_id internally; this fix stops a Staff user from reaching
+    that logic for a request that isn't theirs in the first place.
+43. Blood Request status is NOT what contract.md previously documented
+    (Pending/Approved/Released/Rejected/Cancelled with no Waiting state).
+    Actual transitions, per bloodRequestRules.js VALID_TRANSITIONS:
+    Pending → Approved | Rejected; Approved → Waiting | Rejected;
+    Waiting → Released | Rejected. Cancelled is reachable ONLY via
+    PATCH /:id/cancel (Requestor, Pending-only, direct DB update) — it is
+    NOT part of VALID_TRANSITIONS and cannot be reached through
+    PATCH /:id/status. Contract.md has been corrected to match — see its
+    Blood Request Endpoints section for the full up-to-date shape (item
+    field names, reservations, status logs, all 5 requestor/staff routes).
+44. Blood request notifications (notificationService.notifyRequestStatusChange)
+    fire on Approved, Waiting, Released, and Rejected transitions made through
+    the service layer — but NOT on cancelRequest (Requestor self-cancel) or
+    markReceived (Requestor confirms receipt). Frontend should not expect a
+    socket event (blood_request_status) or a new notification row after those
+    two specific actions — update the UI optimistically from the API response
+    instead of waiting on a socket confirmation for them.
+45. createRequest does NOT auto-compute branch_id — the requestor-supplied
+    branch_id from the request body is used as-is (bloodRequestService.js).
+    The nearest-branch/split-fulfillment logic bloodsync.md describes (items
+    9–17) lives entirely in fulfillmentService.getFulfillmentOptions(), which
+    is a separate pre-submission step (POST /fulfillment-options) — the
+    frontend must call that first, let the requestor pick a branch from the
+    result, then submit that chosen branch_id with the actual POST /
+    request. Do not assume the backend will pick a branch automatically at
+    submit time.
+46. preferred_branch_id (blood_requests column) — intentionally never sent by
+    the frontend as of the Submit Request build. It predates the two-step
+    fulfillment-options flow (see #45) and is fully superseded by branch_id,
+    which now carries the requestor's actual chosen branch. Column stays
+    nullable in the DB (harmless), but no frontend field maps to it and no
+    backend logic reads it. Do not resurrect a form field for this without
+    a clear new purpose.
+47. POST /api/blood-requests previously allowed submission with no request
+    form file — bloodRequestController.js's createRequest() only called
+    uploadToCloudinary if req.file existed, otherwise silently stored
+    request_form_path: null. Fixed this session (Submit Request build):
+    added validateRequestFormFile() to bloodRequestValidator.js, called
+    in the controller before upload — 400 if no file attached. Matches
+    bloodsync.md #18 ("the blood request form is required for submission").
+48. roleMiddleware.js checkRole() — was still using the old {status:'error'}
+    response shape (same anti-pattern fixed in authMiddleware.js per #31).
+    Fixed this session: now uses response.forbidden() for a proper
+    {success:false, message} 403. Frontend code checking body.success will
+    now correctly treat role-rejections as thrown Errors instead of
+    getting an undefined success field.
+49. bloodRequestValidator.js validateItems(items, errors) — mutates the
+    passed-in errors array via push() but had no return statement,
+    implicitly returning undefined on both exit paths. Harmless for
+    validateFulfillmentOptions/validateCreateRequest (they declare their
+    own local array and read that afterward, ignoring the return value)
+    but fulfillmentService.js's getFulfillmentOptions() uses the OTHER
+    documented pattern (const errors = validateItems(items, [])) and reads
+    the return value directly — crashed with "Cannot read properties of
+    undefined (reading 'length')" on every call, 500, regardless of
+    items validity. Fixed this session: validateItems now returns errors
+    on both paths. First surfaced when the Submit Request fulfillment-
+    options step was exercised end-to-end for the first time.
 
 ---
 
@@ -167,6 +237,19 @@
   partial failure mid-loop is expected and handled (toast reports
   succeeded/failed counts separately), not a bug to "fix" toward atomicity
   unless a real bulk endpoint gets built.
+
+### Blood Requests — backend audit notes, this session (frontend not yet built)
+- Branch-scoping bug fixed — see #42 above. Frontend Staff management page
+  can rely on GET /api/blood-requests already being branch-scoped server-side
+  once built; no client-side filtering needed.
+- Do not build the Submit Request page assuming the backend auto-picks a
+  branch — see #45. The two-step flow (fulfillment-options → submit with
+  chosen branch_id) must be implemented as two separate API calls.
+- Do not wire a socket listener expecting blood_request_status on cancel or
+  markReceived — see #44. Those two actions only need to update the UI from
+  their own API response.
+- request_items uses `units_requested` / `units_fulfilled`, NOT `quantity`.
+  contract.md previously documented `quantity` — now corrected.
 
 ### Blood Separation (Section 4) — build notes, this session
 - confirmModal() in modal.js previously always styled its confirm button
