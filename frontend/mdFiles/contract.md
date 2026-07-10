@@ -3,6 +3,15 @@
 # Upload this file when building or modifying any API-touching feature.
 # Do NOT guess field names — if a response field is not listed here, upload the backend model first.
 
+NOTE: Role brackets throughout this document ([Admin, Staff], etc.)
+describe backend route permissions only — NOT which roles have a
+frontend page for that feature. Several features (Blood Units, Blood
+Collections, Inventory Cleaning, Blood Separation, Blood Requests) permit
+Admin at the backend route level but have no Admin frontend page, by
+deliberate project decision. Always check sessionState.md's Permanent
+Rules and rules.md's Role Responsibilities table for actual frontend
+access before assuming a bracket implies a page exists.
+
 ---
 
 ## Valid Values
@@ -545,6 +554,14 @@ Valid transitions — see "Blood Request Transitions" above. This route
 can perform Pending→Approved, Pending→Rejected, Approved→Waiting,
 Approved→Rejected, Waiting→Released, Waiting→Rejected. It cannot set
 Cancelled.
+⚠ Response shape is NOT consistent across transitions —
+bloodRequestService.js's updateStatus() dispatches differently per
+status: Approved returns { request: {...}, reservations: [...] }
+(nested); Waiting/Released/Rejected return the raw blood_requests row
+directly (flat, RETURNING * from the model). Frontend should not assume
+a fixed shape from this endpoint's response — for single-record views,
+refetch via GET /:id after a successful mutation instead of parsing the
+response.
 On Approved: FEFO auto-assignment/reservation of blood units, spilling
 across branches if the request's own branch is short (see
 fulfillmentService.js buildFulfillmentPlan logic, applied here via the
@@ -562,15 +579,23 @@ PRC Staff: 403 if the request's branch_id doesn't match JWT branch_id
 No body. Notifies the requestor same as /status above.
 
 ### PATCH /api/blood-requests/:id/cancel  [Requestor only]
-No body. Own Pending requests only — direct DB update, bypasses
+No body. Own Pending requests only. Direct DB update, bypasses
 VALID_TRANSITIONS entirely (Cancelled is not reachable via /status).
 Returns 404 if not Pending or not owned.
+Response: raw blood_requests row (RETURNING * — no joined display
+fields like hospital_name/branch_name). Frontend should patch only
+known fields (e.g. status) into cached state, not replace a list item
+with this response wholesale.
 Does NOT send a notification or socket event — see gochas.md #44.
 
 ### PATCH /api/blood-requests/:id/received  [Requestor only]
 Requestor confirms receipt — Waiting → Released. Reserved units'
 reservation status updates accordingly.
-No body. Does NOT send a notification or socket event — see gochas.md
+No body.
+Response: raw blood_requests row (RETURNING * — no joined display
+fields like hospital_name/branch_name). Same patch-not-replace caution
+as /cancel above.
+Does NOT send a notification or socket event — see gochas.md
 #44. Update the UI from this call's own response, not from a socket
 listener.
 
@@ -678,4 +703,4 @@ Rooms assigned server-side — never emit join_room manually.
 | answer values uppercase YES/NO | Interview form |
 | Deferred donors blocked from proceeding | All workflow steps |
 | Admin excluded from all field workflow pages | donorRegistration/Interview/Screening/Donation |
-| Admin excluded from Blood Testing / Blood Units / Inventory Cleaning / Blood Separation — Staff only, despite backend routes allowing Admin | All 4 sections |
+| Admin excluded from Blood Testing / Blood Units / Inventory Cleaning / Blood Separation / Blood Requests (management + detail pages) — Staff only, despite backend routes allowing Admin | All 5 sections |

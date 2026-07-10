@@ -58,7 +58,13 @@ imgSrc:     self, data:, res.cloudinary.com, *.tile.openstreetmap.org, unpkg.com
 fontSrc:    self
 objectSrc:  none
 ```
-
+⚠ No frame-src directive is set. Per CSP spec this falls back to default-src
+  ('self'), which silently blocks any <iframe>/<embed> pointed at an external
+  origin (e.g. a Cloudinary-hosted PDF), even though imgSrc already allowlists
+  res.cloudinary.com for <img> tags. Discovered building the Blood Requests
+  detail page — worked around with a plain new-tab link instead of an inline
+  embed. Add frameSrc: ["'self'", "https://res.cloudinary.com"] here if inline
+  preview is ever wanted.
 ---
 
 ## Socket.io
@@ -93,7 +99,7 @@ revealAppShell() swaps to app-ready → visible. Uses visibility not display:non
 ## User Roles
 | role_id | Role | Client |
 |---|---|---|
-| 1 | Admin | Web — management only, no workflow |
+| 1 | Admin | Web — management only (excludes 5 Staff-only feature areas — see rules.md), no workflow |
 | 2 | PRC Staff | Web — walk-in workflow + management |
 | 3 | Donor | Not a login role |
 | 4 | Requestor | Mobile (+ web) |

@@ -362,14 +362,11 @@ async function _checkExistingCollection(donor) {
 }
 
 function _prefillCollection(donor) {
-  // Blood type: prefer blood_type_confirmed from screening, fall back to donor's type
-  const screening = _screeningMap ? _screeningMap.get(donor.donor_id) : null;
-  const confirmedType = (screening && screening.blood_type_confirmed)
-    ? screening.blood_type_confirmed
-    : donor.blood_type;
-
-  const btSelect = document.getElementById('input-blood-type');
-  if (btSelect && confirmedType) btSelect.value = confirmedType;
+  // Blood type is no longer selected/edited here — it's already visible in
+  // the donor-info-panel above (from the donor record, synced from
+  // screening), and the backend resolves the actual value used on the
+  // collection record from the donation's screening (blood_type_confirmed),
+  // never from client input.
 
   // Default component: Whole Blood
   const compSelect = document.getElementById('input-component');
@@ -508,7 +505,7 @@ async function _handleCollectionSubmit(e) {
 
   const formError = document.getElementById('collection-form-error');
   if (formError) _hideEl(formError);
-  _clearErrors(['error-blood-type', 'error-component', 'error-volume-ml']);
+  _clearErrors(['error-component', 'error-volume-ml']);
 
   const submitBtn = document.getElementById('collection-submit-btn');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Recording…'; }
@@ -528,12 +525,13 @@ async function _handleCollectionSubmit(e) {
       return;
     }
 
-    // Branch is resolved server-side:
-    // - Staff: req.user.branch_id from JWT
-    // - Volunteer/Phlebotomist: drive's branch_id via bloodDriveMiddleware
+    // Branch and blood_type are both resolved server-side now:
+    // - branch_id: Staff → req.user.branch_id from JWT; Volunteer/Phlebotomist
+    //   → drive's branch_id via bloodDriveMiddleware
+    // - blood_type: from the donation's own screening record
+    //   (blood_type_confirmed) — never sent by the client
     const data = {
       donation_id: donationId,
-      blood_type:  document.getElementById('input-blood-type').value  || undefined,
       component:   document.getElementById('input-component').value   || undefined,
       volume_ml:   document.getElementById('input-volume-ml').value !== ''
         ? parseInt(document.getElementById('input-volume-ml').value, 10)
@@ -543,7 +541,6 @@ async function _handleCollectionSubmit(e) {
     const { valid, errors } = validateCollection(data);
     if (!valid) {
       _showFieldErrors(errors, {
-        blood_type: 'error-blood-type',
         component:  'error-component',
         volume_ml:  'error-volume-ml',
       });

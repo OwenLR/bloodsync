@@ -189,6 +189,20 @@ function _renderDonorInfo(donor) {
 
 // ─── Existing Interview Check ─────────────────────────────────────────────────
 
+/**
+ * Set the "already has a completed interview" message text.
+ * HTML leaves this element's text empty on purpose — wording depends on
+ * role, so it's set here rather than hardcoded in donorInterview.html
+ * (which is shared by Staff and Volunteer/Phlebotomist).
+ */
+function _setAlreadyDoneMessage() {
+  const el = document.getElementById('interview-already-done');
+  if (!el) return;
+  el.textContent = _isFieldRole()
+    ? 'This donor already has a completed interview for this drive. Proceed to the screening step.'
+    : 'This donor already has a completed interview. Proceed to the screening step.';
+}
+
 async function _checkExistingInterview(donor) {
   try {
     const interviews = await getInterviewsByDonor(donor.donor_id);
@@ -212,6 +226,7 @@ async function _checkExistingInterview(donor) {
         if (isDeferred) {
           // Show deferral notice — donor cannot proceed in this drive
           _showEl(document.getElementById('interview-form-section'));
+          _setAlreadyDoneMessage();
           _showEl(document.getElementById('interview-already-done'));
           _hideEl(document.getElementById('interview-submit-section'));
           document.getElementById('question-list') && (document.getElementById('question-list').innerHTML = '');
@@ -229,6 +244,7 @@ async function _checkExistingInterview(donor) {
         } catch (_e) { /* ignore */ }
 
         _showEl(document.getElementById('interview-form-section'));
+        _setAlreadyDoneMessage();
         _showEl(document.getElementById('interview-already-done'));
 
         const submitSection = document.getElementById('interview-submit-section');
@@ -253,6 +269,17 @@ async function _checkExistingInterview(donor) {
  * The backend may store this as 'Deferred', 'Failed', or similar.
  * We treat anything that is NOT a passed/eligible value as deferred.
  */
+/**
+ * Staff walk-ins have no blood drive context at all (drive_id is always
+ * null for them) — messaging that references "this blood drive" is
+ * misleading/confusing for Staff. Volunteer/Phlebotomist are always
+ * acting within a real, active drive, so the drive-specific wording
+ * stays accurate for them.
+ */
+function _isFieldRole() {
+  return _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+}
+
 function _isDeferredResult(result) {
   if (!result) return false;
   const normalized = String(result).toLowerCase();
@@ -282,9 +309,12 @@ function _renderDeferralNotice(record, step) {
   icon.style.marginRight = '6px';
 
   const msg = document.createElement('span');
+  const scopeText = _isFieldRole()
+    ? 'They cannot participate in this blood drive.'
+    : 'They cannot donate at this time.';
   msg.textContent =
     `This donor was deferred during ${stepLabel} on ${dateStr}. ` +
-    `They cannot participate in this blood drive. Please register a different donor.`;
+    `${scopeText} Please register a different donor.`;
 
   notice.appendChild(icon);
   notice.appendChild(msg);
@@ -363,7 +393,9 @@ async function _loadQuestions(sex) {
       const deferWarn = document.createElement('p');
       deferWarn.className = 'question-defer-warning field-error-hidden';
       deferWarn.id        = `defer-warn-${q.question_id}`;
-      deferWarn.textContent = 'Answering this way will defer this donor from the blood drive.';
+      deferWarn.textContent = _isFieldRole()
+        ? 'Answering this way will defer this donor from the blood drive.'
+        : 'Answering this way will defer this donor.';
       deferWarn.setAttribute('aria-live', 'polite');
 
       item.appendChild(text);

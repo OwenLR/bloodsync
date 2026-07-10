@@ -5,10 +5,17 @@
  * Alongside: authMiddleware.js, roleMiddleware.js, uploadMiddleware.js
  *
  * requireBloodDrive:
- *   - Admin and PRC Staff pass through unconditionally (req.drive_id = null)
+ *   - Admin and PRC Staff pass through unconditionally (req.drive_id = null,
+ *     req.drive_branch_id = null — Staff resolve branch from their own
+ *     JWT branch_id at the controller/service level instead)
  *   - Volunteers and Phlebotomists must be assigned to a currently active
  *     blood drive (within the Philippine time window)
  *   - Attaches req.drive_id so services can enforce cross-drive ownership
+ *   - Attaches req.drive_branch_id — the active drive's own branch_id.
+ *     Volunteers/Phlebotomists never carry a branch_id on their user record,
+ *     so this is the ONLY correct source of branch_id for their field-workflow
+ *     writes (donor-interviews, screenings, donations, blood-collections all
+ *     ultimately resolve branch_id from this, not from client input).
  *
  * Philippine Time:
  *   The SQL query in getActiveDriveForUser() uses
@@ -34,9 +41,12 @@ const requireBloodDrive = async (req, res, next) => {
     try {
         const { role_id, user_id } = req.user;
 
-        // Admin and PRC Staff always pass through
+        // Admin and PRC Staff always pass through.
+        // branch_id for these roles is resolved from req.user.branch_id
+        // at the controller/service level, not from a drive.
         if (STAFF_ROLES.includes(role_id)) {
             req.drive_id = null;
+            req.drive_branch_id = null;
             return next();
         }
 
@@ -52,6 +62,7 @@ const requireBloodDrive = async (req, res, next) => {
             }
 
             req.drive_id = activeDrive.drive_id;
+            req.drive_branch_id = activeDrive.branch_id;
             return next();
         }
 

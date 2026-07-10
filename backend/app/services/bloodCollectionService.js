@@ -6,7 +6,7 @@
  *   collections for donations from their own assigned blood drive
  *
  * markAsSafe auto-creates a blood unit — never create blood units manually.
- * drive_id auto-filled from donation record.
+ * branch_id and drive_id auto-filled from the donation record.
  */
 
 const bloodCollectionModel = require('../repositories/bloodCollectionModel');
@@ -31,6 +31,18 @@ const FIELD_ROLES = [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST];
 const createCollection = async (data, user_id, reqUser, reqDriveId) => {
     const donation = await donationModel.getDonationById(data.donation_id);
     if (!donation) throw new BusinessError('Donation not found', 404);
+
+    // blood_type is never trusted from the client — it's resolved from the
+    // donation's own screening record (blood_type_confirmed, already joined
+    // in donationModel.getDonationById). Screening is the one place blood
+    // type gets confirmed; re-asking/allowing an edit at collection time
+    // duplicated that and risked silently drifting from what screening said.
+    if (!donation.blood_type_confirmed) {
+        throw new BusinessError(
+            'Cannot record a collection — no confirmed blood type found on this donation\'s screening record.',
+            400
+        );
+    }
 
     // Cross-drive ownership check
     if (FIELD_ROLES.includes(reqUser.role_id)) {
@@ -67,6 +79,8 @@ const createCollection = async (data, user_id, reqUser, reqDriveId) => {
         collected_by:            user_id,
         expiration_date,
         donor_id:                donation.donor_id,
+        branch_id:               donation.branch_id,
+        blood_type:              donation.blood_type_confirmed,
         extraction_time_minutes: extraction_time,
         is_qns,
         qns_reason,

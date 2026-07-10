@@ -12,6 +12,7 @@
 
 const screeningModel      = require('../repositories/screeningModel');
 const donorInterviewModel = require('../repositories/donorInterviewModel');
+const donorModel          = require('../repositories/donorModel');
 const BusinessError       = require('../../utils/businessError');
 const ROLES               = require('../../constants/roles');
 
@@ -67,6 +68,16 @@ const createScreening = async (data, user_id, reqUser, reqDriveId) => {
         screened_by: user_id,
         drive_id:    interview.drive_id || null,
     });
+
+    // Screening is the authoritative point where blood type is confirmed —
+    // sync it onto the donor record so every other page (donation, unit
+    // records, donor search/dropdowns) reflects the real value instead of
+    // whatever was (optionally, often blank) entered at registration.
+    if (screening.blood_type_confirmed) {
+        await donorModel.updateDonor(interview.donor_id, {
+            blood_type: screening.blood_type_confirmed,
+        });
+    }
 
     return screening;
 };

@@ -55,7 +55,6 @@ const SIDEBAR_DEFINITIONS = {
       },
       { label: 'Blood Drives',   href: ROUTES.ADMIN.BLOOD_DRIVES   },
       { label: 'Blood Units',    href: ROUTES.ADMIN.BLOOD_UNITS    },
-      { label: 'Blood Requests', href: ROUTES.ADMIN.BLOOD_REQUESTS },
     ],
     management: [
       { label: 'Users',    href: ROUTES.ADMIN.USERS    },

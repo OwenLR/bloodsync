@@ -76,10 +76,10 @@
       <div id="interview-form-section" class="workflow-card" style="display:none">
         <p class="workflow-card-title">Interview Questionnaire</p>
 
-        <p id="interview-already-done" class="form-error" style="display:none">
-          This donor already has a completed interview for this drive.
-          Proceed to the screening step.
-        </p>
+        <p id="interview-already-done" class="form-error" style="display:none"></p>
+        <!-- Text set dynamically by donorInterview.js (_setAlreadyDoneMessage) —
+             wording depends on role: Volunteer/Phlebotomist mentions "this
+             drive", Staff walk-in does not (Staff has no drive context). -->
 
         <!-- Deferral notice — shown when donor was deferred at interview -->
         <div id="interview-deferred-notice" class="form-error" style="display:none" role="alert"></div>

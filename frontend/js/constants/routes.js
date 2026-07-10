@@ -38,9 +38,10 @@ export const ROUTES = Object.freeze({
     DONORS:             '/pages/staff/donors.html',
     BLOOD_UNITS:        '/pages/staff/bloodUnits.html',
     INVENTORY_CLEANING: '/pages/staff/inventoryCleaning.html',
-    BLOOD_SEPARATION:   '/pages/staff/bloodSeparation.html',   // ← NEW
+    BLOOD_SEPARATION:   '/pages/staff/bloodSeparation.html',
     BLOOD_COLLECTIONS:  '/pages/staff/bloodCollections.html',
     BLOOD_REQUESTS:     '/pages/staff/bloodRequests.html',
+    BLOOD_REQUEST_DETAIL: '/pages/staff/bloodRequestDetail.html', 
     REPORTS:            '/pages/staff/reports.html',
     NOTIFICATIONS:      '/pages/staff/notifications.html',
     SETTINGS:           '/pages/staff/settings.html',

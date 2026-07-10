@@ -4,18 +4,21 @@
 Phase 2 in progress. Complete: Dashboards (all 5 roles), Blood Drives
 (admin+staff), Settings (admin/staff), Donors (admin), Field Workflow
 (4 steps), Blood Units/Inventory feature — all 4 sections (Testing, Units,
-Cleaning, Separation), Staff only, Notifications (all 5 roles).
-Not started: Blood Requests, Reports, Vol/Phleb drive pages.
+Cleaning, Separation), Staff only, Notifications (all 5 roles),
+Blood Requests — all 3 sections (Requestor Submit Request, Requestor My
+Requests, Staff Management + Detail page).
+Not started: Vol/Phleb Drive pages, Reports, Vol/Phleb + Requestor
+Settings frontend, Requestor self-profile.
 
 ## Current Phase
 Phase 2 — Features / Web
 
 ## Next Up
-Blood Requests. Build order agreed: (1) Requestor Submit Request,
-(2) Requestor My Requests, (3) Staff/Admin Blood Requests management.
-Backend branch-scoping bug already fixed (see Permanent Rules) —
-frontend work can proceed without further backend blockers for the
-management page.
+Vol/Phleb Drive pages — `pages/volunteer/drive.html` +
+`pages/phlebotomist/drive.html`, "My Assignment" view. Routes already
+exist (`ROUTES.VOLUNTEER.DRIVE` / `ROUTES.PHLEBOTOMIST.DRIVE`), no page
+built yet. Reports is explicitly build-last per prior direction — do not
+jump to it before Drive pages.
 
 ---
 
@@ -28,6 +31,16 @@ management page.
   Blood Separation — Staff only at frontend, despite backend routes
   (bloodUnitRoutes.js, bloodCollectionRoutes.js) technically allowing
   Admin. No Admin pages exist or are planned for these 4.
+- Admin excluded from Blood Requests entirely (management page + detail
+  page) — decided this session. Blood Requests is Requestor ↔ Staff only,
+  frontend-only restriction matching the same pattern as the 4 inventory
+  sections above; backend routes (bloodRequestRoutes.js) still technically
+  allow Admin per contract.md's role tables, but no Admin UI exists or is
+  planned. `sidebarItems.js`'s Admin `general` section had its "Blood
+  Requests" entry removed this session. `ROUTES.ADMIN.BLOOD_REQUESTS`
+  itself was deliberately left defined in `routes.js` (harmless if unused,
+  avoids a dangling reference if something is later found to need it) —
+  flag this if a cleanup pass ever wants to fully remove it.
 - Field pages (/pages/field/) shared by Vol + Phleb + Staff — backend
   enforces access via bloodDriveMiddleware, sidebar does not restrict by
   role label.
@@ -52,6 +65,10 @@ management page.
   Safe/Rejected/Disposed/Withdrawn, but Blood Testing page only exposes
   Mark Safe/Reject). Each page exposes only actions relevant to its own
   job — apply same narrowing to any new page in this feature area.
+  Same pattern applied to Blood Requests Staff Management: only the
+  documented transition buttons (Approve/Reject/Mark Ready/Release) are
+  shown, gated per the actual VALID_TRANSITIONS table, never a raw status
+  dropdown.
 - Shared entry file pattern (introduced by Notifications): when a
   feature's logic and layout are identical across all roles (same
   endpoints, no branch-locking, no role-specific business rules), use one
@@ -65,16 +82,75 @@ management page.
   (from `features/notifications/notificationsUI.js`) immediately after
   `revealAppShell()`, before any other post-reveal setup. Non-blocking,
   not awaited. Applied to all entry files as of this session — any new
-  entry file going forward must include this too.
+  entry file going forward must include this too. Confirmed still applied
+  in all Blood Requests entry files this session (submitRequest, requests,
+  bloodRequests, bloodRequestDetail).
 - PRC Staff branch-scoping is a recurring bug pattern in this codebase —
   Blood Units and Blood Requests have both needed this fix after initial
   build (see gochas.md #34 and #42). Check any new Staff-facing
   controller for the same gap before considering a feature complete.
+- Geolocation (navigator.geolocation) is auto-prompted on page load for
+  location-dependent features (currently: Submit Request's fulfillment
+  step). Browsers only show the permission popup once per origin — no
+  popup on repeat visits after the first grant/deny is expected browser
+  behavior, not a bug. Silently falls back to no-location (alphabetical
+  branch order) on denial/error/non-HTTPS — never blocks the flow.
+- blood_requests.preferred_branch_id — intentionally never collected or
+  sent by the frontend. Predates the two-step fulfillment-options flow,
+  fully superseded by branch_id. Column stays nullable; no form field
+  exists for it. Do not resurrect without a clear new purpose (see
+  gotchas.md #46).
+- fulfillment_type is never sent by the frontend — Delivery is out of
+  scope for this system. Every request submits as Pickup (the model's
+  existing default when the field is omitted). No delivery_address field
+  exists anywhere in the Submit Request form.
+- Optimistic patching limitation: when an endpoint returns a raw DB row
+  with no joined display fields (e.g. cancelRequest, markReceived —
+  RETURNING * only, no hospital_name/branch_name), do not replace a list
+  item with the mutation response. Either patch only the known field
+  (e.g. status) into the existing cached item, or — for single-record
+  detail pages — just refetch the full record instead. Precedent:
+  bloodRequestsListUI.js patches status in place; bloodRequestDetailUI.js
+  refetches via getRequestById() after every action instead, because
+  bloodRequestService.js's updateStatus() response shape itself varies
+  by status (nested {request, reservations} for Approved, flat row for
+  Released/Rejected) — refetching sidesteps that inconsistency entirely
+  rather than branching on it.
+- Client-side sort deviating from backend's default ORDER BY is
+  acceptable and preferred over changing shared SQL when the ordering
+  need is page-specific. Precedent: Blood Requests Staff Management's
+  Pending tab sorts ascending (FCFS, oldest first) client-side;
+  bloodRequestModel.js's getRequestsByBranch() keeps its DESC default
+  untouched since other callers may depend on it.
+- Detail-page-via-query-string is now an established pattern (first used
+  by Blood Requests Staff Management → Detail, this session): when a
+  list needs a genuine multi-section, document-review-style detail view
+  rather than a quick-glance modal, use a separate static HTML page with
+  the record ID passed via `?id=` and read with
+  `new URLSearchParams(window.location.search)` in the entry file, Gmail-
+  style. Every other "detail" view in the app so far (Blood Units, Blood
+  Collections) uses a modal fetched by ID instead — reserve the separate-
+  page pattern for cases with real document/file review or enough
+  content that a modal would be cramped, not as a default replacement
+  for the modal pattern.
+- Remote/already-uploaded documents (e.g. request_form_path, a Cloudinary
+  URL) are surfaced via a plain `<a target="_blank" rel="noopener
+  noreferrer">Open Document</a>` link, not an inline iframe/embed. The
+  app's CSP (server.js Helmet config) has no `frame-src` directive, which
+  falls back to `default-src 'self'` — an iframe to a Cloudinary URL
+  would be silently blocked. A plain link navigation isn't subject to
+  page CSP, so this works with zero backend changes. This is a deliberate
+  choice, not a limitation discovered too late — inline PDF/image preview
+  would require adding `frameSrc: ["'self'", "https://res.cloudinary.com"]`
+  to server.js, which was intentionally deferred (see Not Started).
+  Note: this only affects PDFs — image files (jpeg/png) already preview
+  fine inline via `<img>`, since `res.cloudinary.com` is already in
+  `imgSrc`; only PDFs currently require the new-tab link.
 
 ## Role Responsibilities (FINAL)
 | Role | Donation Workflow | Management |
 |---|---|---|
-| Admin | ❌ | ✅ Full (users, drives, reports) — NOT inventory (see exclusion above) |
+| Admin | ❌ | ✅ Full (users, drives, reports) — NOT inventory, NOT blood requests (see exclusions above) |
 | PRC Staff | ✅ Walk-in, no drive required | ✅ Branch-scoped |
 | Volunteer | ✅ Drive only, must be assigned | ❌ |
 | Phlebotomist | ✅ Drive only, must be assigned | ❌ |
@@ -84,264 +160,157 @@ management page.
 ## Built ✅
 
 ### Phase 1 — Core Wiring
-All constants (`apiConfig.js`, `roles.js`, `statusConstants.js`, `routes.js`,
-`bloodTypes.js`, `notificationTypes.js`, `permissions.js`, `socketEvents.js`,
-`sidebarItems.js`), core (`api.js`, `auth.js`, `utils.js`, `socket.js`,
-`formPersist.js`, guards/`authGuard.js`+`roleGuard.js`), layouts
-(`appShell.js`, `navbar.js`, `sidebar.js`), components (`feedback.js`,
-`toast.js`, `modal.js`, `skeleton.js`, `errorBoundary.js`,
-`infiniteScroll.js`, `search.js`, `searchableDropdown.js`), `index.html`,
-`pages/404.html`, `main.css`. Stable, verified against actual files.
-`constants/navItems.js` deleted — navbar has no nav links, all nav is
-sidebar-only.
-Backend: `authController.js` me() does DB lookup for first/last name;
-`responseHelper.js` success field fixed string→boolean.
+(unchanged from prior sessions, stable)
 
 ### Dashboards ✅
-All 5 roles: `pages/[role]/dashboard.html` + `entry/[role]/dashboard.js` +
-`css/pages/[role]/dashboard.css`. All 5 entry files updated this session
-to call `refreshBadge()` after `revealAppShell()` (Notifications Step B).
+(unchanged from prior sessions, stable)
 
 ### Blood Drives — Admin + Staff ✅
-- `pages/admin/bloodDrives.html` + `entry/admin/bloodDrives.js`
-- `pages/admin/bloodDriveCreate.html` + `entry/admin/bloodDriveCreate.js`
-- `pages/staff/bloodDrives.html` — reuses admin entry JS as-is
-- `pages/staff/bloodDriveCreate.html` — reuses admin entry JS as-is
-- `features/bloodDrives/bloodDrivesApi.js` / `bloodDrivesUI.js` /
-  `bloodDrivesValidation.js`
-- `css/pages/admin/bloodDriveCreate.css`, `css/pages/admin/bloodDrives.css`,
-  `css/features/bloodDrives.css`
-
-Admin entry files already role-aware internally (requireRole([ADMIN,
-PRC_STAFF]), branch-locking for Staff in populateBranches(), dynamic
-ROUTES.ADMIN/STAFF routing) — Staff needed only new HTML shells, no new JS.
-Map Picker: all sections (A–D) complete.
-`entry/admin/bloodDrives.js` updated this session with `refreshBadge()`.
+(unchanged from prior sessions, stable)
 
 ### Settings — Admin + Staff ✅
 ### Donors — Admin ✅
 ### Field Workflow Foundation ✅
-### Field Workflow — 4 Steps ✅ (Register → Interview → Screening → Donation & Collection)
-All 4 field entry files updated this session with `refreshBadge()`,
-placed after `revealAppShell()` and before each page's own async
-setup (donor dropdown loads, form wiring, etc.).
+### Field Workflow — 4 Steps ✅
 ### Backend Changes — Field Workflow ✅
 (all unchanged from prior sessions, stable)
 
----
-
 ### Blood Testing (Blood Collections queue) — Staff ONLY ✅
-Files:
-- `js/features/bloodCollections/bloodCollectionsApi.js`
-- `js/features/bloodCollections/bloodCollectionsUI.js`
-- `pages/staff/bloodCollections.html`
-- `js/entry/staff/bloodCollections.js`
-- `assets/css/features/bloodCollections.css`
-- `assets/css/pages/staff/bloodCollections.css`
-- `routes.js`: `STAFF.BLOOD_COLLECTIONS`
-- `sidebarItems.js`: "Blood Testing" in PRC_STAFF.general, between
-  "Blood Drives" and "Blood Units"
-
-requireRole: [PRC_STAFF] only. Data: GET /blood-collections/branch/:id.
-Filter: Pending (default) vs Reviewed (Safe+Rejected). Disposed/Withdrawn
-excluded — belongs to Blood Units, not this page.
-Actions: Mark Safe, Reject only. QNS → Mark Safe disabled (not hidden),
-backend (assertNotQns) is real enforcer. Reject needs reason, own modal
-(not confirmModal — no input field). Detail = modal, GET /:id on demand,
-carries fields not in list query (approved_by, rejected_at,
-rejection_reason, notes).
-Badge classes: .status-badge--pending/--safe/--rejected.
-Mark Safe confirm: `confirmModal(msg, 'Mark Safe', 'Cancel', false)` —
-danger=false, non-destructive action.
-
-Backend fix required: `bloodCollectionModel.js` getCollectionsByBranch()
-was missing is_qns, qns_reason, notes, created_at, donor_id,
-collected_by_first/last — added.
-
----
-
 ### Blood Units (Main Inventory) — Staff ONLY ✅
-Files:
-- `js/features/bloodUnits/bloodUnitsApi.js` — also exports `separateUnit()`,
-  shared with Blood Separation page (feature-to-feature reuse)
-- `js/features/bloodUnits/bloodUnitsUI.js`
-- `pages/staff/bloodUnits.html`
-- `js/entry/staff/bloodUnits.js`
-- `assets/css/features/bloodUnits.css`
-- `assets/css/pages/staff/bloodUnits.css`
-
-requireRole: [PRC_STAFF] only. Data: GET /blood-units/branch/:id (all
-statuses). No filter dropdown, flat list. Terminal statuses (Released,
-Disposed, Withdrawn, Expired, Separated) hide all actions — check status
-string only, no date math (backend computes Expired server-side).
-Actions: Dispose, Withdraw only — both require reason via modal. Separate
-lives on its own page (Blood Separation, below), not here.
-Detail modal: GET /:id on demand.
-Badge classes: --available/--reserved/--released/--disposed/--withdrawn/
---expired/--separated.
-
-Backend fixes required before build:
-- `bloodUnitModel.js`: added getUnitsByBranchAll() (old getUnitsByBranch
-  was Available-only, FEFO use case); getAllUnits/getUnitById/
-  getUnitsByBranchAll all compute status='Expired' via SQL CASE for
-  past-expiry Available units.
-- `bloodUnitController.js`: branch ownership check for Staff (403 if
-  branch_id in URL mismatches JWT branch_id); GET / auto-scopes Staff to
-  own branch via getUnitsByBranchAll.
-- `bloodUnitRules.js`: assertNotTerminal now also checks expiration_date
-  (previously only checked status column — expired-but-Available units
-  could still accept status updates).
-
----
-
 ### Inventory Cleaning — Staff ONLY ✅
-Files:
-- `js/features/inventoryCleaning/inventoryCleaningApi.js` — imports
-  getUnitsByBranch + updateUnitStatus from bloodUnitsApi.js, no duplicate
-  fetch calls
-- `js/features/inventoryCleaning/inventoryCleaningUI.js`
-- `pages/staff/inventoryCleaning.html`
-- `js/entry/staff/inventoryCleaning.js`
-- `assets/css/features/inventoryCleaning.css`
-- `assets/css/pages/staff/inventoryCleaning.css`
-- `routes.js`: `STAFF.INVENTORY_CLEANING`
-- `sidebarItems.js`: "Inventory Cleaning" in PRC_STAFF.general, between
-  "Blood Units" and "Blood Requests"
-
-requireRole: [PRC_STAFF] only. Data: GET /blood-units/branch/:id (reused).
-Rows shown: only status='Expired' or 'Available' (terminal rows excluded —
-belongs to Blood Units history, not this page). Sort: expired-first,
-satisfied server-side (getUnitsByBranchAll orders by expiration_date ASC).
-Selection: ONLY Expired rows checkable — near-expiry is visual-only
-(orange), never actionable, per bloodsync.md #7. Select-all only touches
-expired rows.
-Bulk removal: loops PATCH /:id/status per unit (no bulk endpoint exists) —
-NOT atomic, toast reports succeeded/failed counts separately.
-Confirm modal: lists every selected unit, requires reason (pre-filled,
-editable), requires typing "remove" (case-insensitive exact match) —
-per bloodsync.md #11.
-Row highlight: row-highlight--expired is red (bloodsync.md #6), independent
-of .status-badge--expired (purple, reused from bloodUnits.css) — two
-different signals, not a mismatch.
-New class: .status-badge--near-expiry.
-
-Backend fix required: `bloodUnitModel.js` — added `near_expiry` boolean
-via SQL CASE to getAllUnits/getUnitById/getUnitsByBranchAll (NOT
-getUnitsByBranch, FEFO-only). Thresholds from
-`inventoryRulesConstant.js` NEAR_EXPIRY_DAYS (Whole Blood: 7d, PRBC: 7d,
-Platelets: 2d, FFP: 30d), hardcoded in SQL with comment pointing back to
-the JS constant (Postgres can't import JS).
-
-Also fixed while reviewing backend for this feature (unrelated bug):
-`cacheService.js` cache() middleware checked stale `body.status ===
-'success'` instead of `body.success === true` — cache writes were
-silently inert everywhere. Fixed; cache-hit shape now matches
-responseHelper.success() exactly (incl. count for arrays).
-
----
-
 ### Blood Separation — Staff ONLY ✅
-Files:
-- `js/features/bloodUnits/bloodSeparationUI.js` — imports getUnitsByBranch +
-  separateUnit from bloodUnitsApi.js, no new Api file
-- `pages/staff/bloodSeparation.html`
-- `js/entry/staff/bloodSeparation.js`
-- `assets/css/features/bloodSeparation.css`
-- `assets/css/pages/staff/bloodSeparation.css`
-- `routes.js`: `STAFF.BLOOD_SEPARATION`
-- `sidebarItems.js`: "Blood Separation" in PRC_STAFF.general, between
-  "Inventory Cleaning" and "Blood Requests"
-
-requireRole: [PRC_STAFF] only. Data: GET /blood-units/branch/:id (reused),
-filtered client-side to component='Whole Blood' && status='Available'
-(server-computed status, expired-but-DB-Available already excluded).
-No status column on table — every row is implicitly Available Whole Blood.
-Confirm: plain `confirmModal()` with "no going back" warning text — NOT
-the typed-word pattern (that's scoped to Inventory Cleaning's bulk
-removal per bloodsync.md #11; separation is single-unit, not bulk).
-On success: result modal lists the 3 derived collections (component +
-computed expiration). Display fields (donor, blood type, barcode) for
-summary/result sourced from the unit row already held client-side —
-POST /:id/separate response (`separated_unit`, `derived_collections`) is
-raw DB rows, no donor/branch name joins.
-
-Backend: `bloodUnitService.js` updateUnitStatus() + separateUnit() were
-NOT invalidating cache:blood-units:availability / :inventory on mutation
-(only markAsSafe/unit-creation did). Fixed — both now call
-invalidateCache() for both keys after mutation succeeds (after COMMIT for
-separateUnit, so rollback never invalidates).
-
-Contract.md gap fixed (docs only, not code): POST /:id/separate wasn't
-documented as its own endpoint; blood_collections.source_unit_id
-(nullable FK back to the source whole blood unit, set only by this
-endpoint) existed in the model but wasn't documented. Both added.
-
-Shared component change made during this build (affects other features):
-- `modal.js` — `confirmModal(message, confirmLabel, cancelLabel, danger)` —
-  4th param, default true (btn-danger). false → btn-primary. Default
-  preserves every prior caller's appearance.
-- `bloodCollectionsUI.js` handleMarkSafe() updated to pass danger=false
-  (only call site changed).
-
-DRY fix made during this build:
-`.modal-field-label` / `.modal-textarea` / `.detail-list` were duplicated
-identically in `features/bloodUnits.css` and `features/bloodCollections.css`.
-Moved to `main.css` under "Shared modal field patterns"; removed from both
-feature files. `features/bloodSeparation.css` never needed them — only
-adds a `.modal-body ul` rule for the result list.
+### Notifications — All 5 roles ✅
+(all unchanged from prior sessions, stable — see prior STATE.md content
+for full file lists and details)
 
 ---
 
-### Notifications — All 5 roles ✅
-Files:
-- `js/features/notifications/notificationsApi.js`
-- `js/features/notifications/notificationsUI.js` — exports
-  `renderNotificationsList()`, `initMarkAllRead()`, and `updateBadge()`/
-  `refreshBadge()` (the badge functions are reused by every other entry
-  file in the app, not just this page)
-- `js/entry/shared/notifications.js` — one shared entry file for all 5
-  roles (new `entry/shared/` folder — first feature to use it, see
-  Permanent Rules)
-- `pages/[role]/notifications.html` × 5 — byte-identical, all point to
-  the shared entry file
-- `assets/css/features/notifications.css`
-- `main.css`: added `.page-header--with-action` modifier (title + button
-  header layout) — additive only, does NOT touch the two existing files
-  that override `.page-header` directly (still open, see Not Started)
+### Blood Requests — Requestor Submit Request (Section 1) ✅
+(unchanged from prior session — full 3-stage wizard, see prior STATE.md
+for file list and build notes)
 
-Data: GET /api/notifications (own notifications, server-scoped), GET
-/unread-count, PATCH /:id/read, PATCH /read-all. Display-only — no
-click-to-navigate (reference_id/reference_type exist on the record but
-their target pages — Blood Requests, My Drive — don't exist yet; revisit
-once those are built). Unknown notification types fall back to a generic
-label rather than breaking the render (relevant since
-DONOR_POST_EXTRACTION will likely never actually appear in this list —
-donors have no login/frontend, so that notification type is email-only,
-see notificationService.js).
+---
 
-Badge wiring (Step B, same session): every existing entry file across
-all roles/pages updated to call `refreshBadge()` immediately after
-`revealAppShell()`. Full list: all 5 dashboards, Blood Drives, Blood
-Drive Create, Settings (admin/staff), Donors, all 4 Field Workflow pages,
-Blood Testing, Blood Units, Inventory Cleaning, Blood Separation.
+### Blood Requests — Requestor "My Requests" (Section 2) ✅
+Flat list, newest-first, built this session. Files:
+- `js/features/bloodRequests/bloodRequestsListUI.js`
+- `pages/requestor/requests.html`
+- `js/entry/requestor/requests.js`
+- CSS additions to `assets/css/features/bloodRequests.css`
+  (`.request-card`, `.request-card-header`, `.request-card-patient`,
+  `.request-card-meta`, `.request-card-denial`, `.request-card-actions`,
+  status-badge variants `--pending/--approved/--waiting/--released/
+  --rejected/--cancelled`)
 
-No sidebar entry for Notifications on any role — reached via the navbar
-bell/link only, which already existed from Phase 1. `sidebarItems.js`
-and `routes.js` needed no changes — routes already existed for all 5
-roles from earlier scaffolding.
+`bloodRequestApi.js` gained `getMyRequests()`, `cancelRequest()`,
+`markReceived()`. `statusConstants.js`'s `BLOOD_REQUEST_STATUS` had a
+missing `WAITING: 'Waiting'` value added — file's own header says it
+mirrors backend `statuses.js` exactly, and backend's REQUEST_STATUSES
+already had it; this was a frontend correction required for the feature
+(the "Received" button only applies to Waiting status), not an unrelated
+change.
+
+Actions: Cancel (Pending only), Already Received (Waiting only). Both
+endpoints return raw DB rows with no joins (no hospital_name/branch_name)
+— UI patches only the `status` field into the cached list item rather
+than replacing it with the response. Neither action fires a socket event
+or notification (gochas.md #44) — confirmed via bloodRequestService.js:
+cancelRequest() and markReceived() only call notificationService for
+other transitions, not these two.
+
+Socket: `blood_request_status` listener wired in for the staff-driven
+transitions (Approved/Waiting/Released/Rejected) that DO fire — patches
+the matching cached item's status/denial_reason and re-renders, plus a
+toast and refreshBadge() call (a DB notification is created for these
+too). Requires `initSocket(user)` to be awaited before attaching the
+listener, since `socket` is a live module binding in socket.js that may
+still be null immediately after import.
+
+`pages/requestor/requests.html` links `bloodDrives.css` as a second
+stylesheet purely to get `.status-badge` (base class) and `.empty-state`
+— same precedent as `bloodUnits.html`. See Not Started for the flagged
+cleanup around this.
+
+---
+
+### Blood Requests — Staff Management + Detail (Section 3) ✅
+Admin excluded entirely (see Permanent Rules) — Requestor ↔ Staff only.
+
+**List page** — Pending/All tabs, Pending tab default. Files:
+- `js/features/bloodRequests/bloodRequestsManageUI.js`
+- `pages/staff/bloodRequests.html`
+- `js/entry/staff/bloodRequests.js`
+
+`bloodRequestApi.js` gained `getAllRequestsStaff()` (GET
+/api/blood-requests — backend auto-scopes PRC Staff to own branch,
+confirmed via contract.md/gochas.md #42, no frontend branch filter
+needed), `getRequestById()`, `updateRequestStatus()`,
+`markReadyForPickup()`.
+
+Pending tab: client-side ascending sort by `created_at` (FCFS — oldest
+first, new incoming requests land at the bottom). Deliberately NOT a
+backend/SQL change — `bloodRequestModel.js`'s `getRequestsByBranch()`
+keeps its existing `ORDER BY created_at DESC`, since other callers may
+rely on it; the ascending order is this page's own display concern only.
+All tab: every status, backend's default DESC order kept as-is, no
+client sort applied.
+
+Socket: `blood_request_new` listener refetches the full list on event
+(payload is partial — request_id/patient_name/urgency_level only, no
+hospital_name/branch_name/status/created_at — so a full refetch was
+chosen over trying to fabricate a row from a partial payload), plus
+toast + refreshBadge(). This was flagged as intended-but-unbuilt scope in
+a prior session's Not Started section — built as part of this pass.
+
+Actions column only has a "View Details" button — no inline
+Approve/Reject here, per the Gmail-style detail-page decision below.
+
+**Detail page** — first page in the app using `?id=` + `URLSearchParams`
+instead of a modal (see Permanent Rules for the pattern note). Files:
+- `js/features/bloodRequests/bloodRequestDetailUI.js`
+- `pages/staff/bloodRequestDetail.html`
+- `js/entry/staff/bloodRequestDetail.js`
+
+Sections rendered: header (patient name + status badge), patient/request
+info, requested items table, request-form document link (see Permanent
+Rules — new-tab link, not inline embed, due to the CSP frame-src gap),
+reserved units table (only rendered if reservations exist), status
+history log, and the action buttons.
+
+Actions gated strictly by contract.md's VALID_TRANSITIONS: Pending shows
+Approve/Reject; Approved shows Mark Ready/Reject; Waiting shows
+Release/Reject; Released/Rejected/Cancelled show no buttons. Reject
+always opens a reason-required modal (same pattern as
+bloodCollectionsUI.js's openRejectModal) since `denial_reason` is
+required server-side when rejecting. Approve/Mark Ready/Release use
+confirmModal() + a shared `runAction()` helper. Every successful action
+refetches the full record via getRequestById() and re-renders, rather
+than trying to use the mutation response directly — see Permanent Rules
+for why (response shape inconsistency across statuses).
+
+Status log display: `changed_by_type` ('staff'/'requestor') is shown,
+not a specific person's name — `getStatusLogsByRequest()` /
+`getReservationsByRequest()` in bloodRequestModel.js don't join user
+names onto `changed_by_id`, so only the actor type is displayable, not
+who specifically. Flagged, not fixed (would need a model/join change).
+
+CSS additions to `assets/css/features/bloodRequests.css`: `.request-tabs`,
+`.tab-button`, `.tab-button--active` (first tab-control pattern in the
+app — no prior precedent existed), `.urgency-badge` + `--routine`/`--stat`
+variants, `.detail-page-header`, `.detail-section`, `.detail-empty-note`,
+`.detail-actions`, `.status-log-list`, `.status-log-item`,
+`.status-log-notes`.
+
+`routes.js`: added `STAFF.BLOOD_REQUEST_DETAIL`.
+`sidebarItems.js`: removed Admin's "Blood Requests" entry (see Permanent
+Rules).
 
 ---
 
 ## Not Started
-- [ ] Blood Requests + real-time socket — requestor submit page, requestor
-      "my requests" with live status, staff/admin management page, socket
-      `blood_request_new`/`blood_request_status` → badge increment + row
-      updates. Backend confirmed ready (branch-scoping fixed this
-      session) — see gochas.md #42 and Contract.md's Blood Request
-      Endpoints section for the full up-to-date shape.
+- [ ] Vol/Phleb Drive pages — `pages/volunteer/drive.html` +
+      `pages/phlebotomist/drive.html`, "My Assignment" view. **Next up.**
 - [ ] Reports — aggregate data display, read-only, build last
-- [ ] Drive pages — `pages/volunteer/drive.html` +
-      `pages/phlebotomist/drive.html`, "My Assignment" view
 - [ ] User guide / help page — before UAT
 - [ ] Requestor self-profile endpoint — backend not scoped yet
 - [ ] Vol/Phleb Settings frontend — backend ready, frontend not built
@@ -349,11 +318,37 @@ roles from earlier scaffolding.
 - [ ] CSS cleanup: `.page-header` overridden directly in
       `staff/bloodUnits.css` and `staff/bloodCollections.css` (same
       anti-pattern as old .btn-primary bug). The proper fix —
-      `.page-header--with-action` modifier class — now EXISTS in
-      main.css (added this session for Notifications) and should be used
-      by any new page needing this layout. The two existing files
-      themselves are still unconverted; that conversion is still a
-      separate, not-yet-done cleanup pass.
+      `.page-header--with-action` modifier class — EXISTS in main.css.
+      The two files themselves are still unconverted; still a separate,
+      not-yet-done cleanup pass.
+- [ ] CSS cleanup: `.status-badge` and `.empty-state` base classes live
+      in `features/bloodDrives.css` but are now reused by
+      `bloodUnits.html`, `inventoryCleaning.html`, and both
+      `requests.html` and `bloodRequests.html`/`bloodRequestDetail.html`
+      (Blood Requests, this session) via a second `<link>` tag pulling
+      in bloodDrives.css purely for these shared base classes. Works,
+      but naming/location is misleading — candidate for extracting into
+      main.css as genuinely shared classes once a cleanup pass happens.
+- [ ] Skeleton containers across the app (units-skeleton,
+      notifications-skeleton, requests-skeleton, collections-skeleton,
+      etc.) never actually call `showSkeleton(containerId, count, type)`
+      from skeleton.js — every feature UI file's local
+      showSkeleton()/hideSkeleton() helpers only toggle `display` on an
+      empty container. Skeleton placeholders never visually render
+      during load. Confirmed present in bloodUnitsUI.js,
+      notificationsUI.js, bloodCollectionsUI.js, and now
+      bloodRequestsListUI.js / bloodRequestsManageUI.js /
+      bloodRequestDetailUI.js (Blood Requests, this session) — same gap
+      replicated for consistency with the existing pattern each time,
+      not introduced new. Needs a proper pass wiring the real
+      skeleton.js calls into each feature file once prioritized.
+- [ ] CSP enhancement (optional, deferred): add
+      `frameSrc: ["'self'", "https://res.cloudinary.com"]` to
+      server.js's Helmet config to allow inline PDF preview on the Blood
+      Request detail page, instead of the current "Open Document"
+      new-tab link. Deliberately not done this session — see Permanent
+      Rules for the reasoning. Revisit only if staff find the new-tab
+      link workflow too clunky in practice.
 
 ---
 

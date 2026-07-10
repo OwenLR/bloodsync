@@ -167,6 +167,17 @@ function _isDeferredResult(result) {
   return normalized === 'deferred' || normalized === 'failed';
 }
 
+/**
+ * Staff walk-ins have no blood drive context at all (drive_id is always
+ * null for them) — messaging that references "this blood drive" is
+ * misleading/confusing for Staff. Volunteer/Phlebotomist are always
+ * acting within a real, active drive, so the drive-specific wording
+ * stays accurate for them.
+ */
+function _isFieldRole() {
+  return _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+}
+
 async function _loadAllDonors() {
   const res  = await apiFetch('/api/donors');
   const body = await res.json();
@@ -195,10 +206,13 @@ async function _selectExistingDonor(donor) {
     const notice = document.getElementById('donor-deferred-notice');
     if (notice) {
       const stepLabel = deferral.step === 'interview' ? 'the donor interview' : 'donor screening';
+      const scopeText = _isFieldRole()
+        ? 'They cannot participate in this blood drive.'
+        : 'They cannot donate at this time.';
       notice.textContent =
         `This donor was deferred during ${stepLabel}` +
         (deferral.date ? ` on ${deferral.date}` : '') +
-        `. They cannot participate in this blood drive. Please search for a different donor.`;
+        `. ${scopeText} Please search for a different donor.`;
       _showEl(notice);
     }
     _selectedDonor = null;
@@ -246,7 +260,7 @@ async function _selectExistingDonor(donor) {
 function _lockFormFields(locked) {
   const fields = [
     'reg-first-name', 'reg-last-name', 'reg-birthdate',
-    'reg-sex', 'reg-email', 'reg-contact', 'reg-blood-type', 'reg-id-number',
+    'reg-sex', 'reg-email', 'reg-contact', 'reg-id-number',
   ];
   fields.forEach(id => {
     const el = document.getElementById(id);
@@ -262,7 +276,6 @@ function _populateForm(donor) {
   _setField('reg-sex',         donor.sex);
   _setField('reg-email',       donor.email);
   _setField('reg-contact',     donor.contact);
-  _setField('reg-blood-type',  donor.blood_type);
   _setField('reg-id-number',   donor.id_number);
 }
 
@@ -370,6 +383,13 @@ async function _checkDuplicate(type, searchData, warningElId) {
   clearTimeout(_duplicateTimers[type]);
   _duplicateTimers[type] = setTimeout(async () => {
     try {
+      // Guard against the race where blur fires right as the form is
+      // submitted: by the time this debounced check actually runs, the
+      // donor may have already been created (or an existing one selected),
+      // which would otherwise match itself and show a false "already
+      // registered" warning right after a successful registration.
+      if (_selectedDonor || _registeredDonor) return;
+
       const donors = await searchDonors(query);
       if (!donors || donors.length === 0) return;
 
@@ -429,6 +449,12 @@ async function _handleRegisterSubmit(e) {
   e.preventDefault();
   if (_selectedDonor) return;
 
+  // Cancel any pending blur-triggered duplicate checks (e.g. the email
+  // field's blur fired a moment ago when focus moved to this submit
+  // button) so a stale check can't resolve after creation and falsely
+  // flag the donor we're about to register as a duplicate of itself.
+  Object.values(_duplicateTimers).forEach(clearTimeout);
+
   _clearAllFieldErrors('donor-registration-form');
 
   const data = {
@@ -440,7 +466,6 @@ async function _handleRegisterSubmit(e) {
     contact:     _getField('reg-contact')
       ? _getField('reg-contact').replace(/\D/g, '') || undefined
       : undefined,
-    blood_type:  _getField('reg-blood-type') || undefined,
   };
 
   const idVal = _getField('reg-id-number');
@@ -455,7 +480,6 @@ async function _handleRegisterSubmit(e) {
       sex:        'reg-sex-error',
       email:      'reg-email-error',
       contact:    'reg-contact-error',
-      blood_type: 'reg-blood-type-error',
     });
     return;
   }

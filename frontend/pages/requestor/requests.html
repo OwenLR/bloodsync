@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Requests | BloodSync</title>
+    <link rel="stylesheet" href="/assets/css/main.css" />
+    <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+    <link rel="stylesheet" href="/assets/css/features/bloodRequests.css" />
+  </head>
+  <body class="app-loading">
+    <nav id="navbar"></nav>
+
+    <div class="page-shell">
+      <aside id="sidebar"></aside>
+
+      <main id="content" class="page-content">
+        <div class="page-header">
+          <h1 class="page-title">My Requests</h1>
+        </div>
+
+        <div id="requests-skeleton"></div>
+        <div id="requests-error" class="field-error" aria-live="polite"></div>
+
+        <div id="requests-list" style="display: none"></div>
+      </main>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script type="module" src="/js/entry/requestor/requests.js"></script>
+  </body>
+</html>

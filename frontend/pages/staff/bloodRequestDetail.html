@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request Details | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodRequests.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1>Request Details</h1>
+      </div>
+
+      <div id="detail-skeleton"></div>
+      <div id="detail-error" class="field-error" aria-live="polite"></div>
+
+      <div id="detail-content" style="display:none;"></div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/staff/bloodRequestDetail.js"></script>
+</body>
+</html>

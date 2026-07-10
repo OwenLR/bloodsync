@@ -158,6 +158,40 @@
     items validity. Fixed this session: validateItems now returns errors
     on both paths. First surfaced when the Submit Request fulfillment-
     options step was exercised end-to-end for the first time.
+50. bloodRequestService.js's status-mutation functions do NOT return a
+    consistent response shape across all four transitions:
+    - approveRequest() → { request: {...}, reservations: [...] } (nested)
+    - markReadyForPickup() → raw blood_requests row (RETURNING * from
+      updateRequestStatus model call, no nesting)
+    - releaseRequest() → raw blood_requests row (same, flat)
+    - rejectRequest() → raw blood_requests row (same, flat)
+    All four are reachable through the single PATCH /:id/status endpoint
+    (except markReadyForPickup, which has its own /:id/ready route) via
+    bloodRequestController.js's updateRequestStatus handler, which just
+    passes through whatever bloodRequestService.updateStatus() returns.
+    Frontend impact: don't try to branch on "is there a .request key or
+    not" to unwrap the response — for a single-item detail view, simplest
+    fix is to ignore the mutation response entirely and refetch via
+    GET /:id after any successful action (see bloodRequestDetailUI.js,
+    built this session, and the Permanent Rules note in sessionState.md).
+51. bloodRequestModel.js's getStatusLogsByRequest() and
+    getReservationsByRequest() do not join user names onto
+    changed_by_id/reserved_by — only changed_by_type ('staff'/'requestor')
+    is available for display on a status log entry, not which specific
+    staff member acted. Same for reservations' reserved_by (raw user_id,
+    no join). Frontend (Blood Requests Detail page, this session) can
+    only show "by Staff" / "by Requestor", not a name. Would need a model
+    join added if per-person attribution is ever needed on these two
+    endpoints.
+52. No `frame-src` CSP directive exists in server.js's Helmet config —
+    falls back to `default-src 'self'` per the CSP spec. This silently
+    blocks any <iframe>/<embed> pointed at an external origin (e.g. a
+    Cloudinary-hosted PDF), even though imgSrc already allowlists
+    res.cloudinary.com for <img> tags. Discovered while building the
+    Blood Requests Detail page's document viewer (this session) — worked
+    around by using a plain new-tab link instead of an inline embed (see
+    sessionState.md Permanent Rules). Not a bug — just a gap that would
+    need a deliberate CSP addition if inline preview is ever wanted.
 
 ---
 
@@ -272,3 +306,15 @@
   from the unit row already held client-side (the one the user clicked),
   not from the separate response — same "don't assume response has display
   joins" caution as bloodUnitsApi.js's comment on updateUnitStatus.
+
+### Blood Requests — Submit Request build (this session)
+- roleMiddleware.js 403 responses used the pre-fix #31 shape
+  ({status:'error'}) — masked as a confusing 500 + "Cannot read properties
+  of undefined (reading 'length')" on the frontend because bloodRequestApi.js
+  checks body.success, which didn't exist. Fixed — see #48.
+- Underneath that, a second, independent bug: fulfillmentService.js's
+  getFulfillmentOptions() crashed on every valid call, 500, because
+  validateItems() never returned its errors array. Only surfaced once the
+  role issue above was fixed and a real Requestor request reached this
+  code path for the first time. Two separate bugs stacked on the same
+  endpoint — fixing one revealed the other. See #49.

@@ -62,9 +62,23 @@ const createInterview = async (req, res) => {
             throw new BusinessError('Interview already exists for this donor', 409);
         }
 
+        // branch_id is NEVER trusted from the client — resolved server-side:
+        // - Volunteer/Phlebotomist: the active drive's own branch_id
+        //   (req.drive_branch_id, set by bloodDriveMiddleware). These roles
+        //   never carry a branch_id on their own user record.
+        // - Admin/PRC Staff (walk-in, no drive): their own JWT branch_id.
+        const branch_id = req.drive_branch_id || req.user.branch_id;
+
+        if (!branch_id) {
+            return response.badRequest(
+                res,
+                'Could not resolve a branch for this interview — no active drive branch found, and no branch is set on your account.'
+            );
+        }
+
         const interview = await donorInterviewModel.createInterview({
             donor_id:     req.body.donor_id,
-            branch_id:    req.body.branch_id,
+            branch_id,
             conducted_by: req.user.user_id,
             // drive_id attached by bloodDriveMiddleware for Volunteer/Phlebotomist.
             // null for Admin/Staff walk-in operations.

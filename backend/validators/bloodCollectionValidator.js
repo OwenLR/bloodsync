@@ -1,4 +1,3 @@
-const VALID_BLOOD_TYPES = require('../constants/bloodTypes');
 const { COLLECTION_STATUSES } = require('../constants/statuses');
 
 const VALID_COMPONENTS = [
@@ -8,16 +7,18 @@ const VALID_COMPONENTS = [
     'Platelets',
 ];
 
+/**
+ * blood_type is intentionally NOT accepted/validated here. It's resolved
+ * server-side in bloodCollectionService.createCollection from the
+ * donation's own screening record (blood_type_confirmed) — never trusted
+ * from the client. This removes a redundant, editable blood-type field
+ * that previously duplicated what screening had already confirmed.
+ */
 const validateCreateCollection = (data) => {
     const errors = [];
-    const { donation_id, blood_type, component, volume_ml } = data;
+    const { donation_id, component, volume_ml } = data;
 
     if (!donation_id) errors.push('donation_id is required');
-    if (!blood_type) errors.push('blood_type is required');
-
-    if (blood_type && !VALID_BLOOD_TYPES.includes(blood_type)) {
-        errors.push(`Invalid blood type. Must be one of: ${VALID_BLOOD_TYPES.join(', ')}`);
-    }
 
     if (component && !VALID_COMPONENTS.includes(component)) {
         errors.push(`Invalid component. Must be one of: ${VALID_COMPONENTS.join(', ')}`);

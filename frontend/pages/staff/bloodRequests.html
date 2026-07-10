@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blood Requests | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodRequests.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1>Blood Requests</h1>
+      </div>
+
+      <div class="request-tabs">
+        <button type="button" id="tab-pending" class="tab-button">Pending</button>
+        <button type="button" id="tab-all" class="tab-button">All Requests</button>
+      </div>
+
+      <div id="requests-skeleton"></div>
+      <div id="requests-error"></div>
+
+      <div id="requests-table-container" style="display:none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Patient</th>
+              <th>Hospital</th>
+              <th>Urgency</th>
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="requests-tbody"></tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script type="module" src="/js/entry/staff/bloodRequests.js"></script>
+</body>
+</html>

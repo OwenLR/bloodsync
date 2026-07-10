@@ -56,10 +56,6 @@ export function validateDonorRegistration(data) {
     errors.email = 'Enter a valid email address.';
   }
 
-  if (data.blood_type && !VALID_BLOOD_TYPES.includes(data.blood_type)) {
-    errors.blood_type = 'Select a valid blood type.';
-  }
-
   if (data.contact && data.contact.trim()) {
     const digits = data.contact.replace(/\D/g, '');
     if (digits.length < 7 || digits.length > 15) {
@@ -114,17 +110,16 @@ export function validateSearchQuery(query) {
 
 /**
  * Validate interview creation.
- * donor_id and branch_id are required. drive_id is set by middleware.
+ * donor_id is the only client-supplied field required here.
+ * branch_id and drive_id are resolved server-side (active drive for
+ * Volunteer/Phlebotomist, own branch for Staff walk-in) — never sent
+ * by the client. See donorInterviewController.js.
  */
 export function validateInterview(data) {
   const errors = {};
 
   if (!data.donor_id) {
     errors.donor_id = 'Select a donor to continue.';
-  }
-
-  if (!data.branch_id) {
-    errors.branch_id = 'Branch is required.';
   }
 
   return { valid: Object.keys(errors).length === 0, errors };
@@ -240,10 +235,6 @@ export function validateCollection(data) {
 
   if (!data.donation_id) {
     errors.donation_id = 'Select a donor with a completed donation.';
-  }
-
-  if (!data.blood_type || !VALID_BLOOD_TYPES.includes(data.blood_type)) {
-    errors.blood_type = 'Select a valid blood type.';
   }
 
   if (!data.component || !VALID_COMPONENTS.includes(data.component)) {

@@ -18,9 +18,10 @@ export const BLOOD_DRIVE_STATUS = Object.freeze({
 export const BLOOD_REQUEST_STATUS = Object.freeze({
   PENDING:   'Pending',
   APPROVED:  'Approved',
+  WAITING:   'Waiting', 
   RELEASED:  'Released',
   REJECTED:  'Rejected',
-  CANCELLED: 'Cancelled', // set by requestor self-cancel only — never via staff status update route
+  CANCELLED: 'Cancelled', 
 });
 
 export const SCREENING_RESULT = Object.freeze({

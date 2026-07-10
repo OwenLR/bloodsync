@@ -25,7 +25,8 @@
 - If a backend change is needed before the frontend can work → say so explicitly first
 
 ### Code quality gates — check before every response
-- Does this add ROLES.ADMIN to any field workflow page? → NO. Admin is excluded permanently.
+- Does this add ROLES.ADMIN to any field workflow page? → NO. Admin is excluded from all field workflow pages permanently.
+- Does this add ROLES.ADMIN to Blood Testing / Blood Units / Inventory Cleaning / Blood Separation / Blood Requests management or detail pages? → NO. Admin is excluded from all 5 of these, frontend-only, permanently.
 - Does this use a <select> for phlebotomist? → NO. Use searchableDropdown.
 - Does this use raw fetch() instead of apiFetch()? → NO. Only exception: tryRefresh().
 - Does this hardcode a role ID, status string, route path, or API path? → NO.
@@ -50,10 +51,17 @@
 
 | Role | Blood Donation Workflow | Management |
 |---|---|---|
-| Admin | ❌ NEVER — management only | ✅ Full |
+| Admin | ❌ NEVER — management only | ✅ Full* |
 | PRC Staff | ✅ Walk-in (no drive required) | ✅ Branch-scoped |
 | Volunteer | ✅ Drive only | ❌ |
 | Phlebotomist | ✅ Drive only | ❌ |
+
+*Admin's "Management" access excludes: Blood Testing, Blood Units,
+Inventory Cleaning, Blood Separation, and Blood Requests (management +
+detail pages) — all 5 are Staff-only at the frontend level despite
+backend routes technically permitting Admin. See sessionState.md's
+Permanent Rules section for the full list and reasoning behind each
+exclusion.
 
 Admin is excluded from all field workflow pages (donorRegistration, donorInterview,
 donorScreening, donorDonation). This is permanent. Admin has no branch_id and
