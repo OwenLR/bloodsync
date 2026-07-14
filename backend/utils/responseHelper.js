@@ -67,6 +67,7 @@ const handleError = (res, err) => {
             message: err.message,
         });
     }
+    console.error(err); // TEMP — surfaces full stack + pg error detail for debugging
     return error(res, err.message);
 };
 

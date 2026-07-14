@@ -11,10 +11,11 @@ const SKELETON_ID   = 'requests-skeleton';
 const ERROR_ID      = 'requests-error';
 const TABLE_WRAP_ID = 'requests-table-container';
 const TAB_PENDING_ID = 'tab-pending';
+const TAB_WAITING_ID = 'tab-waiting';
 const TAB_ALL_ID     = 'tab-all';
 
 let _allRows      = []; // unfiltered cache from last fetch
-let _activeTab     = 'pending'; // 'pending' | 'all'
+let _activeTab     = 'pending'; // 'pending' | 'waiting' | 'all'
 
 // ---------------------------------------------------------------------------
 // Public entry — called from the entry file
@@ -35,10 +36,12 @@ export async function renderRequestsTable() {
 
 export function initTabs() {
   const pendingTab = document.getElementById(TAB_PENDING_ID);
+  const waitingTab = document.getElementById(TAB_WAITING_ID);
   const allTab      = document.getElementById(TAB_ALL_ID);
-  if (!pendingTab || !allTab) return;
+  if (!pendingTab || !waitingTab || !allTab) return;
 
   pendingTab.addEventListener('click', () => switchTab('pending'));
+  waitingTab.addEventListener('click', () => switchTab('waiting'));
   allTab.addEventListener('click', () => switchTab('all'));
   updateTabButtons();
 }
@@ -51,10 +54,12 @@ function switchTab(tab) {
 
 function updateTabButtons() {
   const pendingTab = document.getElementById(TAB_PENDING_ID);
+  const waitingTab = document.getElementById(TAB_WAITING_ID);
   const allTab      = document.getElementById(TAB_ALL_ID);
-  if (!pendingTab || !allTab) return;
+  if (!pendingTab || !waitingTab || !allTab) return;
 
   pendingTab.classList.toggle('tab-button--active', _activeTab === 'pending');
+  waitingTab.classList.toggle('tab-button--active', _activeTab === 'waiting');
   allTab.classList.toggle('tab-button--active', _activeTab === 'all');
 }
 
@@ -89,8 +94,13 @@ async function handleNewRequestEvent(payload) {
 //
 // Pending tab: FCFS — oldest first, sorted client-side ascending by
 // created_at. New incoming requests land at the bottom, not the top.
-// getRequestsByBranch (backend) returns DESC by default — this sort is
-// scoped to this page's display only, no backend/SQL change made.
+// Waiting tab: same FCFS ordering — requests that have been sitting ready
+// for pickup the longest surface first, so staff can follow up on the
+// oldest un-picked-up requests. Purely a client-side filter/sort, same
+// precedent as the Pending tab — getAllRequestsStaff() already returns
+// every status, no backend change needed (sessionState.md's Permanent
+// Rules: client-side sort deviating from backend default order is
+// acceptable and preferred when the ordering need is page-specific).
 // All tab: every status, backend's default order (newest first) kept as-is.
 // ---------------------------------------------------------------------------
 
@@ -100,6 +110,11 @@ function applyTabAndRender() {
   if (_activeTab === 'pending') {
     rows = _allRows
       .filter(r => r.status === BLOOD_REQUEST_STATUS.PENDING)
+      .slice()
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  } else if (_activeTab === 'waiting') {
+    rows = _allRows
+      .filter(r => r.status === BLOOD_REQUEST_STATUS.WAITING)
       .slice()
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   } else {
@@ -197,6 +212,18 @@ function showLoadError(message) {
   el.textContent = message || 'Could not load blood requests. Please try again.';
 }
 
+const EMPTY_STATE_TITLES = {
+  pending: 'No pending requests',
+  waiting: 'No requests waiting for pickup',
+  all:     'No blood requests found',
+};
+
+const EMPTY_STATE_BODIES = {
+  pending: 'New requests from requestors will appear here.',
+  waiting: 'Approved requests will appear here once units are marked ready for pickup.',
+  all:     'There are no blood requests for this branch yet.',
+};
+
 function showEmptyState() {
   let empty = document.getElementById('requests-empty-state');
   if (!empty) {
@@ -205,21 +232,17 @@ function showEmptyState() {
     empty.className = 'empty-state';
 
     const h3 = document.createElement('h3');
-    h3.textContent = _activeTab === 'pending' ? 'No pending requests' : 'No blood requests found';
+    h3.textContent = EMPTY_STATE_TITLES[_activeTab];
     const p = document.createElement('p');
-    p.textContent = _activeTab === 'pending'
-      ? 'New requests from requestors will appear here.'
-      : 'There are no blood requests for this branch yet.';
+    p.textContent = EMPTY_STATE_BODIES[_activeTab];
 
     empty.appendChild(h3);
     empty.appendChild(p);
     document.getElementById(TABLE_WRAP_ID).insertAdjacentElement('afterend', empty);
   } else {
     // Refresh text if the empty state already existed from a prior tab switch
-    empty.querySelector('h3').textContent = _activeTab === 'pending' ? 'No pending requests' : 'No blood requests found';
-    empty.querySelector('p').textContent = _activeTab === 'pending'
-      ? 'New requests from requestors will appear here.'
-      : 'There are no blood requests for this branch yet.';
+    empty.querySelector('h3').textContent = EMPTY_STATE_TITLES[_activeTab];
+    empty.querySelector('p').textContent  = EMPTY_STATE_BODIES[_activeTab];
   }
   empty.style.display = '';
 }

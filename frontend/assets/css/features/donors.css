@@ -36,6 +36,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: fixed;
 }
 
 .data-table thead {
@@ -54,6 +55,10 @@
   white-space: nowrap;
 }
 
+.data-table th:last-child {
+  text-align: right;
+}
+
 .data-table td {
   padding: 12px 14px;
   border-bottom: 1px solid #e0e0e0;
@@ -69,37 +74,45 @@
   background: #fafafa;
 }
 
-/* Actions cell */
-.actions-cell {
-  white-space: nowrap;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.btn-action {
-  padding: 5px 12px;
-  border: none;
-  border-radius: 5px;
-  font-size: 0.82rem;
-  font-weight: 500;
+/* Clickable donor row — whole row navigates to View modal (Actions column removed) */
+.donor-row {
   cursor: pointer;
-  transition: opacity 0.15s;
 }
 
-.btn-action:hover {
-  opacity: 0.82;
+.donor-row:focus-visible {
+  outline: 2px solid #c00;
+  outline-offset: -2px;
 }
 
-.btn-view {
-  background: #fde8e8;
-  color: #c00;
+.donor-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.btn-edit {
-  background: #f0f0f0;
-  color: #111111;
+/* Name left, Email fills the middle, Blood Type pinned right — full-width spread */
+.donor-email-cell {
+  color: #555555;
 }
+
+.donor-bloodtype-cell {
+  text-align: right;
+  font-weight: 600;
+  width: 100px;
+}
+
+/* Status dot — replaces the old full status column, sits inline before the name */
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot-active   { background: #2e7d32; }
+.status-dot-inactive { background: #9e9e9e; }
+.status-dot-deferred { background: #c62828; }
 
 /* Status badges */
 .status-badge {
@@ -434,11 +447,6 @@
 
   .detail-list {
     grid-template-columns: 110px 1fr;
-  }
-
-  .actions-cell {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 /* ─── Inline duplicate warning (registration form) ─────────────────────────── */

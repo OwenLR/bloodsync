@@ -4,9 +4,12 @@ const getAllDonations = async () => {
     const result = await pool.query(
         `SELECT
             dn.donation_id,
+            dn.screening_id,
+            dn.branch_id,
+            dn.drive_id,
             dn.extraction_date,
             dn.blood_volume_ml,
-            dn.extraction_time_minutes,
+            dn.extraction_time_seconds,
             dn.reaction_notes,
             dn.is_qns,
             dn.qns_reason,
@@ -39,9 +42,12 @@ const getDonationById = async (id) => {
     const result = await pool.query(
         `SELECT
             dn.donation_id,
+            dn.screening_id,
+            dn.branch_id,
+            dn.drive_id,
             dn.extraction_date,
             dn.blood_volume_ml,
-            dn.extraction_time_minutes,
+            dn.extraction_time_seconds,
             dn.reaction_notes,
             dn.is_qns,
             dn.qns_reason,
@@ -75,8 +81,12 @@ const getDonationsByDonor = async (donor_id) => {
     const result = await pool.query(
         `SELECT
             dn.donation_id,
+            dn.screening_id,
+            dn.branch_id,
+            dn.drive_id,
             dn.extraction_date,
             dn.blood_volume_ml,
+            dn.extraction_time_seconds,
             dn.is_qns,
             dn.created_at,
             dn.phlebotomist_id,
@@ -96,12 +106,27 @@ const getDonationsByDonor = async (donor_id) => {
     return result.rows;
 };
 
+/**
+ * Used by donorCycleService to determine whether a screening's cycle
+ * reached a donation, and whether that donation was QNS (for the
+ * deferral cooldown check).
+ */
+const getDonationByScreeningId = async (screening_id) => {
+    const result = await pool.query(
+        `SELECT donation_id, screening_id, is_qns, qns_reason, created_at
+         FROM donations
+         WHERE screening_id = $1`,
+        [screening_id]
+    );
+    return result.rows[0];
+};
+
 const createDonation = async (data) => {
     const {
         donor_id, screening_id, branch_id,
         extracted_by, phlebotomist_id,
         extraction_date, blood_volume_ml,
-        extraction_time_minutes,
+        extraction_time_seconds,
         reaction_notes, is_qns, qns_reason,
         drive_id,
     } = data;
@@ -111,7 +136,7 @@ const createDonation = async (data) => {
             donor_id, screening_id, branch_id,
             extracted_by, phlebotomist_id,
             extraction_date, blood_volume_ml,
-            extraction_time_minutes, reaction_notes,
+            extraction_time_seconds, reaction_notes,
             is_qns, qns_reason, drive_id
          ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
@@ -124,7 +149,7 @@ const createDonation = async (data) => {
             phlebotomist_id || null,
             extraction_date || new Date(),
             blood_volume_ml || 450,
-            extraction_time_minutes,
+            extraction_time_seconds || 0,
             reaction_notes,
             is_qns || false,
             qns_reason,
@@ -137,7 +162,7 @@ const createDonation = async (data) => {
 const updateDonation = async (id, data) => {
     const {
         reaction_notes, is_qns,
-        qns_reason, extraction_time_minutes,
+        qns_reason, extraction_time_seconds,
     } = data;
 
     const result = await pool.query(
@@ -145,10 +170,10 @@ const updateDonation = async (id, data) => {
             reaction_notes           = COALESCE($1, reaction_notes),
             is_qns                   = COALESCE($2, is_qns),
             qns_reason               = COALESCE($3, qns_reason),
-            extraction_time_minutes  = COALESCE($4, extraction_time_minutes)
+            extraction_time_seconds  = COALESCE($4, extraction_time_seconds)
          WHERE donation_id = $5
          RETURNING *`,
-        [reaction_notes, is_qns, qns_reason, extraction_time_minutes, id]
+        [reaction_notes, is_qns, qns_reason, extraction_time_seconds, id]
     );
     return result.rows[0];
 };
@@ -157,6 +182,7 @@ module.exports = {
     getAllDonations,
     getDonationById,
     getDonationsByDonor,
+    getDonationByScreeningId,
     createDonation,
     updateDonation,
 };

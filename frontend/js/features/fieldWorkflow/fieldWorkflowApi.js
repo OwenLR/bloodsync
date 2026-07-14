@@ -71,6 +71,21 @@ export async function getDonorById(donorId) {
 }
 
 /**
+ * Get walk-in (Staff, non-drive) cycle status for a donor — resolves
+ * whether their most recent walk-in interview/screening/donation chain
+ * is in-progress, in a deferral cooldown, or fully available for a new
+ * interview. Not used for Volunteer/Phlebotomist drive-scoped flows.
+ * @param {number} donorId
+ * @returns {Promise<{state: string, [key: string]: any}>}
+ */
+export async function getDonorCycleStatus(donorId) {
+  const res  = await apiFetch(`/api/donors/${donorId}/cycle-status`);
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load donor cycle status.');
+  return body.data;
+}
+
+/**
  * Create a new donor.
  * @param {Object} data
  * @returns {Promise<Object>}
@@ -267,7 +282,11 @@ export async function getAllDonations() {
 /**
  * Create a new donation record.
  * donor_id and branch_id are auto-filled server-side — do not send them.
- * @param {{ screening_id: number, extraction_time: number }} data
+ * extraction_time_seconds is the TOTAL extraction duration in seconds
+ * (minutes*60 + seconds) — combine the two form inputs into this single
+ * value before calling. See donationRules.js / medicalRules.js for the
+ * QNS threshold this is compared against server-side.
+ * @param {{ screening_id: number, extraction_time_seconds: number }} data
  * @returns {Promise<Object>}
  */
 export async function createDonation(data) {

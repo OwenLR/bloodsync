@@ -16,7 +16,9 @@ import {
   createInterview,
   getQuestionsBySex,
   submitAnswers,
+  getDonorCycleStatus,
 } from '../../features/fieldWorkflow/fieldWorkflowApi.js';
+import { DEFERRAL_COOLDOWN_HOURS } from '../../constants/deferralRules.js';
 import {
   validateInterview,
   validateAnswers,
@@ -203,7 +205,20 @@ function _setAlreadyDoneMessage() {
     : 'This donor already has a completed interview. Proceed to the screening step.';
 }
 
+
 async function _checkExistingInterview(donor) {
+  if (_isFieldRole()) {
+    return _checkExistingInterviewDriveScoped(donor);
+  }
+  return _checkExistingInterviewWalkIn(donor);
+}
+
+// Drive-scoped (Volunteer/Phlebotomist) — UNCHANGED from prior behavior.
+// Each blood drive is its own isolated cycle already via drive_id
+// scoping, so "any completed interview" within THIS drive is a correct,
+// permanent block for THIS drive (donor is still free in a different
+// drive/date).
+async function _checkExistingInterviewDriveScoped(donor) {
   try {
     const interviews = await getInterviewsByDonor(donor.donor_id);
 
@@ -219,12 +234,9 @@ async function _checkExistingInterview(donor) {
 
       if (completedInterview) {
         _createdInterview = completedInterview;
-
-        // FIX Issue 4: check if this completed interview resulted in deferral
         const isDeferred = _isDeferredResult(completedInterview.interview_result);
 
         if (isDeferred) {
-          // Show deferral notice — donor cannot proceed in this drive
           _showEl(document.getElementById('interview-form-section'));
           _setAlreadyDoneMessage();
           _showEl(document.getElementById('interview-already-done'));
@@ -233,11 +245,9 @@ async function _checkExistingInterview(donor) {
 
           _renderDeferralNotice(completedInterview, 'interview');
           _showEl(document.getElementById('interview-deferred-notice'));
-          // Do NOT show proceed-section — donor is blocked
           return;
         }
 
-        // Passed interview — show already-done state with proceed
         try {
           sessionStorage.setItem('field_interview_id', _createdInterview.interview_id);
           sessionStorage.setItem('field_interview_donor_id', donor.donor_id);
@@ -259,6 +269,73 @@ async function _checkExistingInterview(donor) {
     }
 
     await _initInterviewForm(donor);
+  } catch (err) {
+    showToast('Failed to check existing interviews. Please try again.', 'error');
+  }
+}
+
+// Walk-in (Staff/Admin, drive_id null) — chain-aware. Uses
+// GET /api/donors/:donor_id/cycle-status, which walks
+// interview -> screening -> donation instead of treating "any interview
+// record ever" as a permanent block. See donorCycleRules.js (backend)
+// / donorCycleStatus.js (frontend mirror) for the state machine.
+async function _checkExistingInterviewWalkIn(donor) {
+  try {
+    const status = await getDonorCycleStatus(donor.donor_id);
+
+    switch (status.state) {
+      case 'resume_interview':
+        _createdInterview = status.interview;
+        await _initInterviewForm(donor);
+        return;
+
+      case 'proceed_screening':
+      case 'proceed_donation':
+      case 'proceed_collection':
+        _createdInterview = status.interview;
+
+        try {
+          sessionStorage.setItem('field_interview_id', status.interview.interview_id);
+          sessionStorage.setItem('field_interview_donor_id', donor.donor_id);
+        } catch (_e) { /* ignore */ }
+
+        _showEl(document.getElementById('interview-form-section'));
+        _setAlreadyDoneMessage();
+        _showEl(document.getElementById('interview-already-done'));
+        _hideEl(document.getElementById('interview-submit-section'));
+
+        {
+          const questionList = document.getElementById('question-list');
+          if (questionList) questionList.innerHTML = '';
+        }
+
+        _showEl(document.getElementById('proceed-section'));
+        return;
+
+      case 'cooldown':
+        // Deliberately does NOT show the "already has a completed
+        // interview, proceed to screening" banner here — that wording
+        // contradicts a donor who is actually blocked. Only the
+        // cooldown notice is shown.
+        _showEl(document.getElementById('interview-form-section'));
+        _hideEl(document.getElementById('interview-already-done'));
+        _hideEl(document.getElementById('interview-submit-section'));
+        _hideEl(document.getElementById('proceed-section'));
+
+        {
+          const questionList = document.getElementById('question-list');
+          if (questionList) questionList.innerHTML = '';
+        }
+
+        _renderCooldownNotice(status.step, status.retryAt);
+        _showEl(document.getElementById('interview-deferred-notice'));
+        return;
+
+      case 'available':
+      default:
+        await _initInterviewForm(donor);
+        return;
+    }
   } catch (err) {
     showToast('Failed to check existing interviews. Please try again.', 'error');
   }
@@ -315,6 +392,38 @@ function _renderDeferralNotice(record, step) {
   msg.textContent =
     `This donor was deferred during ${stepLabel} on ${dateStr}. ` +
     `${scopeText} Please register a different donor.`;
+
+  notice.appendChild(icon);
+  notice.appendChild(msg);
+}
+
+/**
+ * Render the cooldown notice for a walk-in donor blocked by
+ * DEFERRAL_COOLDOWN_HOURS — distinct from _renderDeferralNotice, which
+ * is for the permanent-per-drive block used by field roles above.
+ */
+function _renderCooldownNotice(step, retryAt) {
+  const notice = document.getElementById('interview-deferred-notice');
+  if (!notice) return;
+
+  const stepLabel = step === 'interview' ? 'the donor interview'
+                   : step === 'screening' ? 'screening'
+                   : 'donation';
+
+  const retryDate = retryAt ? new Date(retryAt) : null;
+  const retryStr  = retryDate ? retryDate.toLocaleString() : 'later';
+
+  notice.innerHTML = '';
+
+  const icon = document.createElement('span');
+  icon.textContent = '⚠';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.style.marginRight = '6px';
+
+  const msg = document.createElement('span');
+  msg.textContent =
+    `This donor was deferred during ${stepLabel} and is temporarily blocked from restarting. ` +
+    `They can be interviewed again after ${retryStr}.`;
 
   notice.appendChild(icon);
   notice.appendChild(msg);
@@ -510,11 +619,15 @@ async function _handleInterviewSubmit(e) {
     } catch (_e) { /* ignore */ }
 
     if (isDeferred) {
-      // FIX Issue 4: show deferral result — do NOT show proceed to screening
       showToast('Interview submitted. This donor has been deferred.', 'warning');
       _hideEl(document.getElementById('interview-submit-section'));
 
-      _renderDeferralNotice(_createdInterview, 'the donor interview');
+      if (_isFieldRole()) {
+        _renderDeferralNotice(_createdInterview, 'the donor interview');
+      } else {
+        const retryAt = new Date(Date.now() + DEFERRAL_COOLDOWN_HOURS * 60 * 60 * 1000);
+        _renderCooldownNotice('interview', retryAt);
+      }
       _showEl(document.getElementById('interview-deferred-notice'));
       // proceed-section stays hidden — donor cannot go to screening
     } else {

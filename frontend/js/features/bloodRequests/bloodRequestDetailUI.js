@@ -251,14 +251,14 @@ function buildActionsSection(detail) {
   const status = detail.status;
 
   if (status === BLOOD_REQUEST_STATUS.PENDING) {
-    section.appendChild(actionButton('Approve', 'btn-primary', () => handleApprove(detail)));
-    section.appendChild(actionButton('Reject', 'btn-danger', () => handleReject(detail)));
+    section.appendChild(actionButton('Approve', 'btn-primary', (btn) => handleApprove(detail, btn)));
+    section.appendChild(actionButton('Reject', 'btn-danger', (btn) => handleReject(detail, btn)));
   } else if (status === BLOOD_REQUEST_STATUS.APPROVED) {
-    section.appendChild(actionButton('Mark Ready for Pickup', 'btn-primary', () => handleMarkReady(detail)));
-    section.appendChild(actionButton('Reject', 'btn-danger', () => handleReject(detail)));
+    section.appendChild(actionButton('Mark Ready for Pickup', 'btn-primary', (btn) => handleMarkReady(detail, btn)));
+    section.appendChild(actionButton('Reject', 'btn-danger', (btn) => handleReject(detail, btn)));
   } else if (status === BLOOD_REQUEST_STATUS.WAITING) {
-    section.appendChild(actionButton('Release to Requestor', 'btn-primary', () => handleRelease(detail)));
-    section.appendChild(actionButton('Reject', 'btn-danger', () => handleReject(detail)));
+    section.appendChild(actionButton('Release to Requestor', 'btn-primary', (btn) => handleRelease(detail, btn)));
+    section.appendChild(actionButton('Reject', 'btn-danger', (btn) => handleReject(detail, btn)));
   }
   // Released / Rejected / Cancelled — no buttons, section renders empty.
 
@@ -320,7 +320,7 @@ async function handleRelease(detail, btnEl) {
 
 // Reject requires a reason — dedicated modal, same pattern as
 // bloodCollectionsUI.js's openRejectModal.
-function handleReject(detail) {
+function handleReject(detail, btnEl) {
   const body = document.createElement('div');
 
   const label = document.createElement('label');

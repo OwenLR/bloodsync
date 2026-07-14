@@ -282,6 +282,7 @@ function buildDetailBody(detail) {
   addDetailRow(dl, 'Branch',          detail.branch_name);
   addDetailRow(dl, 'Collection Date', formatDate(detail.collection_date));
   addDetailRow(dl, 'Expiration Date', formatDate(detail.expiration_date));
+  addDetailRow(dl, 'Extraction Time', formatExtractionTime(detail.extraction_time_seconds));
   addDetailRow(dl, 'Status',          detail.status);
 
   if (detail.is_qns) {
@@ -359,6 +360,13 @@ function showEmptyState() {
 function hideEmptyState() {
   const empty = document.getElementById('collections-empty-state');
   if (empty) empty.style.display = 'none';
+}
+
+function formatExtractionTime(totalSeconds) {
+  if (totalSeconds === null || totalSeconds === undefined) return '—';
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s`;
 }
 
 function formatDate(isoString) {

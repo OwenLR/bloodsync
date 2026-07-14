@@ -368,6 +368,28 @@
   color: #7b3f00;
 }
 
+/* ── Extraction time (minutes + seconds) input pair ───────────────────────── */
+.extraction-time-inputs {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.extraction-time-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.extraction-time-field .form-input {
+  width: 80px;
+}
+
+.extraction-time-unit {
+  font-size: 12px;
+  color: #888;
+}
+
 /* ── Submit section ───────────────────────────────────────────────────────── */
 .submit-section {
   display: flex;

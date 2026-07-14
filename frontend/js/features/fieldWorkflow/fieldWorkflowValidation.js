@@ -204,7 +204,11 @@ export function validateScreening(data) {
 
 /**
  * Validate donation form.
- * extraction_time in minutes — backend flags > 15 min as QNS automatically.
+ * Extraction time is entered as separate minutes + seconds fields.
+ * The caller (donorDonation.js) combines them into total seconds and
+ * sends that as extraction_time_seconds to the backend — matching the
+ * donations table's single source-of-truth column. Backend flags a
+ * total over EXTRACTION.MAX_DURATION_MINUTES (15 min) as QNS automatically.
  */
 export function validateDonation(data) {
   const errors = {};
@@ -213,13 +217,22 @@ export function validateDonation(data) {
     errors.screening_id = 'Select a donor with an Eligible screening.';
   }
 
-  if (data.extraction_time === undefined || data.extraction_time === '') {
+  const minutesRaw = data.extraction_time_minutes;
+  const secondsRaw = data.extraction_time_seconds;
+
+  const minutes = (minutesRaw === undefined || minutesRaw === '') ? NaN : parseInt(minutesRaw, 10);
+  const seconds = (secondsRaw === undefined || secondsRaw === '') ? 0   : parseInt(secondsRaw, 10);
+
+  if (isNaN(minutes)) {
     errors.extraction_time = 'Extraction time is required.';
-  } else {
-    const val = parseInt(data.extraction_time, 10);
-    if (isNaN(val) || val < 1 || val > 120) {
-      errors.extraction_time = 'Enter extraction time in minutes (1 to 120).';
-    }
+  } else if (minutes < 0 || minutes > 120) {
+    errors.extraction_time = 'Enter minutes between 0 and 120.';
+  } else if (isNaN(seconds) || seconds < 0 || seconds > 59) {
+    errors.extraction_time = 'Seconds must be between 0 and 59.';
+  } else if (minutes === 0 && seconds === 0) {
+    errors.extraction_time = 'Extraction time cannot be zero.';
+  } else if (minutes === 120 && seconds > 0) {
+    errors.extraction_time = 'Extraction time cannot exceed 120 minutes.';
   }
 
   return { valid: Object.keys(errors).length === 0, errors };

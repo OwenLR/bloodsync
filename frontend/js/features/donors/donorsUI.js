@@ -2,7 +2,6 @@ import {
   getAllDonors,
   searchDonors,
   getDonorById,
-  createDonor,
   updateDonor,
   deleteDonor,
 } from './donorsApi.js';
@@ -10,7 +9,6 @@ import { validateDonorForm, validateSearchQuery } from './donorsValidation.js';
 import { showToast }         from '../../components/toast.js';
 import { showSkeleton, hideSkeleton } from '../../components/skeleton.js';
 import { confirmModal }      from '../../components/modal.js';
-import { showError, clearFeedback } from '../../components/feedback.js';
 import { ROLES }             from '../../constants/roles.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -18,12 +16,21 @@ import { ROLES }             from '../../constants/roles.js';
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const SEX_OPTIONS = ['Male', 'Female'];
 
+/**
+ * Format an ISO date string or YYYY-MM-DD to a plain YYYY-MM-DD display/
+ * input string. API returns ISO timestamps like "1995-06-08T16:00:00.000Z";
+ * <input type="date"> and the view modal both need just the date part.
+ */
+function _formatBirthdate(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+
 // ─── State ───────────────────────────────────────────────────────────────────
 
 let _user               = null;   // set via initDonorsPage
 let _searchTimer        = null;
 let _currentDonors      = [];
-let _duplicateCheckTimer = null;  // debounce for inline duplicate detection
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -33,7 +40,6 @@ let _duplicateCheckTimer = null;  // debounce for inline duplicate detection
  */
 export async function initDonorsPage(user) {
   _user = user;
-  _setupAddButton();
   _setupSearchInput();
   await _loadDonors();
 }
@@ -64,7 +70,7 @@ function _renderTable(donors) {
   if (!donors || donors.length === 0) {
     tbody.innerHTML = `
       <tr class="empty-row">
-        <td colspan="7">
+        <td colspan="3">
           <div class="empty-state">
             <p class="empty-state-title">No donors found</p>
             <p class="empty-state-body">Register a new donor using the button above, or try a different search.</p>
@@ -77,51 +83,46 @@ function _renderTable(donors) {
   tbody.innerHTML = '';
   donors.forEach(donor => {
     const tr = document.createElement('tr');
+    tr.className = 'donor-row';
+    tr.tabIndex = 0;
+    tr.setAttribute('role', 'button');
+    tr.setAttribute('aria-label', `View details for ${donor.first_name} ${donor.last_name}`);
 
     const name = document.createElement('td');
-    name.textContent = `${donor.last_name}, ${donor.first_name}`;
+    name.className = 'donor-name-cell';
 
-    const bloodType = document.createElement('td');
-    bloodType.textContent = donor.blood_type || '—';
+    const dot = document.createElement('span');
+    const statusKey = (donor.status || 'active').toLowerCase();
+    dot.className = `status-dot status-dot-${statusKey}`;
+    dot.title = donor.status || 'Active';
 
-    const sex = document.createElement('td');
-    sex.textContent = donor.sex || '—';
+    const nameText = document.createElement('span');
+    const firstInitial = donor.first_name ? `${donor.first_name.charAt(0).toUpperCase()}.` : '';
+    nameText.textContent = `${donor.last_name}, ${firstInitial}`;
 
-    const contact = document.createElement('td');
-    contact.textContent = donor.contact || '—';
+    name.appendChild(dot);
+    name.appendChild(nameText);
 
     const email = document.createElement('td');
+    email.className = 'donor-email-cell';
     email.textContent = donor.email || '—';
 
-    const status = document.createElement('td');
-    const badge = document.createElement('span');
-    badge.className = `status-badge status-${(donor.status || 'active').toLowerCase()}`;
-    badge.textContent = donor.status || 'Active';
-    status.appendChild(badge);
-
-    const actions = document.createElement('td');
-    actions.className = 'actions-cell';
-
-    const viewBtn = document.createElement('button');
-    viewBtn.className = 'btn-action btn-view';
-    viewBtn.textContent = 'View';
-    viewBtn.addEventListener('click', () => _openViewModal(donor.donor_id));
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn-action btn-edit';
-    editBtn.textContent = 'Edit';
-    editBtn.addEventListener('click', () => _openEditModal(donor.donor_id));
-
-    actions.appendChild(viewBtn);
-    actions.appendChild(editBtn);
+    const bloodType = document.createElement('td');
+    bloodType.className = 'donor-bloodtype-cell';
+    bloodType.textContent = donor.blood_type || '—';
 
     tr.appendChild(name);
-    tr.appendChild(bloodType);
-    tr.appendChild(sex);
-    tr.appendChild(contact);
     tr.appendChild(email);
-    tr.appendChild(status);
-    tr.appendChild(actions);
+    tr.appendChild(bloodType);
+
+    const openDetails = () => _openViewModal(donor.donor_id);
+    tr.addEventListener('click', openDetails);
+    tr.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openDetails();
+      }
+    });
 
     tbody.appendChild(tr);
   });
@@ -132,7 +133,7 @@ function _renderTableError(message) {
   if (!tbody) return;
   tbody.innerHTML = `
     <tr class="empty-row">
-      <td colspan="7">
+      <td colspan="3">
         <div class="empty-state empty-state-error">
           <p class="empty-state-title">Could not load donors</p>
           <p class="empty-state-body">${_esc(message)} Please try refreshing the page.</p>
@@ -161,14 +162,6 @@ function _setupSearchInput() {
 
     _searchTimer = setTimeout(() => _loadDonors(query), 350);
   });
-}
-
-// ─── Add Donor Button ─────────────────────────────────────────────────────────
-
-function _setupAddButton() {
-  const btn = document.getElementById('add-donor-btn');
-  if (!btn) return;
-  btn.addEventListener('click', () => _openCreateModal());
 }
 
 // ─── View Modal ───────────────────────────────────────────────────────────────
@@ -203,7 +196,7 @@ function _renderViewContent(donor, container) {
 
   const fields = [
     ['Full Name',    `${donor.first_name} ${donor.last_name}`],
-    ['Birthdate',    donor.birthdate   || '—'],
+    ['Birthdate',    _formatBirthdate(donor.birthdate) || '—'],
     ['Sex',          donor.sex         || '—'],
     ['Blood Type',   donor.blood_type  || '—'],
     ['Email',        donor.email       || '—'],
@@ -289,7 +282,7 @@ async function _openEditModal(donorId) {
 function _populateEditForm(donor) {
   _setField('edit-first-name', donor.first_name);
   _setField('edit-last-name',  donor.last_name);
-  _setField('edit-birthdate',  donor.birthdate);
+  _setField('edit-birthdate',  _formatBirthdate(donor.birthdate));
   _setField('edit-sex',        donor.sex);
   _setField('edit-blood-type', donor.blood_type);
   _setField('edit-email',      donor.email);
@@ -342,325 +335,6 @@ async function _submitEditForm(donorId) {
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Save Changes';
-    }
-  }
-}
-
-// ─── Create Modal ─────────────────────────────────────────────────────────────
-
-function _openCreateModal() {
-  const modal = document.getElementById('donor-create-modal');
-  if (!modal) return;
-
-  // Reset to search step
-  _showCreateStep('search');
-
-  const searchInput = document.getElementById('create-search-input');
-  if (searchInput) searchInput.value = '';
-
-  const resultsContainer = document.getElementById('create-search-results');
-  if (resultsContainer) resultsContainer.innerHTML = '';
-
-  const form = document.getElementById('donor-create-form');
-  if (form) {
-    form.reset();
-    _clearFormErrors('donor-create-form');
-  }
-
-  // Clear any leftover duplicate warning
-  _clearDuplicateWarning();
-
-  // Birthdate max = today — prevents selecting tomorrow and beyond (bloodsync item 41)
-  const birthdateInput = document.getElementById('create-birthdate');
-  if (birthdateInput) {
-    birthdateInput.max = new Date().toISOString().split('T')[0];
-  }
-
-  // Hide Register Donor button until form step is shown
-  const submitBtn = document.getElementById('donor-create-submit');
-  if (submitBtn) submitBtn.style.display = 'none';
-
-  modal.classList.add('modal-open');
-
-  // Wire up search button + Enter key on search input
-  const searchBtn = document.getElementById('create-search-btn');
-  if (searchBtn) searchBtn.onclick = () => _handleCreateSearch();
-  if (searchInput) {
-    searchInput.onkeydown = (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); _handleCreateSearch(); }
-    };
-  }
-
-  // Wire up "Register new donor" button
-  const registerBtn = document.getElementById('create-register-new-btn');
-  if (registerBtn) {
-    registerBtn.onclick = () => _showCreateStep('form');
-  }
-
-  // Wire up back button
-  const backBtn = document.getElementById('create-back-btn');
-  if (backBtn) {
-    backBtn.onclick = () => {
-      _showCreateStep('search');
-      _clearDuplicateWarning();
-    };
-  }
-
-  // Wire up form submit
-  if (form) {
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      _submitCreateForm();
-    };
-  }
-
-  // Inline duplicate detection — fires when last_name + first_name + birthdate
-  // are all filled. Matches bloodsync.md items 12-15: detect similar donor
-  // while typing. Uses a fresh addEventListener each time modal opens.
-  // Clone fields to remove any prior listeners before re-attaching.
-  ['create-last-name', 'create-first-name', 'create-birthdate'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    // Remove old listeners by replacing with clone
-    const clone = el.cloneNode(true);
-    el.parentNode.replaceChild(clone, el);
-    clone.addEventListener('input', _debouncedDuplicateCheck);
-    clone.addEventListener('change', _debouncedDuplicateCheck);
-  });
-}
-
-// ─── Inline Duplicate Detection ───────────────────────────────────────────────
-// bloodsync.md items 12-16: while filling the registration form, if last name +
-// first name + birthdate all have values, search for a potential match and show
-// an inline warning. Does NOT block the user — they can still proceed.
-// Item 16: a second confirmation fires on the Register button click.
-
-function _debouncedDuplicateCheck() {
-  clearTimeout(_duplicateCheckTimer);
-  _duplicateCheckTimer = setTimeout(_checkForDuplicates, 600);
-}
-
-async function _checkForDuplicates() {
-  const lastName  = document.getElementById('create-last-name')  ? document.getElementById('create-last-name').value.trim()  : '';
-  const firstName = document.getElementById('create-first-name') ? document.getElementById('create-first-name').value.trim() : '';
-  const birthdate = document.getElementById('create-birthdate')  ? document.getElementById('create-birthdate').value.trim()  : '';
-
-  // Only run when all three fields have values
-  if (!lastName || !firstName || !birthdate) {
-    _clearDuplicateWarning();
-    return;
-  }
-
-  try {
-    const query   = `${firstName} ${lastName}`;
-    const matches = await searchDonors(query);
-
-    // Strict match: ALL THREE must match (bloodsync item 14 — partial name match alone won't trigger)
-    const duplicate = matches.find(d => {
-      const nameMatch = d.first_name.toLowerCase() === firstName.toLowerCase() &&
-                        d.last_name.toLowerCase()  === lastName.toLowerCase();
-      const dobMatch  = d.birthdate && d.birthdate.slice(0, 10) === birthdate;
-      return nameMatch && dobMatch;
-    });
-
-    if (duplicate) {
-      _showDuplicateWarning(duplicate);
-    } else {
-      _clearDuplicateWarning();
-    }
-  } catch {
-    // Silent fail — duplicate check is best-effort, not a blocker
-    _clearDuplicateWarning();
-  }
-}
-
-function _showDuplicateWarning(donor) {
-  let warningEl = document.getElementById('duplicate-warning');
-  if (!warningEl) {
-    warningEl = document.createElement('div');
-    warningEl.id = 'duplicate-warning';
-    warningEl.className = 'duplicate-warning';
-    // Insert before the form's first field row
-    const form = document.getElementById('donor-create-form');
-    if (form) form.insertBefore(warningEl, form.firstChild);
-  }
-
-  warningEl.innerHTML = '';
-
-  const msg = document.createElement('p');
-  msg.className = 'duplicate-warning-text';
-  msg.textContent = `A donor named ${donor.first_name} ${donor.last_name} with the same birthdate already exists in the system.`;
-
-  const viewBtn = document.createElement('button');
-  viewBtn.type = 'button';
-  viewBtn.className = 'btn-action btn-view duplicate-warning-btn';
-  viewBtn.textContent = 'View existing donor';
-  viewBtn.addEventListener('click', () => {
-    _closeModal('donor-create-modal');
-    _openViewModal(donor.donor_id);
-  });
-
-  warningEl.appendChild(msg);
-  warningEl.appendChild(viewBtn);
-}
-
-function _clearDuplicateWarning() {
-  const el = document.getElementById('duplicate-warning');
-  if (el) el.remove();
-}
-
-
-function _showCreateStep(step) {
-  const searchStep = document.getElementById('create-step-search');
-  const formStep   = document.getElementById('create-step-form');
-  if (searchStep) searchStep.style.display = step === 'search' ? '' : 'none';
-  if (formStep)   formStep.style.display   = step === 'form'   ? '' : 'none';
-}
-
-async function _handleCreateSearch() {
-  const input = document.getElementById('create-search-input');
-  const resultsEl = document.getElementById('create-search-results');
-  const errorEl   = document.getElementById('create-search-error');
-  if (!input || !resultsEl) return;
-
-  const query = input.value.trim();
-  const { valid, message } = validateSearchQuery(query);
-  if (!valid) {
-    if (errorEl) {
-      errorEl.textContent = message;
-      errorEl.style.display = '';
-    }
-    return;
-  }
-  if (errorEl) errorEl.style.display = 'none';
-
-  const searchBtn = document.getElementById('create-search-btn');
-  if (searchBtn) {
-    searchBtn.disabled = true;
-    searchBtn.textContent = 'Searching…';
-  }
-
-  resultsEl.innerHTML = '';
-
-  try {
-    const donors = await searchDonors(query);
-
-    if (!donors || donors.length === 0) {
-      resultsEl.innerHTML = `
-        <p class="search-no-results">No donor found matching "<strong>${_esc(query)}</strong>".</p>`;
-      const registerBtn = document.getElementById('create-register-new-btn');
-      if (registerBtn) registerBtn.style.display = '';
-    } else {
-      const registerBtn = document.getElementById('create-register-new-btn');
-      if (registerBtn) registerBtn.style.display = 'none';
-
-      donors.forEach(donor => {
-        const item = document.createElement('div');
-        item.className = 'search-result-item';
-
-        const info = document.createElement('div');
-        info.className = 'search-result-info';
-
-        const nameEl = document.createElement('span');
-        nameEl.className = 'search-result-name';
-        nameEl.textContent = `${donor.first_name} ${donor.last_name}`;
-
-        const metaEl = document.createElement('span');
-        metaEl.className = 'search-result-meta';
-        metaEl.textContent = [donor.blood_type, donor.sex, donor.contact].filter(Boolean).join(' · ');
-
-        info.appendChild(nameEl);
-        info.appendChild(metaEl);
-
-        const selectBtn = document.createElement('button');
-        selectBtn.className = 'btn-action btn-view';
-        selectBtn.textContent = 'Select';
-        selectBtn.addEventListener('click', () => {
-          _closeModal('donor-create-modal');
-          _openViewModal(donor.donor_id);
-        });
-
-        item.appendChild(info);
-        item.appendChild(selectBtn);
-        resultsEl.appendChild(item);
-      });
-    }
-  } catch (err) {
-    resultsEl.innerHTML = `<p class="modal-error">${_esc(err.message)}</p>`;
-  } finally {
-    if (searchBtn) {
-      searchBtn.disabled = false;
-      searchBtn.textContent = 'Search';
-    }
-  }
-}
-
-async function _submitCreateForm() {
-  const submitBtn = document.getElementById('donor-create-submit');
-  _clearFormErrors('donor-create-form');
-
-  const data = {
-    first_name:  _getField('create-first-name'),
-    last_name:   _getField('create-last-name'),
-    birthdate:   _getField('create-birthdate'),
-    sex:         _getField('create-sex'),
-    blood_type:  _getField('create-blood-type') || undefined,
-    email:       _getField('create-email'),
-    contact:     _getField('create-contact')
-      ? _getField('create-contact').replace(/\D/g, '')
-      : undefined,
-  };
-
-  const { valid, errors } = validateDonorForm(data, { requireAll: true });
-  if (!valid) {
-    _showFormErrors(errors, {
-      first_name: 'create-first-name-error',
-      last_name:  'create-last-name-error',
-      birthdate:  'create-birthdate-error',
-      sex:        'create-sex-error',
-      blood_type: 'create-blood-type-error',
-      email:      'create-email-error',
-      contact:    'create-contact-error',
-    });
-    return;
-  }
-
-  // bloodsync item 16 — double-check confirmation before registering.
-  // If a duplicate warning is currently visible, require explicit confirmation.
-  const hasDuplicateWarning = !!document.getElementById('duplicate-warning');
-  if (hasDuplicateWarning) {
-    const confirmed = await confirmModal({
-      title:        'Possible Duplicate Detected',
-      message:      'A donor with the same name and birthdate was found. Are you sure this is a different person and you want to register them as a new donor?',
-      confirmLabel: 'Yes, Register as New',
-      danger:       true,
-    });
-    if (!confirmed) return;
-  }
-
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Registering…';
-  }
-
-  try {
-    await createDonor(data);
-    showToast('Donor registered successfully.', 'success');
-    _closeModal('donor-create-modal');
-    await _loadDonors();
-  } catch (err) {
-    if (err.status === 409) {
-      showError(
-        'donor-create-form-error',
-        'This donor is already registered. Please search for them and select their existing record.'
-      );
-    } else {
-      showError('donor-create-form-error', err.message || 'Failed to register donor. Please try again.');
-    }
-  } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Register Donor';
     }
   }
 }

@@ -280,16 +280,31 @@ const createUnit = async (data) => {
     return result.rows[0];
 };
 
-const updateUnitStatus = async (id, status, reason, user_id) => {
-    const result = await pool.query(
+/**
+ * Update a blood unit's status.
+ * Accepts an optional transaction client as the 5th arg — defaults to the
+ * shared pool for standalone callers (Dispose/Withdraw on the Blood Units
+ * page). When called from inside a multi-step transaction (e.g.
+ * bloodRequestService.js's approveRequest/releaseRequest/rejectRequest/
+ * markReceived), the caller's `client` must be passed through so this write
+ * participates in that transaction's COMMIT/ROLLBACK instead of committing
+ * immediately on a separate pooled connection.
+ *
+ * $1 is cast explicitly in the CASE branches below — fixes a Postgres
+ * "inconsistent types deduced for parameter $1" error (42P08) that occurred
+ * because $1 was compared as text in the CASE branches but assigned directly
+ * to the varchar `status` column in the same query.
+ */
+const updateUnitStatus = async (id, status, reason, user_id, dbClient = pool) => {
+    const result = await dbClient.query(
         `UPDATE blood_units SET
             status = $1,
             disposal_reason = CASE
-                WHEN $1 = 'Disposed'  THEN $2
+                WHEN $1::varchar = 'Disposed'  THEN $2
                 ELSE disposal_reason
             END,
             withdrawal_reason = CASE
-                WHEN $1 = 'Withdrawn' THEN $2
+                WHEN $1::varchar = 'Withdrawn' THEN $2
                 ELSE withdrawal_reason
             END
          WHERE unit_id = $3

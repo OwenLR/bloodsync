@@ -34,9 +34,10 @@ import { renderNavbar }        from '../../layouts/navbar.js';
 import { renderSidebar,
          clearSidebar }        from '../../layouts/sidebar.js';
 import { revealAppShell }      from '../../layouts/appShell.js';
-import { refreshBadge } from '../../features/notifications/notificationsUI.js';
+import { refreshBadge }        from '../../features/notifications/notificationsUI.js';
 import { getSidebarItems }     from '../../constants/sidebarItems.js';
 import { ROLES }               from '../../constants/roles.js';
+import { HEMOGLOBIN }          from '../../constants/medicalRules.js';
 import { showToast }           from '../../components/toast.js';
 import {
   getAllDonors,
@@ -46,6 +47,11 @@ import {
   getScreeningsByDonor,
   createScreening,
 } from '../../features/fieldWorkflow/fieldWorkflowApi.js';
+import {
+  computeWalkInCycleStatus,
+  buildLatestWalkInInterviewMap,
+  buildLatestScreeningByInterviewMap,
+} from '../../features/fieldWorkflow/donorCycleStatus.js';
 import { validateScreening }   from '../../features/fieldWorkflow/fieldWorkflowValidation.js';
 import { initSearchableDropdown } from '../../components/searchableDropdown.js';
 
@@ -58,13 +64,11 @@ let _dropdown          = null;
 let _interviewMap      = null;   // donor_id → interview record (built at load time)
 
 // ─── Hemoglobin thresholds ────────────────────────────────────────────────────
-
-const HGB_MAX    = 20.0;
-const HGB_MIN_M  = 13.0;   // Male minimum
-const HGB_MIN_F  = 12.5;   // Female minimum
+// Mirrors backend/constants/medicalRules.js — see constants/medicalRules.js
+// header for the sync discipline note.
 
 function _getHgbMin(sex) {
-  return (sex || '').trim() === 'Female' ? HGB_MIN_F : HGB_MIN_M;
+  return (sex || '').trim() === 'Female' ? HEMOGLOBIN.FEMALE.MIN : HEMOGLOBIN.MALE.MIN;
 }
 
 /**
@@ -73,15 +77,8 @@ function _getHgbMin(sex) {
  */
 function _computeHgbStatus(hgb, sex) {
   const min = _getHgbMin(sex);
-  return (hgb >= min && hgb <= HGB_MAX) ? 'Allowed' : 'Not Allowed';
-}
-
-/**
- * Compute screening_result from hemoglobin_status.
- * Returns 'Eligible' | 'Deferred'
- */
-function _computeResult(hgbStatus) {
-  return hgbStatus === 'Allowed' ? 'Eligible' : 'Deferred';
+  const max = (sex || '').trim() === 'Female' ? HEMOGLOBIN.FEMALE.MAX : HEMOGLOBIN.MALE.MAX;
+  return (hgb >= min && hgb <= max) ? 'Allowed' : 'Not Allowed';
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -127,42 +124,66 @@ async function _initDonorDropdown() {
     ]);
 
     // Set of donor_ids that already have a screening in this context
-    const screenedIds = new Set(allScreenings.map(s => s.donor_id));
-
-    // Issue 5: Set of donor_ids deferred at interview stage.
-    // These donors have a completed interview with a deferred/failed result.
-    // They should not appear in the screening dropdown at all.
-    const interviewDeferredIds = new Set(
-      allInterviews
-        .filter(iv => {
-          if (!iv.interview_result) return false;
-          const r = String(iv.interview_result).toLowerCase();
-          return r === 'deferred' || r === 'failed';
-        })
-        .map(iv => iv.donor_id)
-    );
-
-    // Map donor_id → most recent PASSED interview record
-    // Only interviews that are completed AND not deferred can proceed to screening
-    _interviewMap = new Map();
-    allInterviews.forEach(iv => {
-      if (!iv.interview_result) return; // pending — skip
-      const r = String(iv.interview_result).toLowerCase();
-      if (r === 'deferred' || r === 'failed') return; // deferred — skip
-      const existing = _interviewMap.get(iv.donor_id);
-      if (!existing || iv.interview_id > existing.interview_id) {
-        _interviewMap.set(iv.donor_id, iv);
-      }
-    });
-
-    // Eligible: has a PASSED interview, not yet screened, not interview-deferred
-    const eligibleDonors = allDonors.filter(d =>
-      _interviewMap.has(d.donor_id) &&
-      !screenedIds.has(d.donor_id) &&
-      !interviewDeferredIds.has(d.donor_id)
-    );
-
     const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+
+    let eligibleDonors;
+
+    if (isFieldRole) {
+      // Drive-scoped — UNCHANGED from prior behavior. Backend already
+      // scopes getAllInterviews/getAllScreenings to the active drive for
+      // field roles, so "any record in this response" is already
+      // correctly isolated per drive.
+      const screenedIds = new Set(allScreenings.map(s => s.donor_id));
+
+      const interviewDeferredIds = new Set(
+        allInterviews
+          .filter(iv => {
+            if (!iv.interview_result) return false;
+            const r = String(iv.interview_result).toLowerCase();
+            return r === 'deferred' || r === 'failed';
+          })
+          .map(iv => iv.donor_id)
+      );
+
+      _interviewMap = new Map();
+      allInterviews.forEach(iv => {
+        if (!iv.interview_result) return;
+        const r = String(iv.interview_result).toLowerCase();
+        if (r === 'deferred' || r === 'failed') return;
+        const existing = _interviewMap.get(iv.donor_id);
+        if (!existing || iv.interview_id > existing.interview_id) {
+          _interviewMap.set(iv.donor_id, iv);
+        }
+      });
+
+      eligibleDonors = allDonors.filter(d =>
+        _interviewMap.has(d.donor_id) &&
+        !screenedIds.has(d.donor_id) &&
+        !interviewDeferredIds.has(d.donor_id)
+      );
+    } else {
+      // Walk-in (Staff/Admin) — chain-aware. A donor appears here only
+      // if their CURRENT walk-in cycle is exactly "interview passed, no
+      // screening yet." A donor mid-cooldown, or whose last cycle fully
+      // completed, isn't here yet — they show up again once they pass a
+      // NEW interview (see donorInterview.js).
+      const interviewMapByDonor  = buildLatestWalkInInterviewMap(allInterviews);
+      const screeningByInterview = buildLatestScreeningByInterviewMap(allScreenings);
+
+      _interviewMap = new Map(); // donor_id -> interview for the CURRENT cycle only
+
+      eligibleDonors = allDonors.filter(d => {
+        const interview = interviewMapByDonor.get(d.donor_id);
+        if (!interview) return false;
+        const screening = screeningByInterview.get(interview.interview_id) || null;
+        const status = computeWalkInCycleStatus({ interview, screening, donation: null });
+        if (status.state === 'proceed_screening') {
+          _interviewMap.set(d.donor_id, interview);
+          return true;
+        }
+        return false;
+      });
+    }
 
     _dropdown = initSearchableDropdown({
       inputId:      'donor-select-input',
@@ -246,33 +267,63 @@ function _renderDonorInfo(donor) {
 // ─── Existing Screening Check ─────────────────────────────────────────────────
 
 async function _checkExistingScreening(donor) {
-  try {
-    const screenings = await getScreeningsByDonor(donor.donor_id);
+  const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
 
+  try {
     _showEl(document.getElementById('screening-form-section'));
 
-    if (screenings && screenings.length > 0) {
-      // Already screened — hide form fields, show already-done message + proceed
-      _showEl(document.getElementById('screening-already-done'));
-      _hideEl(document.getElementById('screening-form-fields'));
-      _hideEl(document.getElementById('screening-submit-section'));
+    if (isFieldRole) {
+      // Drive-scoped — UNCHANGED except for the index fix noted below.
+      const screenings = await getScreeningsByDonor(donor.donor_id);
 
-      const latest = screenings[screenings.length - 1];
-      _showProceedSection(latest.screening_result);
+      if (screenings && screenings.length > 0) {
+        _showEl(document.getElementById('screening-already-done'));
+        _hideEl(document.getElementById('screening-form-fields'));
+        _hideEl(document.getElementById('screening-submit-section'));
+
+        // FIX: was screenings[screenings.length - 1] — the query orders
+        // DESC (newest first), so that index picked the OLDEST record,
+        // not the latest. index 0 is correct.
+        const latest = screenings[0];
+        _showProceedSection(latest.screening_result);
+        return;
+      }
+
+      _hideEl(document.getElementById('screening-already-done'));
+      _showEl(document.getElementById('screening-form-fields'));
+      _showEl(document.getElementById('screening-submit-section'));
+      _setHemoglobinHint(donor.sex);
+
+      const btSelect = document.getElementById('input-blood-type-confirmed');
+      if (btSelect && donor.blood_type) btSelect.value = donor.blood_type;
       return;
     }
 
-    // No existing screening — show form, set hemoglobin hint
+    // Walk-in (Staff/Admin) — the donor only reaches this page's dropdown
+    // when their current cycle is 'proceed_screening' (see
+    // _initDonorDropdown), so this scoped-by-interview_id check is a
+    // defensive guard against stale dropdown data (e.g. another tab just
+    // screened this donor), not the primary gate.
+    const screenings = await getScreeningsByDonor(donor.donor_id);
+    const forThisInterview = _selectedInterview
+      ? screenings.find(s => s.interview_id === _selectedInterview.interview_id)
+      : null;
+
+    if (forThisInterview) {
+      _showEl(document.getElementById('screening-already-done'));
+      _hideEl(document.getElementById('screening-form-fields'));
+      _hideEl(document.getElementById('screening-submit-section'));
+      _showProceedSection(forThisInterview.screening_result);
+      return;
+    }
+
     _hideEl(document.getElementById('screening-already-done'));
     _showEl(document.getElementById('screening-form-fields'));
     _showEl(document.getElementById('screening-submit-section'));
     _setHemoglobinHint(donor.sex);
 
-    // Pre-fill blood type from registration if known
     const btSelect = document.getElementById('input-blood-type-confirmed');
-    if (btSelect && donor.blood_type) {
-      btSelect.value = donor.blood_type;
-    }
+    if (btSelect && donor.blood_type) btSelect.value = donor.blood_type;
 
   } catch (err) {
     showToast('Failed to check existing screening. Please try again.', 'error');
@@ -285,7 +336,18 @@ function _setHemoglobinHint(sex) {
   const hint = document.getElementById('hemoglobin-hint');
   if (!hint) return;
   const min = _getHgbMin(sex);
-  hint.textContent = `Required range: ${min} – ${HGB_MAX} g/dL. Values outside this range will result in Deferred.`;
+  const max = (sex || '').trim() === 'Female' ? HEMOGLOBIN.FEMALE.MAX : HEMOGLOBIN.MALE.MAX;
+  hint.textContent = `Required range: ${min} – ${max} g/dL. Values outside this range will result in Deferred.`;
+}
+
+/**
+ * Maps hemoglobin_status ('Allowed'/'Not Allowed') to the actual
+ * screening_result value ('Eligible'/'Deferred') used everywhere else —
+ * contract.md and statuses.js keep these as two distinct fields, this is
+ * the translation between them for the live preview.
+ */
+function _computeResult(hgbStatus) {
+  return hgbStatus === 'Allowed' ? 'Eligible' : 'Deferred';
 }
 
 function _updateResultPreview() {
@@ -308,7 +370,7 @@ function _updateResultPreview() {
 
   previewText.textContent = result === 'Eligible'
     ? `✓ Hemoglobin ${hgb} g/dL - Allowed. Screening result: Eligible.`
-    : `✗ Hemoglobin ${hgb} g/dL - outside accepted range (${_getHgbMin(_selectedDonor.sex)}–${HGB_MAX} g/dL). Screening result: Deferred.`;
+    : `✗ Hemoglobin ${hgb} g/dL - outside accepted range (${_getHgbMin(_selectedDonor.sex)}–${(_selectedDonor.sex || '').trim() === 'Female' ? HEMOGLOBIN.FEMALE.MAX : HEMOGLOBIN.MALE.MAX} g/dL). Screening result: Deferred.`;
 
   preview.style.background = result === 'Eligible' ? '#e6f4ea' : '#fff8e1';
   preview.style.borderColor = result === 'Eligible' ? '#a5d6a7' : '#ffe082';

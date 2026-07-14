@@ -112,3 +112,15 @@ export async function markReadyForPickup(requestId) {
   if (!res.ok || !body.success) throw new Error(body.message || 'Failed to mark request ready.');
   return body.data;
 }
+
+// GET /api/blood-requests/estimate/:branch_id  [Requestor]
+// Response: { pending_count, estimate, next_open, is_open }. `estimate` is a
+// queue-depth-based label computed server-side (WAIT_TIME_ESTIMATES in
+// bloodRequestConstant.js on the backend) — never hardcode the label
+// strings frontend-side, just display whatever string comes back.
+export async function getWaitEstimate(branchId) {
+  const res  = await apiFetch(`${BASE}/estimate/${branchId}`);
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load wait time estimate.');
+  return body.data;
+}

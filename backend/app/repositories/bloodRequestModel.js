@@ -116,8 +116,16 @@ const createRequest = async (data) => {
     return result.rows[0];
 };
 
-const updateRequestStatus = async (id, status, reviewedBy, denialReason = null) => {
-    const result = await pool.query(
+/**
+ * Update a blood request's status.
+ * Accepts an optional transaction client as the 5th arg — defaults to the
+ * shared pool for standalone use. When called from inside
+ * bloodRequestService.js's approveRequest/releaseRequest/rejectRequest/
+ * markReceived, the caller's `client` must be passed through so this write
+ * participates in that transaction's COMMIT/ROLLBACK.
+ */
+const updateRequestStatus = async (id, status, reviewedBy, denialReason = null, dbClient = pool) => {
+    const result = await dbClient.query(
         `UPDATE blood_requests SET
             status        = $1,
             reviewed_by   = $2,
@@ -194,8 +202,13 @@ const getItemsByRequest = async (requestId) => {
     return result.rows;
 };
 
-const updateItemFulfilled = async (itemId, unitsFulfilled) => {
-    await pool.query(
+/**
+ * Accepts an optional transaction client as the 3rd arg — defaults to the
+ * shared pool. Must be passed through when called inside approveRequest's
+ * transaction so this write participates in COMMIT/ROLLBACK.
+ */
+const updateItemFulfilled = async (itemId, unitsFulfilled, dbClient = pool) => {
+    await dbClient.query(
         `UPDATE request_items
          SET units_fulfilled = $1
          WHERE item_id = $2`,
@@ -203,9 +216,15 @@ const updateItemFulfilled = async (itemId, unitsFulfilled) => {
     );
 };
 
-const createStatusLog = async (data) => {
+/**
+ * Accepts an optional transaction client as the 2nd arg — defaults to the
+ * shared pool. Must be passed through when called inside
+ * approveRequest/releaseRequest/rejectRequest/markReceived's transactions
+ * so this write participates in COMMIT/ROLLBACK.
+ */
+const createStatusLog = async (data, dbClient = pool) => {
     const { request_id, old_status, new_status, changed_by_type, changed_by_id, notes } = data;
-    await pool.query(
+    await dbClient.query(
         `INSERT INTO request_status_logs
             (request_id, old_status, new_status, changed_by_type, changed_by_id, notes)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -223,9 +242,14 @@ const getStatusLogsByRequest = async (requestId) => {
     return result.rows;
 };
 
-const createReservation = async (data) => {
+/**
+ * Accepts an optional transaction client as the 2nd arg — defaults to the
+ * shared pool. Must be passed through when called inside approveRequest's
+ * transaction so this write participates in COMMIT/ROLLBACK.
+ */
+const createReservation = async (data, dbClient = pool) => {
     const { request_id, item_id, unit_id, reserved_by, notes, branch_id } = data;
-    const result = await pool.query(
+    const result = await dbClient.query(
         `INSERT INTO reservations
             (request_id, item_id, unit_id, reserved_by, notes, branch_id)
          VALUES ($1, $2, $3, $4, $5, $6)
@@ -249,8 +273,14 @@ const getReservationsByRequest = async (requestId) => {
     return result.rows;
 };
 
-const updateReservationStatus = async (reservationId, status, releasedAt = null) => {
-    const result = await pool.query(
+/**
+ * Accepts an optional transaction client as the 4th arg — defaults to the
+ * shared pool. Must be passed through when called inside
+ * releaseRequest/rejectRequest/markReceived's transactions so this write
+ * participates in COMMIT/ROLLBACK.
+ */
+const updateReservationStatus = async (reservationId, status, releasedAt = null, dbClient = pool) => {
+    const result = await dbClient.query(
         `UPDATE reservations SET
             status      = $1,
             released_at = COALESCE($2, released_at)

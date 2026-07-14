@@ -4,6 +4,7 @@ const bloodCollectionModel = require('../repositories/bloodCollectionModel');
 const BusinessError      = require('../../utils/businessError');
 const ROLES              = require('../../constants/roles');
 const { invalidateCache } = require('../cache/cacheService');
+const { SEPARATION_VOLUME_ML } = require('../../constants/inventoryRulesConstant');
 const {
     assertNotTerminal,
     assertReasonProvided,
@@ -50,7 +51,9 @@ const updateUnitStatus = async (unitId, status, reason, updatedBy) => {
 
 /**
  * Separate a whole blood unit into 3 component collections.
- * ...(unchanged docblock)...
+ * Each component gets a fixed volume_ml from SEPARATION_VOLUME_ML — see
+ * constants/inventoryRulesConstant.js for the values and why they're fixed
+ * rather than computed from the source unit's own volume_ml.
  */
 const separateUnit = async (unitId, staffUser) => {
     const unit = await bloodUnitModel.getUnitById(unitId);
@@ -74,7 +77,7 @@ const separateUnit = async (unitId, staffUser) => {
         }
     }
 
-    // Fetch expiry days for each component from component_expiry_days table
+    // Fetch expiry days + fixed split volume for each component
     const componentData = [];
     for (const component of SEPARATION_COMPONENTS) {
         const row = await bloodCollectionModel.getExpiryDays(component);
@@ -84,7 +87,16 @@ const separateUnit = async (unitId, staffUser) => {
                 500
             );
         }
-        componentData.push({ component, expiry_days: row.expiry_days });
+
+        const volume_ml = SEPARATION_VOLUME_ML[component];
+        if (!volume_ml) {
+            throw new BusinessError(
+                `Separation volume not configured for component: ${component}`,
+                500
+            );
+        }
+
+        componentData.push({ component, expiry_days: row.expiry_days, volume_ml });
     }
 
     // Run as a transaction — both steps must succeed or both roll back

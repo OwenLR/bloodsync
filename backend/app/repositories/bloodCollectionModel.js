@@ -4,6 +4,9 @@ const getAllCollections = async () => {
     const result = await pool.query(
         `SELECT
             bc.collection_id,
+            bc.donation_id,
+            bc.branch_id,
+            bc.drive_id,
             bc.blood_type,
             bc.component,
             bc.volume_ml,
@@ -35,6 +38,9 @@ const getCollectionById = async (id) => {
     const result = await pool.query(
         `SELECT
             bc.collection_id,
+            bc.donation_id,
+            bc.branch_id,
+            bc.drive_id,
             bc.blood_type,
             bc.component,
             bc.volume_ml,
@@ -49,6 +55,7 @@ const getCollectionById = async (id) => {
             bc.approved_at,
             bc.rejected_at,
             bc.rejection_reason,
+            dn.extraction_time_seconds,
             d.donor_id,
             d.first_name,
             d.last_name,
@@ -73,6 +80,9 @@ const getCollectionsByBranch = async (branch_id) => {
     const result = await pool.query(
         `SELECT
             bc.collection_id,
+            bc.donation_id,
+            bc.branch_id,
+            bc.drive_id,
             bc.blood_type,
             bc.component,
             bc.volume_ml,
@@ -98,6 +108,22 @@ const getCollectionsByBranch = async (branch_id) => {
         [branch_id]
     );
     return result.rows;
+};
+
+// ADD, after getCollectionsByBranch:
+
+/**
+ * Used by donorCycleService to determine whether a donation's cycle has
+ * reached the collection step yet.
+ */
+const getCollectionByDonationId = async (donation_id) => {
+    const result = await pool.query(
+        `SELECT collection_id, donation_id, status
+         FROM blood_collections
+         WHERE donation_id = $1`,
+        [donation_id]
+    );
+    return result.rows[0];
 };
 
 const createCollection = async (data) => {
@@ -174,19 +200,23 @@ const getExpiryDays = async (component) => {
 
 /**
  * Insert 3 derived blood collection rows from a separated whole blood unit.
- * Each row gets a fresh expiry date computed from today + component expiry days.
+ * Each row gets a fresh expiry date computed from today + component expiry days,
+ * and a fixed volume_ml per component (SEPARATION_VOLUME_ML in
+ * constants/inventoryRulesConstant.js — passed in via the `components` array
+ * from bloodUnitService.js's separateUnit(), which sums to
+ * WHOLE_BLOOD_VOLUME_ML/450 across all 3 components).
  * source_unit_id links back to the original whole blood unit for traceability.
  *
  * @param {object} client - pg transaction client
  * @param {object} sourceUnit - the original whole blood unit row
- * @param {Array<{ component: string, expiry_days: number }>} components
+ * @param {Array<{ component: string, expiry_days: number, volume_ml: number }>} components
  * @param {number} separatedBy - user_id of the staff performing separation
  * @returns {Promise<object[]>} the 3 inserted collection rows
  */
 const createDerivedCollections = async (client, sourceUnit, components, separatedBy) => {
     const inserted = [];
 
-    for (const { component, expiry_days } of components) {
+    for (const { component, expiry_days, volume_ml } of components) {
         const result = await client.query(
             `INSERT INTO blood_collections (
                 donation_id,
@@ -213,7 +243,7 @@ const createDerivedCollections = async (client, sourceUnit, components, separate
                 separatedBy,
                 sourceUnit.blood_type,
                 component,
-                sourceUnit.volume_ml,
+                volume_ml,
                 expiry_days,
                 sourceUnit.drive_id,
                 sourceUnit.unit_id,
@@ -229,6 +259,7 @@ module.exports = {
     getAllCollections,
     getCollectionById,
     getCollectionsByBranch,
+    getCollectionByDonationId,
     createCollection,
     updateCollectionStatus,
     getExpiryDays,

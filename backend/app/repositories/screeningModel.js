@@ -88,10 +88,12 @@ const getScreeningsByDonor = async (donor_id) => {
     return result.rows;
 };
 
-// Used by screeningService to prevent duplicate screening per interview
+// Used by screeningService to prevent duplicate screening per interview,
+// and by donorCycleService to compute walk-in cycle status/cooldowns
+// (needs created_at for that second use).
 const getScreeningByInterviewId = async (interview_id) => {
     const result = await pool.query(
-        `SELECT screening_id, interview_id, screening_result
+        `SELECT screening_id, interview_id, screening_result, created_at
          FROM screening
          WHERE interview_id = $1`,
         [interview_id]

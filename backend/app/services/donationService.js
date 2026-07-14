@@ -21,6 +21,7 @@ const donorModel      = require('../repositories/donorModel');
 const deferralModel   = require('../repositories/deferralModel');
 const BusinessError   = require('../../utils/businessError');
 const { checkHemoglobinEligibility } = require('../domain/donorEligibility');
+const { evaluateExtractionTime } = require('../domain/donationRules');
 const ROLES = require('../../constants/roles');
 
 const FIELD_ROLES = [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST];
@@ -39,7 +40,7 @@ const createDonation = async (data, user_id, reqUser, reqDriveId) => {
         phlebotomist_id,
         reaction_notes,
         blood_volume_ml,
-        extraction_time,
+        extraction_time_seconds,
     } = data;
 
     // ── Screening validation ──────────────────────────────────────────────────
@@ -122,8 +123,14 @@ const createDonation = async (data, user_id, reqUser, reqDriveId) => {
     }
 
     // ── QNS detection ─────────────────────────────────────────────────────────
-    const extractionMinutes = extraction_time ? parseInt(extraction_time, 10) : null;
-    const isQns = extractionMinutes !== null && extractionMinutes > 15;
+    // FIX: previously reimplemented this check inline with a hardcoded 15,
+    // instead of using evaluateExtractionTime (which already existed in
+    // donationRules.js and derives its threshold from
+    // medicalRules.js/EXTRACTION.MAX_DURATION_MINUTES). Same class of bug
+    // as the frontend hardcoding fixed earlier — now there's exactly one
+    // place this threshold lives.
+    const extractionSeconds = extraction_time_seconds ? parseInt(extraction_time_seconds, 10) : null;
+    const { is_qns: isQns, qns_reason: qnsReason } = evaluateExtractionTime(extractionSeconds);
 
     // ── Create record ─────────────────────────────────────────────────────────
     const donation = await donationModel.createDonation({
@@ -133,12 +140,10 @@ const createDonation = async (data, user_id, reqUser, reqDriveId) => {
         extracted_by:            user_id,
         phlebotomist_id:         resolvedPhlebotomistId,
         blood_volume_ml:         blood_volume_ml || 450,
-        extraction_time_minutes: extractionMinutes,
+        extraction_time_seconds: extractionSeconds,
         reaction_notes:          reaction_notes || null,
         is_qns:                  isQns,
-        qns_reason:              isQns
-            ? `Extraction time ${extractionMinutes} min exceeded 15 min threshold`
-            : null,
+        qns_reason:              qnsReason,
         drive_id:                screening.drive_id || null,
     });
 

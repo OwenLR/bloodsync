@@ -100,14 +100,28 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label for="input-extraction-time">Extraction Time (minutes) <span class="required-mark">*</span></label>
-                <input
-                  id="input-extraction-time"
-                  type="number" min="1" max="120" step="1"
-                  class="form-input"
-                  placeholder="e.g. 10"
-                />
-                <span class="field-hint">Enter whole minutes only. Normal extraction takes up to 15 minutes.</span>
+                <label>Extraction Time <span class="required-mark">*</span></label>
+                <div class="extraction-time-inputs">
+                  <div class="extraction-time-field">
+                    <input
+                      id="input-extraction-minutes"
+                      type="number" min="0" max="120" step="1"
+                      class="form-input"
+                      placeholder="0"
+                    />
+                    <span class="extraction-time-unit">min</span>
+                  </div>
+                  <div class="extraction-time-field">
+                    <input
+                      id="input-extraction-seconds"
+                      type="number" min="0" max="59" step="1"
+                      class="form-input"
+                      placeholder="0"
+                    />
+                    <span class="extraction-time-unit">sec</span>
+                  </div>
+                </div>
+                <span class="field-hint">Normal extraction takes up to 15 minutes.</span>
                 <span id="error-extraction-time" class="field-error field-error-hidden"></span>
               </div>
             </div>
@@ -179,28 +193,26 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label for="input-component">Blood Component <span class="required-mark">*</span></label>
-                <select id="input-component" class="form-input">
-                  <option value="Whole Blood">Whole Blood</option>
-                  <option value="Packed Red Blood Cells">Packed Red Blood Cells</option>
-                  <option value="Platelets">Platelets</option>
-                  <option value="Fresh Frozen Plasma">Fresh Frozen Plasma</option>
+                <label for="input-component">Blood Component</label>
+                <select id="input-component" class="form-input" disabled>
+                  <option value="Whole Blood" selected>Whole Blood</option>
                 </select>
-                <span class="field-hint">Defaults to Whole Blood. Change only if applicable.</span>
+                <span class="field-hint">Always Whole Blood at collection time. Separation into components (PRBC / Platelets / FFP) happens later, as its own step on the Blood Separation page.</span>
                 <span id="error-component" class="field-error field-error-hidden"></span>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label for="input-volume-ml">Volume (mL) <span class="required-mark">*</span></label>
+                <label for="input-volume-ml">Volume (mL)</label>
                 <input
                   id="input-volume-ml"
-                  type="number" min="50" max="600"
+                  type="number"
                   class="form-input"
-                  placeholder="450"
+                  value="450"
+                  disabled
                 />
-                <span class="field-hint">Default: 450 mL. Accepted range: 50–600 mL.</span>
+                <span class="field-hint">Fixed at 450 mL per standard single-donation protocol.</span>
                 <span id="error-volume-ml" class="field-error field-error-hidden"></span>
               </div>
             </div>

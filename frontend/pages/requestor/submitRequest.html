@@ -34,6 +34,12 @@
             aria-live="polite"
           ></div>
 
+          <!-- Desktop: tabs show every component at once (≥768px). -->
+          <div id="component-tabs" class="component-tabs"></div>
+
+          <!-- Mobile: carousel with prev/next arrows (<768px). Same
+               underlying state as the tabs above — see bloodRequests.css
+               for the breakpoint that swaps which one is visible. -->
           <div class="component-carousel">
             <button
               type="button"
@@ -125,8 +131,13 @@
             </div>
 
             <div class="form-field">
-              <label for="patient-age">Patient Age (optional)</label>
-              <input type="number" id="patient-age" min="0" />
+              <label for="patient-birthdate">Patient Birthdate</label>
+              <input type="date" id="patient-birthdate" required />
+              <div
+                id="error-patientBirthdate"
+                class="field-error"
+                aria-live="polite"
+              ></div>
             </div>
 
             <div class="form-field">

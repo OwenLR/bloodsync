@@ -64,11 +64,21 @@ const validateItems = (items, errors) => {
 
 const validateCreateRequest = (data) => {
     const errors = [];
-    const { hospital_id, branch_id, patient_name, urgency_level, items } = data;
+    const { hospital_id, branch_id, patient_name, patient_age, urgency_level, items } = data;
 
     if (!hospital_id)   errors.push('hospital_id is required');
     if (!branch_id)     errors.push('branch_id is required');
     if (!patient_name || patient_name.trim() === '') errors.push('patient_name is required');
+
+    // patient_age is now required — frontend collects birthdate and computes
+    // age client-side (bloodRequestSubmitUI.js), sending the computed value
+    // here. Backend still enforces it as required/valid independent of the
+    // frontend, same pattern as every other required field in this validator.
+    if (patient_age === undefined || patient_age === null || patient_age === '') {
+        errors.push('patient_age is required');
+    } else if (!Number.isInteger(Number(patient_age)) || Number(patient_age) < 0) {
+        errors.push('patient_age must be a non-negative whole number');
+    }
 
     if (urgency_level && !URGENCY_LEVELS.includes(urgency_level)) {
         errors.push(`urgency_level must be one of: ${URGENCY_LEVELS.join(', ')}`);

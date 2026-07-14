@@ -146,6 +146,30 @@ jump to it before Drive pages.
   Note: this only affects PDFs — image files (jpeg/png) already preview
   fine inline via `<img>`, since `res.cloudinary.com` is already in
   `imgSrc`; only PDFs currently require the new-tab link.
+- Donor walk-in (Staff/Admin, non-drive) cycle eligibility is chain-aware,
+  not "any record exists." A shared state machine
+  (backend: domain/donorCycleRules.js + services/donorCycleService.js,
+  exposed via GET /api/donors/:donor_id/cycle-status; frontend mirror:
+  features/fieldWorkflow/donorCycleStatus.js) walks
+  interview -> screening -> donation -> collection and returns one of:
+  available, resume_interview, proceed_screening, proceed_donation,
+  proceed_collection, cooldown. Used by donorInterview.js, donorScreening.js,
+  and donorDonation.js for both dropdown eligibility filtering and
+  per-donor "already done" checks. Volunteer/Phlebotomist drive-scoped
+  behavior is a SEPARATE, already-correct mechanism (drive_id scoping) and
+  is deliberately untouched by this system — do not merge the two.
+- DEFERRAL_COOLDOWN_HOURS (currently 24, temporary policy value) —
+  constants/deferralRules.js, mirrored frontend/backend like
+  medicalRules.js. Gates how long a walk-in donor stays blocked after a
+  deferral/QNS before the cycle-status system marks them 'available'
+  again. Change in exactly one place per layer.
+- Rate limiting (upstashRateLimiter.js): general API traffic is keyed by
+  authenticated user_id (falls back to IP only for unauthenticated
+  requests), 300 requests/1 minute. Login stays IP-keyed, 5/15min,
+  unchanged — a login request has no token to key on, and IP-based
+  brute-force protection is correct there specifically. Do not revert the
+  general limiter to IP-keying or a 15-minute window — see gochas.md #66
+  for why that combination breaks normal multi-page-navigation usage.
 
 ## Role Responsibilities (FINAL)
 | Role | Donation Workflow | Management |

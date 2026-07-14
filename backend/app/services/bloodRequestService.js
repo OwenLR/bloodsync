@@ -9,6 +9,22 @@
  *
  * Status transitions validated by domain before any DB write.
  * Socket event emitted to requestor's private room on every status change.
+ *
+ * TRANSACTION NOTE: approveRequest, releaseRequest, rejectRequest, and
+ * markReceived all mutate multiple rows across blood_units, reservations,
+ * blood_requests, and request_status_logs. Every write inside these
+ * functions must use the local `client` (from pool.connect()) rather than
+ * the shared `pool` — passing `client` explicitly into
+ * bloodUnitModel.updateUnitStatus / bloodRequestModel.createReservation /
+ * updateItemFulfilled / updateRequestStatus / createStatusLog /
+ * updateReservationStatus. All of those model functions accept the
+ * transaction client as an optional final argument, defaulting to `pool`
+ * for other (non-transactional) callers like the Blood Units Dispose/
+ * Withdraw actions. Without this, a partial failure mid-function leaves
+ * a ROLLBACK with nothing to undo, since the earlier writes already
+ * committed on separate pooled connections — this was the root cause of
+ * a unit getting stuck at status='Reserved' with no matching reservation
+ * row after a failed approve attempt.
  */
 
 const pool              = require('../../config/db');
@@ -62,6 +78,16 @@ const createRequest = async (data, items, userId) => {
         urgency_level: data.urgency_level,
     }).catch((err) => console.error('notifyNewBloodRequest failed:', err));
 
+    // Fire and forget — separate from the staff notification above.
+    // bloodsync.md #32-33: confirms to the requestor that their submission
+    // itself was received. Independent try/catch from notifyNewBloodRequest
+    // so a failure in one email never blocks or masks the other.
+    notificationService.notifyRequestorSubmission({
+        request_id:   request.request_id,
+        user_id:      userId,
+        patient_name: data.patient_name,
+    }).catch((err) => console.error('notifyRequestorSubmission failed:', err));
+
     return { request, items: createdItems };
 };
 
@@ -70,6 +96,8 @@ const createRequest = async (data, items, userId) => {
 /**
  * Approve a blood request and auto-assign blood units (FEFO, multi-branch aware).
  * Uses SELECT FOR UPDATE to prevent race conditions.
+ * All writes go through `client` so the whole approval is atomic — see the
+ * TRANSACTION NOTE at the top of this file.
  */
 const approveRequest = async (requestId, staffId) => {
     const client = await pool.connect();
@@ -148,7 +176,7 @@ const approveRequest = async (requestId, staffId) => {
             }
 
             for (const unit of availableUnits) {
-                await bloodUnitModel.updateUnitStatus(unit.unit_id, 'Reserved');
+                await bloodUnitModel.updateUnitStatus(unit.unit_id, 'Reserved', null, null, client);
                 const reservation = await bloodRequestModel.createReservation({
                     request_id:  requestId,
                     item_id:     item.item_id,
@@ -156,18 +184,19 @@ const approveRequest = async (requestId, staffId) => {
                     reserved_by: staffId,
                     branch_id:   unit.branch_id,
                     notes:       null,
-                });
+                }, client);
                 reservations.push(reservation);
             }
 
             await bloodRequestModel.updateItemFulfilled(
                 item.item_id,
-                availableUnits.length
+                availableUnits.length,
+                client
             );
         }
 
         const updated = await bloodRequestModel.updateRequestStatus(
-            requestId, 'Approved', staffId
+            requestId, 'Approved', staffId, null, client
         );
 
         await bloodRequestModel.createStatusLog({
@@ -177,7 +206,7 @@ const approveRequest = async (requestId, staffId) => {
             changed_by_type: 'staff',
             changed_by_id:   staffId,
             notes:           'Request approved and blood units reserved',
-        });
+        }, client);
 
         await client.query('COMMIT');
 
@@ -207,6 +236,8 @@ const approveRequest = async (requestId, staffId) => {
  * Staff marks units as ready for pickup — Approved → Waiting.
  * Units stay Reserved. Request moves to Waiting so the requestor
  * knows they can come collect.
+ * No unit/reservation status changes here (units stay Reserved), so no
+ * transaction is needed beyond the two model writes below.
  */
 const markReadyForPickup = async (requestId, staffId) => {
     const request = await bloodRequestModel.getRequestById(requestId);
@@ -243,46 +274,69 @@ const markReadyForPickup = async (requestId, staffId) => {
  * Staff manually releases — Waiting → Released.
  * Used when requestor failed to click "already received" or staff
  * is handling it directly.
+ * Wrapped in a transaction — see TRANSACTION NOTE at top of file. A
+ * partial failure partway through the reservations loop would otherwise
+ * leave some units flipped to Released and others still Reserved, with
+ * no way to roll back the ones that already committed.
  */
 const releaseRequest = async (requestId, staffId) => {
-    const request = await bloodRequestModel.getRequestById(requestId);
-    if (!request) throw new BusinessError('Blood request not found', 404);
+    const client = await pool.connect();
 
-    assertValidTransition(request.status, 'Released');
+    try {
+        await client.query('BEGIN');
 
-    const reservations = await bloodRequestModel.getReservationsByRequest(requestId);
-
-    for (const reservation of reservations) {
-        await bloodUnitModel.updateUnitStatus(reservation.unit_id, 'Released');
-        await bloodRequestModel.updateReservationStatus(
-            reservation.reservation_id, 'Released', new Date()
+        const lockResult = await client.query(
+            `SELECT * FROM blood_requests WHERE request_id = $1 FOR UPDATE`,
+            [requestId]
         );
+
+        const request = lockResult.rows[0];
+        if (!request) throw new BusinessError('Blood request not found', 404);
+
+        assertValidTransition(request.status, 'Released');
+
+        const reservations = await bloodRequestModel.getReservationsByRequest(requestId);
+
+        for (const reservation of reservations) {
+            await bloodUnitModel.updateUnitStatus(reservation.unit_id, 'Released', null, null, client);
+            await bloodRequestModel.updateReservationStatus(
+                reservation.reservation_id, 'Released', new Date(), client
+            );
+        }
+
+        const updated = await bloodRequestModel.updateRequestStatus(
+            requestId, 'Released', staffId, null, client
+        );
+
+        await bloodRequestModel.createStatusLog({
+            request_id:      requestId,
+            old_status:      'Waiting',
+            new_status:      'Released',
+            changed_by_type: 'staff',
+            changed_by_id:   staffId,
+            notes:           'Blood units released to requestor by staff',
+        }, client);
+
+        await client.query('COMMIT');
+
+        await invalidateCache(AVAILABILITY_CACHE_KEY);
+        await invalidateCache(INVENTORY_CACHE_KEY);
+
+        notificationService.notifyRequestStatusChange({
+            request_id:   requestId,
+            user_id:      request.user_id,
+            new_status:   'Released',
+            patient_name: request.patient_name,
+        }).catch((err) => console.error('notifyRequestStatusChange failed:', err));
+
+        return updated;
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
     }
-
-    const updated = await bloodRequestModel.updateRequestStatus(
-        requestId, 'Released', staffId
-    );
-
-    await bloodRequestModel.createStatusLog({
-        request_id:      requestId,
-        old_status:      'Waiting',
-        new_status:      'Released',
-        changed_by_type: 'staff',
-        changed_by_id:   staffId,
-        notes:           'Blood units released to requestor by staff',
-    });
-
-    await invalidateCache(AVAILABILITY_CACHE_KEY);
-    await invalidateCache(INVENTORY_CACHE_KEY);
-
-    notificationService.notifyRequestStatusChange({
-        request_id:   requestId,
-        user_id:      request.user_id,
-        new_status:   'Released',
-        patient_name: request.patient_name,
-    }).catch((err) => console.error('notifyRequestStatusChange failed:', err));
-
-    return updated;
 };
 
 // ─── Mark Received (requestor-triggered) ─────────────────────────────────────
@@ -291,88 +345,132 @@ const releaseRequest = async (requestId, staffId) => {
  * Requestor confirms they have received the blood units — Waiting → Released.
  * Same unit status flip as releaseRequest but logged as 'requestor' not 'staff'.
  * Only allowed when status is Waiting — enforced by assertValidTransition.
+ * Wrapped in a transaction — same reasoning as releaseRequest above.
  */
 const markReceived = async (requestId, userId) => {
-    const request = await bloodRequestModel.getRequestById(requestId);
-    if (!request) throw new BusinessError('Blood request not found', 404);
+    const client = await pool.connect();
 
-    // Scope check — requestor can only mark their own request
-    if (request.user_id !== userId) {
-        throw new BusinessError('Not authorized to update this request', 403);
-    }
+    try {
+        await client.query('BEGIN');
 
-    assertValidTransition(request.status, 'Released');
-
-    const reservations = await bloodRequestModel.getReservationsByRequest(requestId);
-
-    for (const reservation of reservations) {
-        await bloodUnitModel.updateUnitStatus(reservation.unit_id, 'Released');
-        await bloodRequestModel.updateReservationStatus(
-            reservation.reservation_id, 'Released', new Date()
+        const lockResult = await client.query(
+            `SELECT * FROM blood_requests WHERE request_id = $1 FOR UPDATE`,
+            [requestId]
         );
+
+        const request = lockResult.rows[0];
+        if (!request) throw new BusinessError('Blood request not found', 404);
+
+        // Scope check — requestor can only mark their own request
+        if (request.user_id !== userId) {
+            throw new BusinessError('Not authorized to update this request', 403);
+        }
+
+        assertValidTransition(request.status, 'Released');
+
+        const reservations = await bloodRequestModel.getReservationsByRequest(requestId);
+
+        for (const reservation of reservations) {
+            await bloodUnitModel.updateUnitStatus(reservation.unit_id, 'Released', null, null, client);
+            await bloodRequestModel.updateReservationStatus(
+                reservation.reservation_id, 'Released', new Date(), client
+            );
+        }
+
+        const updated = await bloodRequestModel.updateRequestStatus(
+            requestId, 'Released', userId, null, client
+        );
+
+        await bloodRequestModel.createStatusLog({
+            request_id:      requestId,
+            old_status:      'Waiting',
+            new_status:      'Released',
+            changed_by_type: 'requestor',
+            changed_by_id:   userId,
+            notes:           'Requestor confirmed receipt of blood units',
+        }, client);
+
+        await client.query('COMMIT');
+
+        await invalidateCache(AVAILABILITY_CACHE_KEY);
+        await invalidateCache(INVENTORY_CACHE_KEY);
+
+        return updated;
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
     }
-
-    const updated = await bloodRequestModel.updateRequestStatus(
-        requestId, 'Released', userId
-    );
-
-    await bloodRequestModel.createStatusLog({
-        request_id:      requestId,
-        old_status:      'Waiting',
-        new_status:      'Released',
-        changed_by_type: 'requestor',
-        changed_by_id:   userId,
-        notes:           'Requestor confirmed receipt of blood units',
-    });
-
-    await invalidateCache(AVAILABILITY_CACHE_KEY);
-    await invalidateCache(INVENTORY_CACHE_KEY);
-
-    return updated;
 };
 
 // ─── Reject ───────────────────────────────────────────────────────────────────
 
+/**
+ * Wrapped in a transaction — same reasoning as releaseRequest. A partial
+ * failure mid-loop here previously could leave some units flipped back to
+ * Available while the request itself never updated to Rejected.
+ */
 const rejectRequest = async (requestId, staffId, denialReason) => {
-    const request = await bloodRequestModel.getRequestById(requestId);
-    if (!request) throw new BusinessError('Blood request not found', 404);
+    const client = await pool.connect();
 
-    assertValidTransition(request.status, 'Rejected');
+    try {
+        await client.query('BEGIN');
 
-    const reservations = await bloodRequestModel.getReservationsByRequest(requestId);
-
-    for (const reservation of reservations) {
-        await bloodUnitModel.updateUnitStatus(reservation.unit_id, 'Available');
-        await bloodRequestModel.updateReservationStatus(
-            reservation.reservation_id, 'Cancelled'
+        const lockResult = await client.query(
+            `SELECT * FROM blood_requests WHERE request_id = $1 FOR UPDATE`,
+            [requestId]
         );
+
+        const request = lockResult.rows[0];
+        if (!request) throw new BusinessError('Blood request not found', 404);
+
+        assertValidTransition(request.status, 'Rejected');
+
+        const reservations = await bloodRequestModel.getReservationsByRequest(requestId);
+
+        for (const reservation of reservations) {
+            await bloodUnitModel.updateUnitStatus(reservation.unit_id, 'Available', null, null, client);
+            await bloodRequestModel.updateReservationStatus(
+                reservation.reservation_id, 'Cancelled', null, client
+            );
+        }
+
+        const updated = await bloodRequestModel.updateRequestStatus(
+            requestId, 'Rejected', staffId, denialReason, client
+        );
+
+        await bloodRequestModel.createStatusLog({
+            request_id:      requestId,
+            old_status:      request.status, // Pending, Approved, or Waiting
+            new_status:      'Rejected',
+            changed_by_type: 'staff',
+            changed_by_id:   staffId,
+            notes:           denialReason,
+        }, client);
+
+        await client.query('COMMIT');
+
+        await invalidateCache(AVAILABILITY_CACHE_KEY);
+        await invalidateCache(INVENTORY_CACHE_KEY);
+
+        notificationService.notifyRequestStatusChange({
+            request_id:   requestId,
+            user_id:      request.user_id,
+            new_status:   'Rejected',
+            patient_name: request.patient_name,
+            reason:       denialReason,
+        }).catch((err) => console.error('notifyRequestStatusChange failed:', err));
+
+        return updated;
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
     }
-
-    const updated = await bloodRequestModel.updateRequestStatus(
-        requestId, 'Rejected', staffId, denialReason
-    );
-
-    await bloodRequestModel.createStatusLog({
-        request_id:      requestId,
-        old_status:      request.status, // Pending, Approved, or Waiting
-        new_status:      'Rejected',
-        changed_by_type: 'staff',
-        changed_by_id:   staffId,
-        notes:           denialReason,
-    });
-
-    await invalidateCache(AVAILABILITY_CACHE_KEY);
-    await invalidateCache(INVENTORY_CACHE_KEY);
-
-    notificationService.notifyRequestStatusChange({
-        request_id:   requestId,
-        user_id:      request.user_id,
-        new_status:   'Rejected',
-        patient_name: request.patient_name,
-        reason:       denialReason,
-    }).catch((err) => console.error('notifyRequestStatusChange failed:', err));
-
-    return updated;
 };
 
 // ─── Cancel (requestor self-cancel) ──────────────────────────────────────────
@@ -380,6 +478,9 @@ const rejectRequest = async (requestId, staffId, denialReason) => {
 /**
  * Requestor can cancel their own Pending request only.
  * Once Approved, only staff can reject.
+ * No units are ever reserved on a Pending request, so there's nothing to
+ * roll back beyond the single UPDATE already inside bloodRequestModel's
+ * cancelRequest — no transaction needed here.
  */
 const cancelRequest = async (requestId, userId) => {
     const cancelled = await bloodRequestModel.cancelRequest(requestId, userId);

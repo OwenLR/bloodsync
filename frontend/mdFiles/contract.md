@@ -71,7 +71,7 @@ PATCH /:id/received, OR staff manually releases via PATCH /:id/status.
 | blood_pressure | NNN/NN format e.g. 120/80 |
 | datetime fields | ISO 8601 e.g. 2025-10-01T08:00:00+08:00 |
 | answer values | exactly "YES" or "NO" — uppercase, backend rejects lowercase |
-| extraction_time | whole minutes only — Math.round() before sending |
+| extraction_time_seconds | TOTAL seconds (minutes*60 + seconds) — collected as two separate minutes/seconds inputs on the frontend and combined before sending. Supersedes the old whole-minutes-only extraction_time field (gochas.md #63). |
 | hemoglobin | Male 13.0–20.0, Female 12.5–20.0 g/dL |
 
 ---
@@ -265,6 +265,21 @@ Workflow dropdown filtering (frontend cross-reference, all 4 steps):
 - Collection: now merged into Donation page (donorDonation.html)
 Staff walk-in (drive_id=null): show all donors — not scoped to a drive
 
+### GET /api/donors/:donor_id/cycle-status  [Admin, Staff, Vol, Phleb]
+Walk-in (Staff/Admin, non-drive) cycle status only — resolves whether the
+donor's most recent non-drive interview->screening->donation->collection
+chain is in progress, in a deferral cooldown, or free to restart. Not
+meaningful for Volunteer/Phlebotomist drive-scoped flows, which use a
+separate, already-correct drive_id-scoped mechanism instead.
+Response: `{ state, ...contextual fields }` where state is one of:
+  `available` | `resume_interview` | `proceed_screening` |
+  `proceed_donation` | `proceed_collection` | `cooldown`
+`cooldown` responses additionally include `retryAt` (ISO timestamp) and
+`step` (`interview`|`screening`|`donation`). See donorCycleRules.js
+(backend) / donorCycleStatus.js (frontend) for the full state machine.
+⚠ Registered AFTER /:id to avoid route-shadowing concerns — two path
+  segments, same precedent as PATCH /:id/contact.
+
 ---
 
 ## Interview Endpoints
@@ -325,15 +340,21 @@ If screening_result = Deferred → deferral record created automatically
 ### GET /api/donations/:id  [All roles]
 Response fields: `donation_id`, `donor_id`, `first_name`, `last_name`, `blood_type`,
   `screening_id`, `screening_result`, `hemoglobin`, `blood_type_confirmed`,
-  `extraction_date`, `blood_volume_ml`, `extraction_time_minutes`, `reaction_notes`,
+  `extraction_date`, `blood_volume_ml`, `extraction_time_seconds`, `reaction_notes`,
   `is_qns`, `qns_reason`, `branch_id`, `branch_name`, `drive_id`, `created_at`,
   `extracted_by`, `extracted_by_first`, `extracted_by_last`,
   `phlebotomist_id`, `phlebotomist_first`, `phlebotomist_last`
 
 ### POST /api/donations  [All roles — Vol/Phleb need active drive]
-Request: `screening_id`, `extraction_time`, `phlebotomist_id` (optional)
-⚠ extraction_time = whole minutes only
-⚠ extraction_time > 15 → is_qns: true (set automatically)
+Request: `screening_id`, `extraction_time_seconds`, `phlebotomist_id` (optional)
+⚠ extraction_time_seconds = TOTAL seconds (minutes*60 + seconds), not whole
+  minutes. Frontend collects minutes + seconds as two separate inputs and
+  combines them before sending — see fieldWorkflowValidation.js's
+  validateDonation(). Replaces the old extraction_time_minutes column/field
+  this session — see gochas.md #63.
+⚠ extraction_time_seconds > EXTRACTION.MAX_DURATION_MINUTES*60 (900s / 15min)
+  → is_qns: true (set automatically, via donationRules.js's
+  evaluateExtractionTime() — not a separate hardcoded check, see gochas.md #62)
 ⚠ Donor must have email on record — 400 if missing
 ⚠ phlebotomist_id: if drive active → must be assigned to that drive (role_id=6)
    If no drive (Staff walk-in) → any phlebotomist accepted
@@ -350,7 +371,9 @@ Request: `screening_id`, `extraction_time`, `phlebotomist_id` (optional)
 ### GET /api/blood-collections/:id  [Admin, Staff only]
 Response fields: `collection_id`, `blood_type`, `component`, `volume_ml`, `barcode`,
   `collection_date`, `expiration_date`, `status`, `is_qns`, `qns_reason`, `notes`,
-  `created_at`, `approved_at`, `rejected_at`, `rejection_reason`, `donor_id`,
+  `created_at`, `approved_at`, `rejected_at`, `rejection_reason`,
+  `extraction_time_seconds` (joined from the linked donation — added this
+  session, displayed on the Blood Collections detail modal), `donor_id`,
   `first_name`, `last_name`, `branch_name`, `collected_by_first`, `collected_by_last`,
   `approved_by_first`, `approved_by_last`,
   `source_unit_id` (nullable — set ONLY on collections created via

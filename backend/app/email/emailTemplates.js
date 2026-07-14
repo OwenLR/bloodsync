@@ -138,10 +138,30 @@ function adminWelcomeEmail({ name, email, password, role_name }) {
   `;
 }
 
+// Sent to the requestor immediately after POST /api/blood-requests succeeds.
+// bloodsync.md #32-33: confirms receipt of the submission itself — separate
+// from notifyRequestStatusChange's Approved/Waiting/Released/Rejected emails,
+// which cover what happens after staff review.
+function requestSubmittedEmail({ name, patient_name, request_id }) {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #c0392b;">Blood Request Submitted</h2>
+      <p>Hi ${name},</p>
+      <p>We've received your blood request for patient <strong>${patient_name}</strong> (Request #${request_id}).</p>
+      <p>Branch staff will review it shortly. You'll receive another email as soon as its status changes.</p>
+      <p style="color: #888; font-size: 13px;">
+        You can check the current status of this request anytime from the "My Requests" page in the app.
+      </p>
+      <p>— Philippine Red Cross Batangas</p>
+    </div>
+  `;
+}
+
 module.exports = {
   bloodDriveAssignmentEmail,
   donorPostExtractionEmail,
   inventoryLowEmail,
   inventoryExpiringEmail,
   adminWelcomeEmail,
+  requestSubmittedEmail, 
 };

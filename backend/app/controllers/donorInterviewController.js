@@ -1,4 +1,5 @@
 const donorInterviewModel = require('../repositories/donorInterviewModel');
+const donorCycleService   = require('../services/donorCycleService');
 const donorModel          = require('../repositories/donorModel');
 const response            = require('../../utils/responseHelper');
 const BusinessError       = require('../../utils/businessError');
@@ -59,7 +60,32 @@ const createInterview = async (req, res) => {
                     'Existing interview session resumed'
                 );
             }
-            throw new BusinessError('Interview already exists for this donor', 409);
+
+            // Drive-scoped (Volunteer/Phlebotomist): each blood drive is
+            // its own isolated cycle already. A completed interview
+            // within THIS drive always blocks a second one in the same
+            // drive — no cooldown, no chain check needed.
+            if (req.drive_id) {
+                throw new BusinessError(
+                    'Interview already exists for this donor in this blood drive',
+                    409
+                );
+            }
+
+            // Walk-in (Staff/Admin, drive_id null): a completed interview
+            // only blocks a NEW one if the donor's cycle since then is
+            // still mid-flight, or within the deferral cooldown. A donor
+            // who fully completed a past donation, or whose cooldown has
+            // expired, is free to start over.
+            const cycleStatus = await donorCycleService.getWalkInCycleStatus(req.body.donor_id);
+
+            if (cycleStatus.state !== 'available') {
+                throw new BusinessError(
+                    'This donor has an in-progress or recently deferred donation cycle. Check /api/donors/:donor_id/cycle-status for details.',
+                    409
+                );
+            }
+            // state === 'available' → fall through and create a fresh interview below
         }
 
         // branch_id is NEVER trusted from the client — resolved server-side:

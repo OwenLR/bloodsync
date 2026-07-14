@@ -24,28 +24,7 @@ async function init() {
 
   initModalCloseButtons();
 
-  // Show Register button in create modal footer only when form step is active
-  _wireCreateModalSubmitVisibility();
-
   await initDonorsPage(user);
-}
-
-function _wireCreateModalSubmitVisibility() {
-  const registerNewBtn = document.getElementById('create-register-new-btn');
-  const submitBtn      = document.getElementById('donor-create-submit');
-  const backBtn        = document.getElementById('create-back-btn');
-
-  if (registerNewBtn && submitBtn) {
-    registerNewBtn.addEventListener('click', () => {
-      submitBtn.style.display = '';
-    });
-  }
-
-  if (backBtn && submitBtn) {
-    backBtn.addEventListener('click', () => {
-      submitBtn.style.display = 'none';
-    });
-  }
 }
 
 init();

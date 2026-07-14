@@ -193,11 +193,22 @@ Deferred donor handling:
   Screening: interview-deferred donors excluded via _interviewMap
   Donation: already correct — only Eligible screenings shown
 
+  Walk-in (Staff/Admin) only — this session added a distinct cooldown
+  concept on top of the above: a deferred/QNS walk-in donor is blocked
+  from restarting for DEFERRAL_COOLDOWN_HOURS (constants/deferralRules.js,
+  mirrored both sides), then automatically becomes eligible again — NOT a
+  permanent block like the field-role behavior above, which is correctly
+  permanent-per-drive. See donorCycleRules.js / donorCycleStatus.js.
+
 SessionStorage chain:
   field_donor_id / field_donor_name → set by Registration, cleared by Interview
   field_interview_id / field_interview_donor_id → set by Interview, cleared by Screening
   field_screening_id / field_screening_donor_id → set by Screening, cleared by Donation
-  (Donation is last step — no further writes)
+  field_donation_id / field_donation_donor_id → set by Donation, cleared by Collection
+  (Collection is last step — no further writes. Donation->Collection is a
+  same-page transition, added this session as a fallback alongside the
+  in-memory _createdDonation reference — see gochas.md #65 for why the
+  fallback was needed.)
 
 ---
 

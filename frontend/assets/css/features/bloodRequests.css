@@ -37,12 +37,57 @@
   margin: 0.75rem 0 0;
 }
 
+/* ── Component switcher — tabs (desktop) vs carousel (mobile) ───────
+   No shared breakpoint convention exists yet anywhere in the app
+   (confirmed against main.css) — 768px is a new convention introduced
+   here. If a global breakpoint variable/pattern gets established later,
+   this should be updated to match it. */
+
+.component-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.component-tab-button {
+  padding: 0.6rem 1.25rem;
+  border: 2px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+}
+
+.component-tab-button--active {
+  border-color: var(--color-primary, #c0392b);
+  background: var(--color-primary-light, #fdecea);
+  color: var(--color-primary, #c0392b);
+}
+
 .component-carousel {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+/* Mobile-first: carousel is the default, tabs are hidden below 768px */
+.component-tabs {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .component-carousel {
+    display: none;
+  }
+  .component-tabs {
+    display: flex;
+  }
 }
 
 .component-title {
@@ -115,6 +160,21 @@
   margin: 0 0 1rem;
 }
 
+.fulfillment-loading-message {
+  color: var(--text-muted, #888);
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 1.5rem 0;
+  margin: 0;
+}
+
+.fulfillment-wait-estimate {
+  font-size: 0.9rem;
+  color: var(--color-primary, #c0392b);
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+
 .branch-options-list {
   display: flex;
   flex-direction: column;
@@ -171,6 +231,7 @@
 
 .form-field input[type="text"],
 .form-field input[type="number"],
+.form-field input[type="date"],
 .form-field select,
 .form-field textarea {
   width: 100%;

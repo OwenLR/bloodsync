@@ -5,6 +5,7 @@ const { verifyToken }       = require('../../middleware/authMiddleware');
 const { checkRole }         = require('../../middleware/roleMiddleware');
 const { requireBloodDrive } = require('../../middleware/bloodDriveMiddleware');
 const ROLES = require('../../constants/roles');
+const donorCycleController = require('../controllers/donorCycleController');
 
 const ALL_ROLES = [
     ROLES.ADMIN, ROLES.PRC_STAFF,
@@ -28,6 +29,17 @@ router.get('/:id',
     verifyToken,
     checkRole(ALL_ROLES),
     donorController.getDonorById
+);
+
+// Walk-in (Staff/Admin) donation-cycle status — resolves whether the
+// donor's most recent non-drive interview/screening/donation chain is
+// in progress, in a deferral cooldown, or free to restart. Not used for
+// Volunteer/Phlebotomist drive-scoped flows.
+// No route-shadowing risk vs GET /:id — two segments, not one.
+router.get('/:donor_id/cycle-status',
+    verifyToken,
+    checkRole(ALL_ROLES),
+    donorCycleController.getWalkInCycleStatus
 );
 
 // Write — Volunteers/Phlebotomists must be in an active blood drive

@@ -3,13 +3,14 @@ import { initSearchableDropdown } from '../../components/searchableDropdown.js';
 import { URGENCY_LEVEL }         from '../../constants/statusConstants.js';
 import { getAllHospitals }       from '../../features/hospitals/hospitalsApi.js';
 import { submitBloodRequest }    from './bloodRequestApi.js';
-import { validateSubmitForm }    from './bloodRequestValidation.js';
+import { validateSubmitForm, computeAgeFromBirthdate } from './bloodRequestValidation.js';
 
 const SKELETON_ID     = 'submit-skeleton';
 const FORM_ID         = 'submit-form';
 const SUCCESS_ID      = 'submit-success';
 const BACK_ID         = 'btn-submit-back';
 const SUBMIT_BTN_ID   = 'btn-submit-final';
+const BIRTHDATE_ID    = 'patient-birthdate';
 
 let _items       = null;
 let _branchId    = null;
@@ -35,6 +36,11 @@ export async function initSubmitStep(items, branchId, onBack) {
     _listenersBound = true;
   }
 
+  // Birthdate can't be in the future — same restriction bloodsync.md #41
+  // applies to donor birthdate calendars. Set fresh each entry into this
+  // step in case the page has been open across a date rollover.
+  document.getElementById(BIRTHDATE_ID).max = todayDateString();
+
   clearAllErrors();
   document.getElementById(FORM_ID).reset();
   document.getElementById('urgency-level').value = URGENCY_LEVEL.ROUTINE;
@@ -48,6 +54,14 @@ export async function initSubmitStep(items, branchId, onBack) {
     hideSkeleton();
     showToast(err.message, 'error');
   }
+}
+
+function todayDateString() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function populateUrgencyOptions() {
@@ -89,16 +103,17 @@ function handleSubmit(e) {
   e.preventDefault();
   clearAllErrors();
 
-  const patientName  = document.getElementById('patient-name').value.trim();
-  const patientAge   = document.getElementById('patient-age').value.trim();
-  const diagnosis    = document.getElementById('diagnosis').value.trim();
-  const urgencyLevel = document.getElementById('urgency-level').value;
-  const notes        = document.getElementById('notes').value.trim();
-  const file         = document.getElementById('request-form-file').files[0] || null;
+  const patientName      = document.getElementById('patient-name').value.trim();
+  const patientBirthdate = document.getElementById(BIRTHDATE_ID).value;
+  const diagnosis        = document.getElementById('diagnosis').value.trim();
+  const urgencyLevel     = document.getElementById('urgency-level').value;
+  const notes            = document.getElementById('notes').value.trim();
+  const file             = document.getElementById('request-form-file').files[0] || null;
 
   const errors = validateSubmitForm({
     hospital: _selectedHospital,
     patientName,
+    patientBirthdate,
     urgencyLevel,
     file,
   });
@@ -108,19 +123,21 @@ function handleSubmit(e) {
     return;
   }
 
-  submit({ patientName, patientAge, diagnosis, urgencyLevel, notes, file });
+  submit({ patientName, patientBirthdate, diagnosis, urgencyLevel, notes, file });
 }
 
-async function submit({ patientName, patientAge, diagnosis, urgencyLevel, notes, file }) {
+async function submit({ patientName, patientBirthdate, diagnosis, urgencyLevel, notes, file }) {
   const btn = document.getElementById(SUBMIT_BTN_ID);
   btn.disabled    = true;
   btn.textContent = 'Submitting…';
+
+  const patientAge = computeAgeFromBirthdate(patientBirthdate);
 
   const formData = new FormData();
   formData.append('hospital_id',   _selectedHospital.hospital_id);
   formData.append('branch_id',     _branchId);
   formData.append('patient_name',  patientName);
-  if (patientAge) formData.append('patient_age', patientAge);
+  formData.append('patient_age',   patientAge);
   if (diagnosis)  formData.append('diagnosis', diagnosis);
   formData.append('urgency_level', urgencyLevel);
   if (notes) formData.append('notes', notes);
@@ -155,7 +172,7 @@ function clearFieldError(field) {
 }
 
 function clearAllErrors() {
-  ['hospital', 'patientName', 'urgencyLevel', 'file'].forEach(clearFieldError);
+  ['hospital', 'patientName', 'patientBirthdate', 'urgencyLevel', 'file'].forEach(clearFieldError);
 }
 
 function showSkeleton() { document.getElementById(SKELETON_ID).style.display = ''; }

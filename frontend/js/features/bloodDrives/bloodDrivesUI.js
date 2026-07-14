@@ -121,7 +121,7 @@ export async function renderDrivesTable(user) {
 
     const btnStats = document.createElement('button');
     btnStats.className = 'btn-secondary btn-sm';
-    btnStats.textContent = 'Stats';
+    btnStats.textContent = 'Details';
     btnStats.addEventListener('click', () => openStatsModal(drive));
     tdActions.appendChild(btnStats);
 
@@ -647,37 +647,132 @@ async function handleAutoAssign() {
   assignBtn.textContent = 'Auto-assign';
 }
 
-// ─── Drive stats modal ────────────────────────────────────────────────────────
+// ─── Drive detail modal (About + Statistics tabs) ─────────────────────────────
 
 async function openStatsModal(drive) {
-  // Build a loading body first — open modal immediately, fill content after fetch
   const body = document.createElement('div');
-  body.id = 'stats-modal-body';
+  body.className = 'drive-detail-body';
 
-  // Render skeleton rows as placeholder while loading
-  for (let i = 0; i < 6; i++) {
-    const row = document.createElement('div');
-    row.style.cssText = 'height:14px;background:#eee;border-radius:2px;margin-bottom:8px;';
-    body.appendChild(row);
-  }
+  // Tab nav
+  const tabsNav = document.createElement('div');
+  tabsNav.className = 'drive-tabs-nav';
 
-  openModal(`Drive Stats - ${drive.name}`, body, [
+  const aboutBtn = document.createElement('button');
+  aboutBtn.type = 'button';
+  aboutBtn.className = 'drive-tab-btn drive-tab-btn--active';
+  aboutBtn.textContent = 'About';
+
+  const statsBtn = document.createElement('button');
+  statsBtn.type = 'button';
+  statsBtn.className = 'drive-tab-btn';
+  statsBtn.textContent = 'Statistics';
+
+  tabsNav.appendChild(aboutBtn);
+  tabsNav.appendChild(statsBtn);
+  body.appendChild(tabsNav);
+
+  // Panes
+  const aboutPane = document.createElement('div');
+  aboutPane.className = 'drive-tab-pane';
+
+  const statsPane = document.createElement('div');
+  statsPane.className = 'drive-tab-pane';
+  statsPane.style.display = 'none';
+
+  body.appendChild(aboutPane);
+  body.appendChild(statsPane);
+
+  const switchTab = (tab) => {
+    const isAbout = tab === 'about';
+    aboutBtn.classList.toggle('drive-tab-btn--active', isAbout);
+    statsBtn.classList.toggle('drive-tab-btn--active', !isAbout);
+    aboutPane.style.display = isAbout ? '' : 'none';
+    statsPane.style.display = isAbout ? 'none' : '';
+  };
+
+  aboutBtn.addEventListener('click', () => switchTab('about'));
+  statsBtn.addEventListener('click', () => switchTab('stats'));
+
+  openModal(drive.name, body, [
     { label: 'Close', className: 'btn-secondary', onClick: () => closeModal() },
   ]);
 
-  let stats;
+  // About tab — drive object from the list already has every field (contract.md
+  // GET /api/blood-drives response), no extra fetch needed.
+  renderAboutPane(drive, aboutPane);
+
+  // Statistics tab — fetch in the background regardless of which tab is active,
+  // so switching to Statistics is instant rather than triggering a fresh fetch.
+  renderStatsPaneSkeleton(statsPane);
   try {
-    stats = await getDriveStats(drive.drive_id);
+    const stats = await getDriveStats(drive.drive_id);
+    renderStatsPane(stats, statsPane);
   } catch (err) {
-    body.innerHTML = '';
+    statsPane.innerHTML = '';
     const p = document.createElement('p');
     p.style.color = '#c00';
     p.textContent = `Could not load stats: ${err.message}`;
-    body.appendChild(p);
-    return;
+    statsPane.appendChild(p);
+  }
+}
+
+function renderAboutPane(drive, container) {
+  container.innerHTML = '';
+
+  const venueParts   = [drive.venue_name, drive.building, drive.floor_room].filter(Boolean);
+  const addressParts = [drive.street_address, drive.city, drive.province, drive.postal_code].filter(Boolean);
+  const createdBy    = [drive.created_by_first, drive.created_by_last].filter(Boolean).join(' ');
+
+  const fields = [
+    ['Status',           drive.status || '-'],
+    ['Branch',           drive.branch_name || '-'],
+    ['Description',      drive.description || '-'],
+    ['Venue',            venueParts.length ? venueParts.join(', ') : '-'],
+    ['Venue Type',       drive.venue_type || '-'],
+    ['Address',          addressParts.length ? addressParts.join(', ') : '-'],
+    ['Date Range',       formatDateRange(drive.start_datetime, drive.end_datetime)],
+    ['Slots Available',  drive.slots_available ?? '-'],
+    ['Contact Person',   drive.contact_person || '-'],
+    ['Contact Number',   drive.contact_number || '-'],
+    ['Contact Email',    drive.contact_email || '-'],
+    ['Created By',       createdBy || '-'],
+  ];
+
+  // Only show cancellation details when actually cancelled
+  if (drive.status === 'Cancelled') {
+    const cancelledBy = [drive.cancelled_by_first, drive.cancelled_by_last].filter(Boolean).join(' ');
+    fields.push(
+      ['Cancelled By',         cancelledBy || '-'],
+      ['Cancellation Reason',  drive.cancellation_reason || '-'],
+    );
   }
 
-  body.innerHTML = '';
+  const dl = document.createElement('dl');
+  dl.className = 'drive-detail-list';
+
+  fields.forEach(([label, value]) => {
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.textContent = value;
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  });
+
+  container.appendChild(dl);
+}
+
+function renderStatsPaneSkeleton(container) {
+  container.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const row = document.createElement('div');
+    row.style.cssText = 'height:14px;background:#eee;border-radius:2px;margin-bottom:8px;';
+    container.appendChild(row);
+  }
+}
+
+function renderStatsPane(stats, container) {
+  container.innerHTML = '';
 
   const sections = [
     {
@@ -723,7 +818,7 @@ async function openStatsModal(drive) {
     const h4 = document.createElement('h4');
     h4.style.cssText = 'font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#888;margin:16px 0 8px;';
     h4.textContent = heading;
-    body.appendChild(h4);
+    container.appendChild(h4);
 
     const table = document.createElement('table');
     table.style.cssText = 'width:100%;border-collapse:collapse;font-size:14px;';
@@ -744,7 +839,7 @@ async function openStatsModal(drive) {
       table.appendChild(tr);
     });
 
-    body.appendChild(table);
+    container.appendChild(table);
   });
 }
 

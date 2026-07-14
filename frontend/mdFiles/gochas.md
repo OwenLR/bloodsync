@@ -36,6 +36,10 @@
 31. authMiddleware.js response shape — fixed to { success: false }. Was { status: 'error' }.
 32. extraction_time field name — service destructures as extraction_time, maps to
     extraction_time_minutes for model. Frontend sends extraction_time (whole minutes only).
+    [SUPERSEDED this session — see #63. extraction_time_minutes no longer
+    exists; donations now store extraction_time_seconds as the single
+    source of truth, sent as a combined minutes+seconds value from the
+    frontend. Left here for history, not current behavior.]
 33. GET /api/blood-units/branch/:branch_id — previously returned Available + non-expired only
     (getUnitsByBranch had WHERE status='Available' AND expiration_date > NOW() hardcoded).
     Fixed this session: new getUnitsByBranchAll returns ALL statuses. Frontend never calls
@@ -192,6 +196,195 @@
     around by using a plain new-tab link instead of an inline embed (see
     sessionState.md Permanent Rules). Not a bug — just a gap that would
     need a deliberate CSP addition if inline preview is ever wanted.
+53. donationModel.js's getAllDonations/getDonationById/getDonationsByDonor —
+    none of the three SELECTed dn.branch_id or dn.drive_id (only b.branch_name
+    via the join). Fixed this session: added both columns to all three
+    queries. Root cause of #54 below — donationModel.getDonationById() is
+    what bloodCollectionService.createCollection() reads to build a new
+    collection's branch_id/drive_id; since those fields were never in the
+    returned object, every donation-flow collection was created with
+    branch_id = NULL and drive_id always collapsing to NULL (even for
+    Volunteer/Phlebotomist drive-based donations, not just Staff walk-in).
+    Data cleanup: existing bad rows needed a one-time backfill joining
+    blood_collections/blood_units back through donation_id to recover the
+    correct branch_id — see session backfill script (Step 1 + Step 2,
+    wrapped in transactions with sanity-check SELECTs before COMMIT).
+    Separation-derived collections (source_unit_id IS NOT NULL) were never
+    affected — createDerivedCollections() sets branch_id directly from the
+    source unit at creation time, no dependency on getDonationById().
+
+54. bloodCollectionModel.js's getAllCollections/getCollectionById/
+    getCollectionsByBranch — same gap as #53, one hop downstream: none of
+    the three SELECTed bc.donation_id, bc.branch_id, or bc.drive_id. Fixed
+    this session: added all three columns to all three queries.
+    getCollectionById() specifically is what bloodCollectionService.
+    markAsSafe() reads to build the new blood_units row — with donation_id
+    missing, markAsSafe() threw a hard 500 ("null value in column
+    donation_id... violates not-null constraint") instead of silently
+    creating a bad row. No data backfill needed for this one: the NOT NULL
+    constraint meant no bad blood_units rows could have been committed
+    before the fix — every prior attempt simply failed outright.
+
+55. bloodCollectionService.js's markAsSafe() — only called
+    invalidateCache('cache:blood-units:availability') after creating a
+    blood unit, never invalidated cache:blood-units:inventory. Both keys
+    are cached via bloodUnitRoutes.js's cache(60, () => '...') on GET
+    /availability and GET /inventory respectively (static keys, no branch
+    suffix — confirmed via bloodUnitRoutes.js). bloodUnitService.js's
+    updateUnitStatus() and separateUnit() already correctly invalidate
+    both keys (per #40) — markAsSafe() was the one straggler. Fixed this
+    session: markAsSafe() now invalidates both keys, same pattern as the
+    other two mutation paths. Note: GET /branch/:branch_id and GET / (the
+    routes Staff's Main Inventory page actually uses) have no cache()
+    middleware at all, so this gap never affected that page directly —
+    only the /availability (Requestor) and /inventory (aggregate
+    blood-type count) endpoints could have served a stale response for up
+    to 60s after a Mark Safe action.
+
+⚠ Pattern flagged across #53–#55: three separate "SELECT doesn't return a
+  column the caller actually needs" bugs stacked across three adjacent
+  files in the same donation→collection→unit chain, each only surfacing
+  once the layer below it was exercised (same shape as the fulfillment-
+  options bug in #48/#49 — one fix revealing the next). Worth a targeted
+  review of any other repository file's SELECT list vs. what its
+  corresponding service actually destructures off the returned row,
+  before building new features on top of donations/collections/units.
+56. Frontend hardcoded hemoglobin/extraction thresholds (HGB_MAX/HGB_MIN_M/
+    HGB_MIN_F in donorScreening.js, QNS_THRESHOLD=15 in donorDonation.js) —
+    duplicated backend's constants/medicalRules.js instead of mirroring it.
+    Fixed this session: created js/constants/medicalRules.js as the frontend
+    mirror; both files now import HEMOGLOBIN/EXTRACTION from it instead of
+    hardcoding. Same manual-sync discipline as every other frontend/backend
+    constants pair in this project — no shared build step, so both files
+    must be updated together by hand if PRC ever changes these thresholds.
+
+57. donorInterviewController.js's createInterview() permanently blocked a
+    NEW interview for any walk-in donor with a completed interview record,
+    regardless of whether their full cycle (screening + donation +
+    collection) had already finished — treated "has an interview ever" as
+    "blocked forever" instead of "has an unfinished cycle right now." Same
+    "any record ever" bug pattern independently existed in donorScreening.js
+    (screenedIds dropdown filter) and donorDonation.js (donatedIds dropdown
+    filter), plus their respective per-donor "already done" checks. All
+    fixed together this session via a new chain-aware cycle-status system —
+    see the "Donor Cycle Status System" build note below for the full
+    design. Drive-scoped Volunteer/Phlebotomist behavior deliberately left
+    untouched throughout — each blood drive is already its own isolated
+    cycle via drive_id scoping, which is a correct, different mechanism.
+
+58. The cycle-status logic above initially stopped tracking a donor's cycle
+    at "donation recorded" — treating that as a fully completed cycle (and
+    therefore free to start a new interview) without ever checking whether
+    blood_collections had a matching row. A donor whose donation succeeded
+    but whose collection wasn't yet recorded would vanish from
+    donorDonation.js's own dropdown the moment they navigated away, with no
+    way back to finish their in-progress collection. Fixed by adding a
+    'proceed_collection' state to both donorCycleRules.js (backend) and
+    donorCycleStatus.js (frontend mirror), and a bloodCollectionModel.js
+    lookup (getCollectionByDonationId) so the chain check can see collection
+    status, not just donation status.
+
+59. screeningModel.getScreeningsByDonor() and donationModel.getDonationsByDonor()
+    both return arrays ordered DESC (newest first), but donorScreening.js
+    and donorDonation.js picked "the latest record" via
+    array[array.length - 1] — which is actually the OLDEST record in a
+    DESC-sorted array. Harmless when a donor had exactly one record (index 0
+    and the last index are the same element), but became an active bug the
+    moment a donor had a second cycle — exactly the population #57's fix
+    was for. Fixed to array[0] in both files.
+
+60. donorScreening.js's _updateResultPreview() called _computeResult(), a
+    function that was never defined anywhere in the file — a pre-existing
+    dangling reference unrelated to any change made this session (confirmed
+    by checking; the function this session touched was _computeHgbStatus,
+    a different one). Threw a ReferenceError on every hemoglobin input
+    change, meaning the live screening-result preview could never have
+    worked. Fixed by adding the missing function — maps hemoglobin_status
+    ('Allowed'/'Not Allowed') to the actual screening_result value
+    ('Eligible'/'Deferred') used everywhere else.
+
+61. donationModel.js's getAllDonations/getDonationById/getDonationsByDonor
+    did not SELECT dn.screening_id, despite contract.md documenting
+    screening_id as a returned field on all three. Same missing-column
+    pattern as #53/#54. Fixed this session — added to all three queries.
+    This was a hard prerequisite for the donor-cycle-status chain logic
+    (which looks up a donation by screening_id) and for donorDonation.js's
+    per-donor "already donated for THIS specific screening" check
+    (previously could only check "any donation for this donor, ever").
+
+62. donationService.js's createDonation() reimplemented the QNS
+    >15-minutes check inline with a hardcoded 15, instead of calling
+    evaluateExtractionTime() from donationRules.js — which already existed
+    for exactly this and derives its threshold from
+    constants/medicalRules.js (EXTRACTION.MAX_DURATION_MINUTES). Same class
+    of bug as #56, just backend-side. Fixed this session — createDonation()
+    now calls evaluateExtractionTime(), same as bloodCollectionService.js
+    already did.
+
+63. donations.extraction_time_minutes (integer, whole minutes only)
+    replaced this session with extraction_time_seconds (integer, total
+    seconds) as the single source of truth — there was previously no way
+    to record a partial-minute extraction duration. Migration converted
+    existing rows (extraction_time_seconds = extraction_time_minutes * 60)
+    before dropping the old column. Every reference updated: donationModel.js
+    (all 4 queries), donationRules.js (MAX_DURATION_SECONDS derived from
+    EXTRACTION.MAX_DURATION_MINUTES, not a separate hardcoded value),
+    donationService.js, bloodCollectionService.js's extraction_time_minutes
+    branch (renamed for consistency — flagged as possibly unreachable code,
+    see below), fieldWorkflowValidation.js's validateDonation(), and
+    donorDonation.html/js (single input split into two — minutes + seconds
+    — combined into total seconds client-side before POST). Supersedes
+    item #32 above, which documented the old minutes-only field mapping —
+    left in place for history rather than deleted, but no longer current.
+    NOTE on bloodCollectionService.js: its extraction_time_minutes-reading
+    branch was renamed to extraction_time_seconds for consistency with
+    evaluateExtractionTime()'s new contract, but contract.md's documented
+    POST /api/blood-collections body has no extraction-time field at all,
+    and the frontend collection form never sends one — this branch appears
+    unreachable in current usage. Not investigated further this session.
+
+64. bloodCollectionModel.js's getCollectionById() already JOINs donations
+    (for the cross-drive ownership check) but wasn't selecting
+    dn.extraction_time_seconds off it — the Blood Collections detail modal
+    had no way to display extraction time even though the join was right
+    there. Fixed this session — added the one field to the existing join.
+    Blood Unit detail modal has the same gap (bloodUnitModel.js not yet
+    reviewed) — still open, see sessionState.md Not Started.
+
+65. donorDonation.js's donation->collection step transition was the ONLY
+    step boundary in the whole field workflow relying purely on an
+    in-memory variable (_createdDonation) with no sessionStorage fallback —
+    every other boundary (interview->screening, screening->donation) already
+    used the sessionStorage pattern. Compounding this, the straightforward
+    `_createdDonation = donation;` assignment after a successful
+    POST /api/donations was missing from the file entirely, meaning the
+    collection step could never resolve the donation it had just created —
+    surfaced as "Could not find the extraction record" even on a first,
+    uninterrupted attempt, with the donation itself successfully sitting in
+    the database. Fixed this session: assignment restored, plus a
+    sessionStorage fallback (field_donation_id / field_donation_donor_id)
+    added matching the established pattern, cleared on successful collection
+    submit. See sessionState.md's Reference section for the updated
+    sessionStorage chain — donation is no longer the terminal write.
+
+66. upstashRateLimiter.js's apiRateLimiter was mounted globally on all of
+    /api at 100 requests/15min, IP-keyed — a login-appropriate shape
+    (tight, long window) applied to ALL authenticated GET traffic instead.
+    Given every entry file calls refreshBadge() on load (per its own
+    established pattern) plus each page's own data fetches, a single page
+    navigation alone can fire 5-15 API calls — a normal work session of a
+    handful of navigations could exhaust the 100-request budget and then
+    429 every subsequent request, including unrelated ones, for up to 15
+    minutes (sliding window, not a fixed reset). Fixed this session: window
+    narrowed to 1 minute with a 300-request ceiling (self-heals within a
+    minute even if hit), and the limiter now keys on authenticated user_id
+    (decoded from the same cookie/header authMiddleware.js reads) rather
+    than raw IP, so multiple staff sharing an office IP no longer share one
+    shared budget. loginRateLimiter deliberately left IP-keyed and
+    otherwise untouched — a login request has no token yet to key on, and
+    IP-based brute-force protection is the correct model there. Also fixed
+    the 429 response body from the pre-#31/#48 shape ({ status: 'error' })
+    to { success: false }, matching every other endpoint.
 
 ---
 
@@ -318,3 +511,21 @@
   role issue above was fixed and a real Requestor request reached this
   code path for the first time. Two separate bugs stacked on the same
   endpoint — fixing one revealed the other. See #49.
+
+### Donation → Collection → Blood Unit branch_id chain (this session)
+- Staff-created blood units showing no branch_id traced back through 3
+  layers: donationModel.getDonationById() missing branch_id/drive_id in
+  its SELECT → bloodCollectionService.createCollection() silently
+  inserting NULL → same gap one hop later in
+  bloodCollectionModel.getCollectionById() → markAsSafe() 500ing on a
+  NOT NULL violation for donation_id. All three SELECTs fixed (#53, #54).
+  JWT/branch_id-on-login itself was never the problem — verified correct
+  via authService.js and the actual staff user row before continuing the
+  trace.
+- Once collection/unit creation was fixed, a separate caching bug
+  (#55) initially looked like the same issue re-appearing ("unit still
+  not showing") — was actually markAsSafe() only invalidating one of two
+  relevant cache keys. Confirmed via bloodUnitRoutes.js that the two
+  invalidateCache() keys are static strings matching the routes' cache()
+  keyFns exactly, not a mismatch — fix was additive (add the missing
+  invalidateCache call), not a rename.

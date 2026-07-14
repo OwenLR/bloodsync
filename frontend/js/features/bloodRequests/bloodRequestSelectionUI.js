@@ -2,6 +2,7 @@ import { BLOOD_TYPES, COMPONENTS } from '../../constants/bloodTypes.js';
 import { MAX_UNITS_PER_ITEM, MAX_UNITS_PER_REQUEST } from '../../constants/bloodRequestConstant.js';
 
 const TITLE_ID          = 'component-title';
+const TABS_ID            = 'component-tabs';
 const GRID_ID           = 'blood-type-grid';
 const PREV_ID           = 'component-prev';
 const NEXT_ID           = 'component-next';
@@ -14,7 +15,7 @@ const CONTINUE_ID       = 'btn-continue';
 // selection[component][bloodType] = units_requested (0 = not selected)
 let selection = buildEmptySelection();
 
-// COMPONENTS[0] is 'Whole Blood' (bloodTypes.js order) — carousel defaults there.
+// COMPONENTS[0] is 'Whole Blood' (bloodTypes.js order) — carousel/tabs default there.
 let activeComponentIndex = 0;
 
 function buildEmptySelection() {
@@ -36,6 +37,7 @@ export function initSelectionStep(onContinue) {
   document.getElementById(CONTINUE_ID).addEventListener('click', () => handleContinue(onContinue));
 
   renderComponentTitle();
+  renderComponentTabs();
   renderBloodTypeGrid();
   renderSummary();
 }
@@ -58,13 +60,47 @@ export function getSelectedItems() {
 }
 
 // ---------------------------------------------------------------------------
-// Carousel navigation — wraps around (4 components, arrows cycle both ways)
+// Carousel navigation (mobile) — wraps around (4 components, arrows cycle
+// both ways). Hidden above the mobile breakpoint via CSS — see
+// bloodRequests.css .component-carousel / .component-tabs media query.
 // ---------------------------------------------------------------------------
 
 function navigateComponent(direction) {
   const len = COMPONENTS.length;
   activeComponentIndex = (activeComponentIndex + direction + len) % len;
+  onComponentChanged();
+}
+
+// ---------------------------------------------------------------------------
+// Tabs (desktop) — shows every component at once, no wrap/arrows needed since
+// any tab is directly reachable. Hidden below the mobile breakpoint via CSS.
+// ---------------------------------------------------------------------------
+
+function renderComponentTabs() {
+  const container = document.getElementById(TABS_ID);
+  if (!container) return; // defensive — older pages without the tabs markup still work
+  container.textContent = '';
+
+  COMPONENTS.forEach((component, index) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'component-tab-button';
+    if (index === activeComponentIndex) btn.classList.add('component-tab-button--active');
+    btn.textContent = component;
+    btn.addEventListener('click', () => selectComponentTab(index));
+    container.appendChild(btn);
+  });
+}
+
+function selectComponentTab(index) {
+  activeComponentIndex = index;
+  onComponentChanged();
+}
+
+// Shared re-render after either the carousel or a tab changes the active component.
+function onComponentChanged() {
   renderComponentTitle();
+  renderComponentTabs();
   renderBloodTypeGrid();
   clearError();
 }

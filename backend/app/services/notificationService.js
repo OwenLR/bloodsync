@@ -1,12 +1,14 @@
 // app/services/notificationService.js
 
 const notificationModel = require('../repositories/notificationModel');
+const userModel         = require('../repositories/userModel');
 const { sendEmail }     = require('../email/emailService');
 const {
     bloodDriveAssignmentEmail,
     donorPostExtractionEmail,
     inventoryLowEmail,
     inventoryExpiringEmail,
+    requestSubmittedEmail,
 } = require('../email/emailTemplates');
 const { emitToRoom }        = require('../socket/socketHandler');
 const staffModel            = require('../repositories/staffModel');
@@ -34,6 +36,35 @@ async function notifyNewBloodRequest(request) {
         request_id,
         patient_name,
         urgency_level,
+    });
+}
+
+/**
+ * Email-only confirmation to the requestor that their submission was
+ * received — bloodsync.md #32-33. No DB notification row, no socket event:
+ * this fires the instant POST /api/blood-requests succeeds, before any
+ * staff review has happened, so there's nothing status-related to show
+ * in-app yet. Contrast with notifyRequestStatusChange below, which covers
+ * the actual Approved/Waiting/Released/Rejected lifecycle and does write
+ * a DB notification + socket event.
+ * Looks up the requestor's email/name via userModel rather than requiring
+ * the caller to pass them — createRequest() in bloodRequestService.js only
+ * has user_id at hand, per contract.md's POST /api/blood-requests request
+ * shape (no email field in the request body itself).
+ */
+async function notifyRequestorSubmission({ request_id, user_id, patient_name }) {
+    const user = await userModel.getUserById(user_id);
+    if (!user || !user.email) return; // defensive — should always exist, but a
+                                       // fire-and-forget email must never throw
+
+    await sendEmail({
+        to:      user.email,
+        subject: `Blood Request Received — Request #${request_id}`,
+        html:    requestSubmittedEmail({
+            name:         user.first_name,
+            patient_name,
+            request_id,
+        }),
     });
 }
 
@@ -201,6 +232,7 @@ async function notifyInventoryExpiring(branch_id, branch_name, items) {
 
 module.exports = {
     notifyNewBloodRequest,
+    notifyRequestorSubmission, 
     notifyRequestStatusChange,
     notifyBloodDriveAssigned,
     notifyDonorPostExtraction,

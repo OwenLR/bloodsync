@@ -16,15 +16,12 @@
 
     <main id="content" class="page-content">
 
-      <div class="page-header">
+      <div class="page-header page-header--with-action">
         <h1>Blood Drives</h1>
-        <a id="new-drive-link" href="/pages/admin/bloodDriveCreate.html" class="btn-primary">+ New Drive</a>
+        <a id="new-drive-link" href="/pages/staff/bloodDriveCreate.html" class="btn-primary">+ New Drive</a>
       </div>
 
-      <!-- Skeleton shown while drives load, hidden after -->
       <div id="drives-skeleton"></div>
-
-      <!-- Error boundary if load fails -->
       <div id="drives-error"></div>
 
       <div id="drives-table-container" style="display:none;">
@@ -47,10 +44,8 @@
     </main>
   </div>
 
-  <!-- Participant panel overlay -->
   <div id="panel-overlay" class="panel-overlay"></div>
 
-  <!-- Participant side panel -->
   <aside id="participant-panel" class="participant-panel" aria-label="Participant Assignment">
     <div class="panel-header">
       <div>
@@ -62,13 +57,11 @@
 
     <div class="panel-body">
 
-      <!-- Current participants -->
       <section>
         <p class="panel-section-title">Assigned</p>
         <div id="current-participants-list"></div>
       </section>
 
-      <!-- Add participants — hidden for Ended/Cancelled drives -->
       <section id="panel-add-section">
         <p class="panel-section-title">Add Participants</p>
 

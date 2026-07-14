@@ -1,5 +1,5 @@
 import { showToast }             from '../../components/toast.js';
-import { getFulfillmentOptions } from './bloodRequestApi.js';
+import { getFulfillmentOptions, getWaitEstimate } from './bloodRequestApi.js';
 
 const SKELETON_ID      = 'fulfillment-skeleton';
 const ERROR_ID         = 'fulfillment-error';
@@ -8,6 +8,7 @@ const LOCATION_NOTE_ID = 'fulfillment-location-note';
 const BRANCH_LIST_ID   = 'branch-options-list';
 const CONTINUE_ID      = 'btn-fulfillment-continue';
 const BACK_ID          = 'btn-fulfillment-back';
+const ESTIMATE_ID      = 'fulfillment-wait-estimate';
 
 let _selectedBranchId = null;
 let _items            = null;
@@ -15,6 +16,8 @@ let _onContinue       = null;
 let _onBack           = null;
 let _listenersBound    = false; // guard — prevents duplicate listeners if the
                                  // requestor goes back and continues again
+let _estimateRequestToken = 0;  // guards against a stale estimate fetch
+                                 // overwriting a newer branch selection's result
 
 // ---------------------------------------------------------------------------
 // Public entry — called from the entry file each time this step is entered
@@ -63,6 +66,9 @@ function getRequestorLocation() {
       resolve({ latitude: undefined, longitude: undefined, usedLocation: false });
       return;
     }
+    // Loading text is already shown by showSkeleton() before this runs, so
+    // the requestor sees feedback during both the location prompt and the
+    // fulfillment-options fetch that follows, not just a blank gap.
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({
         latitude:     pos.coords.latitude,
@@ -167,6 +173,7 @@ function renderResult(result) {
 
   // Auto-select the top recommendation (most items fully covered, then nearest)
   _selectedBranchId = branches[0].branch_id;
+  fetchAndRenderEstimate(_selectedBranchId);
 }
 
 function buildBranchOption(branch, plans, isDefault) {
@@ -178,7 +185,10 @@ function buildBranchOption(branch, plans, isDefault) {
   radio.name      = 'branch-option';
   radio.value     = branch.branch_id;
   radio.checked   = isDefault;
-  radio.addEventListener('change', () => { _selectedBranchId = branch.branch_id; });
+  radio.addEventListener('change', () => {
+    _selectedBranchId = branch.branch_id;
+    fetchAndRenderEstimate(branch.branch_id);
+  });
 
   const info = document.createElement('div');
   info.className = 'branch-option-info';
@@ -223,18 +233,72 @@ function handleContinue() {
 }
 
 // ---------------------------------------------------------------------------
-// Skeleton / error helpers — same toggle pattern as bloodUnitsUI.js
+// Waiting time estimate — bloodsync.md #22-23. Refetched whenever the
+// selected branch changes (default selection or a radio change), since the
+// estimate is queue-depth per branch, not per request. _estimateRequestToken
+// guards against a slow earlier fetch overwriting a newer selection's result
+// if the requestor flips between branch options quickly.
+// ---------------------------------------------------------------------------
+
+async function fetchAndRenderEstimate(branchId) {
+  const el = getOrCreateEstimateEl();
+  const token = ++_estimateRequestToken;
+  el.textContent = 'Checking estimated response time…';
+
+  try {
+    const est = await getWaitEstimate(branchId);
+    if (token !== _estimateRequestToken) return; // a newer selection superseded this fetch
+    el.textContent = est.is_open
+      ? `Estimated response time: ${est.estimate}`
+      : `${est.estimate} — ${est.next_open}`;
+  } catch {
+    if (token !== _estimateRequestToken) return;
+    el.textContent = ''; // non-blocking — don't let this fail the branch selection flow
+  }
+}
+
+function getOrCreateEstimateEl() {
+  let el = document.getElementById(ESTIMATE_ID);
+  if (!el) {
+    el = document.createElement('p');
+    el.id = ESTIMATE_ID;
+    el.className = 'fulfillment-wait-estimate';
+    document.getElementById(LOCATION_NOTE_ID).insertAdjacentElement('afterend', el);
+  }
+  return el;
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton / error helpers
+//
+// #fulfillment-skeleton is an empty <div> in submitRequest.html — nothing
+// ever rendered inside it, so the requestor previously saw a blank gap
+// between selecting items and the branch list appearing. Now populates a
+// loading message on show, clears it on hide (matches bloodsync.md's
+// requirement for a between-state message during nearest-branch lookup).
 // ---------------------------------------------------------------------------
 
 function showSkeleton() {
-  document.getElementById(SKELETON_ID).style.display     = '';
-  document.getElementById(BRANCH_LIST_ID).style.display   = 'none';
-  document.getElementById(ERROR_ID).textContent           = '';
+  const skeletonEl = document.getElementById(SKELETON_ID);
+  skeletonEl.textContent = '';
+  const msg = document.createElement('p');
+  msg.className   = 'fulfillment-loading-message';
+  msg.textContent = 'Searching for the nearest branch…';
+  skeletonEl.appendChild(msg);
+  skeletonEl.style.display = '';
+
+  document.getElementById(BRANCH_LIST_ID).style.display  = 'none';
+  document.getElementById(ERROR_ID).textContent          = '';
   document.getElementById(INSUFFICIENT_ID).style.display = 'none';
+
+  const estimateEl = document.getElementById(ESTIMATE_ID);
+  if (estimateEl) estimateEl.textContent = '';
 }
 
 function hideSkeleton() {
-  document.getElementById(SKELETON_ID).style.display   = 'none';
+  const skeletonEl = document.getElementById(SKELETON_ID);
+  skeletonEl.style.display = 'none';
+  skeletonEl.textContent   = '';
   document.getElementById(BRANCH_LIST_ID).style.display = '';
 }
 

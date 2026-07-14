@@ -11,8 +11,14 @@
  *   2. Fill extraction details — time, phlebotomist who performed it
  *   3. Submit extraction → POST /api/donations
  *   4. Collection form appears immediately below
- *      - Component defaults to "Whole Blood"
- *      - Volume defaults to 450 mL (editable)
+ *      - Component is fixed to "Whole Blood" — locked, not editable.
+ *        Separation into PRBC/FFP/Platelets happens later, as its own step
+ *        (Blood Separation feature), never at collection time.
+ *      - Volume is fixed to 450 mL (WHOLE_BLOOD_VOLUME_ML) — locked, not
+ *        editable. Mirrors backend's WHOLE_BLOOD_VOLUME_ML in
+ *        constants/inventoryRulesConstant.js. The separation feature's
+ *        SEPARATION_VOLUME_ML split only sums correctly to 450 against a
+ *        unit actually collected at this exact volume.
  *      - Blood type pre-filled from screening record
  *   5. Submit collection → POST /api/blood-collections
  *
@@ -36,6 +42,8 @@ import { revealAppShell }      from '../../layouts/appShell.js';
 import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 import { getSidebarItems }     from '../../constants/sidebarItems.js';
 import { ROLES }               from '../../constants/roles.js';
+import { EXTRACTION }           from '../../constants/medicalRules.js';
+import { WHOLE_BLOOD_VOLUME_ML } from '../../constants/bloodTypes.js';
 import { showToast }           from '../../components/toast.js';
 import {
   getAllDonors,
@@ -49,7 +57,15 @@ import {
   getMyActiveDrive,
   getDrivePhlebotomists,
   getAvailablePhlebotomists,
+  getAllInterviews,
 } from '../../features/fieldWorkflow/fieldWorkflowApi.js';
+import {
+  computeWalkInCycleStatus,
+  buildLatestWalkInInterviewMap,
+  buildLatestScreeningByInterviewMap,
+  buildDonationByScreeningMap,
+  buildCollectionByDonationMap, 
+} from '../../features/fieldWorkflow/donorCycleStatus.js';
 import {
   validateDonation,
   validateCollection,
@@ -67,8 +83,6 @@ let _phlebotomists    = [];
 let _dropdown         = null;
 let _phlebDropdown    = null;   // searchableDropdown instance for phlebotomist
 let _createdDonation  = null;
-
-const QNS_THRESHOLD = 15;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -174,29 +188,62 @@ async function _initDonorDropdown() {
   const errorEl = document.getElementById('donor-load-error');
 
   try {
-    const [allDonors, allScreenings, allDonations] = await Promise.all([
+    const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+
+    const [allDonors, allScreenings, allDonations, allInterviews, allCollectionsForCycle] = await Promise.all([
       getAllDonors(),
       getAllScreenings(),
       getAllDonations(),
+      isFieldRole ? Promise.resolve([]) : getAllInterviews(),         // only needed for walk-in chain
+      isFieldRole ? Promise.resolve([]) : getAllCollections().catch(() => []), // same
     ]);
 
-    const donatedIds = new Set(allDonations.map(d => d.donor_id));
+    let eligibleDonors;
 
-    // Map donor_id → most recent Eligible screening
-    _screeningMap = new Map();
-    allScreenings.forEach(s => {
-      if (s.screening_result !== 'Eligible') return;
-      const existing = _screeningMap.get(s.donor_id);
-      if (!existing || s.screening_id > existing.screening_id) {
-        _screeningMap.set(s.donor_id, s);
-      }
-    });
+    if (isFieldRole) {
+      // Drive-scoped — UNCHANGED from prior behavior.
+      const donatedIds = new Set(allDonations.map(d => d.donor_id));
 
-    const eligibleDonors = allDonors.filter(d =>
-      _screeningMap.has(d.donor_id) && !donatedIds.has(d.donor_id)
-    );
+      _screeningMap = new Map();
+      allScreenings.forEach(s => {
+        if (s.screening_result !== 'Eligible') return;
+        const existing = _screeningMap.get(s.donor_id);
+        if (!existing || s.screening_id > existing.screening_id) {
+          _screeningMap.set(s.donor_id, s);
+        }
+      });
 
-    const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+      eligibleDonors = allDonors.filter(d =>
+        _screeningMap.has(d.donor_id) && !donatedIds.has(d.donor_id)
+      );
+    } else {
+      // Walk-in (Staff/Admin) — chain-aware. A donor appears here only
+      // if their CURRENT walk-in cycle is exactly "screening Eligible,
+      // no donation yet."
+      const interviewMapByDonor  = buildLatestWalkInInterviewMap(allInterviews);
+      const screeningByInterview = buildLatestScreeningByInterviewMap(allScreenings);
+      const donationByScreening  = buildDonationByScreeningMap(allDonations);
+      const collectionByDonation = buildCollectionByDonationMap(allCollectionsForCycle);
+
+      _screeningMap = new Map(); // donor_id -> screening for the CURRENT cycle only
+
+      eligibleDonors = allDonors.filter(d => {
+        const interview = interviewMapByDonor.get(d.donor_id);
+        if (!interview) return false;
+        const screening = screeningByInterview.get(interview.interview_id) || null;
+        if (!screening) return false;
+        const donation = donationByScreening.get(screening.screening_id) || null;
+        const collection = donation ? (collectionByDonation.get(donation.donation_id) || null) : null;
+        const status = computeWalkInCycleStatus({ interview, screening, donation, collection });
+        // Donor stays selectable on THIS page through both of its steps —
+        // donation not yet recorded, OR donation done but collection isn't.
+        if (status.state === 'proceed_donation' || status.state === 'proceed_collection') {
+          _screeningMap.set(d.donor_id, screening);
+          return true;
+        }
+        return false;
+      });
+    }
 
     _dropdown = initSearchableDropdown({
       inputId:      'donor-select-input',
@@ -292,32 +339,60 @@ function _renderDonorInfo(donor) {
 
 // ─── Existing Donation Check ──────────────────────────────────────────────────
 
-async function _checkExistingDonation(donor) {
-  try {
-    const donations = await getDonationsByDonor(donor.donor_id);
+// REPLACE _checkExistingDonation with:
 
+async function _checkExistingDonation(donor) {
+  const isFieldRole = _user.role_id === ROLES.VOLUNTEER || _user.role_id === ROLES.PHLEBOTOMIST;
+
+  try {
     _showEl(document.getElementById('donation-form-section'));
 
-    if (donations && donations.length > 0) {
-      // Already donated — store and jump straight to collection form
-      _createdDonation = donations[donations.length - 1];
-      _showEl(document.getElementById('donation-already-done'));
-      _hideEl(document.getElementById('donation-form-fields'));
-      _hideEl(document.getElementById('donation-submit-section'));
+    if (isFieldRole) {
+      // Drive-scoped — UNCHANGED except for the index fix noted below.
+      const donations = await getDonationsByDonor(donor.donor_id);
 
-      // Build donationMap if not already built
-      if (!_donationMap) {
-        _donationMap = new Map();
-        donations.forEach(d => {
-          _donationMap.set(d.donor_id, d);
-        });
+      if (donations && donations.length > 0) {
+        // FIX: was donations[donations.length - 1] — DESC-ordered query,
+        // so that index picked the OLDEST donation. index 0 is correct.
+        _createdDonation = donations[0];
+        _showEl(document.getElementById('donation-already-done'));
+        _hideEl(document.getElementById('donation-form-fields'));
+        _hideEl(document.getElementById('donation-submit-section'));
+
+        if (!_donationMap) {
+          _donationMap = new Map();
+          donations.forEach(d => _donationMap.set(d.donor_id, d));
+        }
+
+        await _checkExistingCollection(donor, _createdDonation);
+        return;
       }
 
-      await _checkExistingCollection(donor);
+      _hideEl(document.getElementById('donation-already-done'));
+      _showEl(document.getElementById('donation-form-fields'));
+      _showEl(document.getElementById('donation-submit-section'));
       return;
     }
 
-    // No donation yet — show donation form
+    // Walk-in (Staff/Admin) — the donor only reaches this page's dropdown
+    // when their current cycle is 'proceed_donation' (see
+    // _initDonorDropdown), so this scoped-by-screening_id check is a
+    // defensive guard against stale dropdown data, not the primary gate.
+    const donations = await getDonationsByDonor(donor.donor_id);
+    const currentScreening = _screeningMap ? _screeningMap.get(donor.donor_id) : null;
+    const forThisScreening = currentScreening
+      ? donations.find(d => d.screening_id === currentScreening.screening_id)
+      : null;
+
+    if (forThisScreening) {
+      _createdDonation = forThisScreening;
+      _showEl(document.getElementById('donation-already-done'));
+      _hideEl(document.getElementById('donation-form-fields'));
+      _hideEl(document.getElementById('donation-submit-section'));
+      await _checkExistingCollection(donor, forThisScreening);
+      return;
+    }
+
     _hideEl(document.getElementById('donation-already-done'));
     _showEl(document.getElementById('donation-form-fields'));
     _showEl(document.getElementById('donation-submit-section'));
@@ -326,17 +401,27 @@ async function _checkExistingDonation(donor) {
     showToast('Failed to check donation record. Please try again.', 'error');
   }
 }
-
 // ─── Existing Collection Check ────────────────────────────────────────────────
 
-async function _checkExistingCollection(donor) {
+async function _checkExistingCollection(donor, donationRecord) {
   const collectionSection = document.getElementById('collection-form-section');
   _showEl(collectionSection);
+
+  const donationId = donationRecord ? donationRecord.donation_id : null;
 
   try {
     // Try to get collections — field roles get 403 caught silently
     const allCollections = await getAllCollections().catch(() => []);
-    const existingCollection = allCollections.find(c => c.donor_id === donor.donor_id);
+    // FIX: was matching by donor_id alone, which could match a collection
+    // from an EARLIER, already-completed donation cycle for a returning
+    // donor. bloodCollectionModel.js's getAllCollections() confirms
+    // donation_id is returned — scope to the specific donation currently
+    // in view instead. Falls back to donor_id matching only if a
+    // donation record somehow wasn't passed in (defensive, shouldn't
+    // normally happen given how this function is called).
+    const existingCollection = donationId
+      ? allCollections.find(c => c.donation_id === donationId)
+      : allCollections.find(c => c.donor_id === donor.donor_id);
 
     if (existingCollection) {
       _hideEl(document.getElementById('collection-form-fields'));
@@ -368,13 +453,25 @@ function _prefillCollection(donor) {
   // collection record from the donation's screening (blood_type_confirmed),
   // never from client input.
 
-  // Default component: Whole Blood
+  // Component is always Whole Blood at donation time — separation into
+  // PRBC/FFP/Platelets happens later, as its own dedicated step (Blood
+  // Separation feature), never here. Locked in HTML (disabled) — this just
+  // reaffirms the value defensively.
   const compSelect = document.getElementById('input-component');
-  if (compSelect) compSelect.value = 'Whole Blood';
+  if (compSelect) {
+    compSelect.value = 'Whole Blood';
+    compSelect.disabled = true;
+  }
 
-  // Default volume: 450 mL
+  // Whole Blood collection volume is a fixed 450 mL per standard donation
+  // protocol — locked in HTML (disabled). Backend's SEPARATION_VOLUME_ML
+  // constants (bloodUnitService.js) only sum correctly to 450 against a
+  // unit that was actually collected at exactly this volume.
   const volInput = document.getElementById('input-volume-ml');
-  if (volInput && !volInput.value) volInput.value = '450';
+  if (volInput) {
+    volInput.value = String(WHOLE_BLOOD_VOLUME_ML);
+    volInput.disabled = true;
+  }
 }
 
 // ─── Donation Form ────────────────────────────────────────────────────────────
@@ -384,16 +481,41 @@ function _setupDonationForm() {
   if (!form) return;
   form.addEventListener('submit', _handleDonationSubmit);
 
-  const timeInput = document.getElementById('input-extraction-time');
-  if (timeInput) {
-    timeInput.addEventListener('input', () => {
-      const val     = parseInt(timeInput.value, 10);
-      const warning = document.getElementById('qns-warning');
-      if (warning) {
-        (!isNaN(val) && val > QNS_THRESHOLD) ? _showEl(warning) : _hideEl(warning);
-      }
-    });
-  }
+  const minutesInput = document.getElementById('input-extraction-minutes');
+  const secondsInput = document.getElementById('input-extraction-seconds');
+
+  const updateQnsWarning = () => {
+    const warning = document.getElementById('qns-warning');
+    if (!warning) return;
+
+    const totalSeconds = _readExtractionTotalSeconds();
+    (totalSeconds !== null && totalSeconds > EXTRACTION.MAX_DURATION_MINUTES * 60)
+      ? _showEl(warning)
+      : _hideEl(warning);
+  };
+
+  if (minutesInput) minutesInput.addEventListener('input', updateQnsWarning);
+  if (secondsInput) secondsInput.addEventListener('input', updateQnsWarning);
+}
+
+/**
+ * Combines the minutes + seconds inputs into total seconds.
+ * Returns null if minutes is empty/invalid — mirrors the "required" check
+ * validateDonation() does, but this helper is also used for the live QNS
+ * preview, so it stays lenient about seconds being blank (treated as 0).
+ */
+function _readExtractionTotalSeconds() {
+  const minutesRaw = document.getElementById('input-extraction-minutes')?.value;
+  const secondsRaw = document.getElementById('input-extraction-seconds')?.value;
+
+  if (minutesRaw === undefined || minutesRaw === '') return null;
+
+  const minutes = parseInt(minutesRaw, 10);
+  const seconds = (secondsRaw === undefined || secondsRaw === '') ? 0 : parseInt(secondsRaw, 10);
+
+  if (isNaN(minutes) || isNaN(seconds)) return null;
+
+  return (minutes * 60) + seconds;
 }
 
 async function _handleDonationSubmit(e) {
@@ -434,8 +556,9 @@ async function _handleDonationSubmit(e) {
       return;
     }
 
-    const rawTime        = document.getElementById('input-extraction-time').value;
-    const phlebotomistId = document.getElementById('input-phlebotomist')?.value;
+    const minutesRaw      = document.getElementById('input-extraction-minutes')?.value;
+    const secondsRaw      = document.getElementById('input-extraction-seconds')?.value;
+    const phlebotomistId  = document.getElementById('input-phlebotomist')?.value;
 
     // Phlebotomist is required — backend now stores phlebotomist_id
     if (!phlebotomistId) {
@@ -447,21 +570,44 @@ async function _handleDonationSubmit(e) {
       return;
     }
 
-    const data = {
-      screening_id:    screeningId,
-      // Enforce whole minutes — Math.round drops any decimal from copy-paste
-      extraction_time: rawTime !== '' ? Math.round(parseFloat(rawTime)) : undefined,
-      phlebotomist_id: Number(phlebotomistId),
+    // validateDonation() takes the raw minutes/seconds pair — see
+    // fieldWorkflowValidation.js for the range/zero checks.
+    const validationData = {
+      screening_id:             screeningId,
+      extraction_time_minutes:  minutesRaw,
+      extraction_time_seconds:  secondsRaw,
     };
 
-    const { valid, errors } = validateDonation(data);
+    const { valid, errors } = validateDonation(validationData);
     if (!valid) {
       _showFieldErrors(errors, { extraction_time: 'error-extraction-time' });
       return;
     }
 
+    // Combine into total seconds — the single value the backend actually
+    // stores (donations.extraction_time_seconds).
+    const totalSeconds = _readExtractionTotalSeconds();
+
+    const data = {
+      screening_id:             screeningId,
+      extraction_time_seconds:  totalSeconds,
+      phlebotomist_id:          Number(phlebotomistId),
+    };
+
     const donation = await createDonation(data);
     _createdDonation = donation;
+
+    // Persist alongside the in-memory reference — same pattern as every
+    // other step boundary in this workflow (interview->screening,
+    // screening->donation both do this via sessionStorage). Donation->
+    // collection is the one transition that stayed purely in-memory
+    // since it's same-page, but that made it the only step vulnerable to
+    // losing its reference if _createdDonation ever gets reset before
+    // the collection form is submitted.
+    try {
+      sessionStorage.setItem('field_donation_id', donation.donation_id);
+      sessionStorage.setItem('field_donation_donor_id', _selectedDonor.donor_id);
+    } catch (_e) { /* ignore */ }
 
     // Clear screening sessionStorage — consumed
     try {
@@ -516,6 +662,15 @@ async function _handleCollectionSubmit(e) {
     if (!donationId && _donationMap) {
       donationId = _donationMap.get(_selectedDonor.donor_id)?.donation_id || null;
     }
+    if (!donationId) {
+      try {
+        const stored        = sessionStorage.getItem('field_donation_id');
+        const storedDonorId = sessionStorage.getItem('field_donation_donor_id');
+        if (stored && String(_selectedDonor.donor_id) === String(storedDonorId)) {
+          donationId = Number(stored);
+        }
+      } catch (_e) { /* ignore */ }
+    }
 
     if (!donationId) {
       if (formError) {
@@ -525,17 +680,20 @@ async function _handleCollectionSubmit(e) {
       return;
     }
 
-    // Branch and blood_type are both resolved server-side now:
+    // Branch, blood_type, component, and volume are all fixed/resolved
+    // server-side or client-locked, never read from operator-editable input:
     // - branch_id: Staff → req.user.branch_id from JWT; Volunteer/Phlebotomist
     //   → drive's branch_id via bloodDriveMiddleware
     // - blood_type: from the donation's own screening record
     //   (blood_type_confirmed) — never sent by the client
+    // - component: always 'Whole Blood' at collection time — see
+    //   _prefillCollection() above
+    // - volume_ml: always WHOLE_BLOOD_VOLUME_ML (450) — see
+    //   _prefillCollection() above and constants/bloodTypes.js
     const data = {
       donation_id: donationId,
-      component:   document.getElementById('input-component').value   || undefined,
-      volume_ml:   document.getElementById('input-volume-ml').value !== ''
-        ? parseInt(document.getElementById('input-volume-ml').value, 10)
-        : undefined,
+      component:   'Whole Blood',
+      volume_ml:   WHOLE_BLOOD_VOLUME_ML,
     };
 
     const { valid, errors } = validateCollection(data);
@@ -548,6 +706,11 @@ async function _handleCollectionSubmit(e) {
     }
 
     await createCollection(data);
+
+    try {
+      sessionStorage.removeItem('field_donation_id');
+      sessionStorage.removeItem('field_donation_donor_id');
+    } catch (_e) { /* ignore */ }
 
     showToast('Blood collection recorded. Workflow complete.', 'success');
     _hideEl(document.getElementById('collection-form-section'));

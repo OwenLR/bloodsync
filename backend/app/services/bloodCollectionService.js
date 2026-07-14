@@ -60,8 +60,13 @@ const createCollection = async (data, user_id, reqUser, reqDriveId) => {
         ? calculateExpiryDate(expiryData.expiry_days)
         : null;
 
-    const extraction_time = data.extraction_time_minutes
-        ? parseInt(data.extraction_time_minutes)
+    // NOTE: contract.md's documented POST /api/blood-collections body has
+    // no extraction-time field, and the frontend collection form never
+    // sends one — this branch appears unreachable in current usage.
+    // Renamed for consistency with evaluateExtractionTime's seconds-based
+    // contract (see donationRules.js) rather than left silently stale.
+    const extraction_time = data.extraction_time_seconds
+        ? parseInt(data.extraction_time_seconds)
         : null;
 
     const { is_qns: timeExceeded, qns_reason: timeReason } =
@@ -121,6 +126,7 @@ const markAsSafe = async (collection_id, user_id) => {
     });
 
     await invalidateCache('cache:blood-units:availability');
+    await invalidateCache('cache:blood-units:inventory');
 
     return { updated, blood_unit };
 };
