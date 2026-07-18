@@ -87,6 +87,16 @@ a {
   text-align: center;
 }
 
+/* Modifier — applied alongside .btn-primary or .btn-secondary for a
+   smaller footprint (e.g. per-card action buttons). notifications.css
+   already has its own .btn-xs for the "Mark read" button — this is a
+   slightly larger step, added here (not a feature CSS file) since it's
+   a generic reusable size, same reasoning as .btn-full-width above. */
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 /* ── Shared form elements ────────────────────────────────────────── */
 
 /* Legacy pattern (.field > label + input) — kept for existing pages */

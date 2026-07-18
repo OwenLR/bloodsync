@@ -1,6 +1,7 @@
 const authService  = require('../services/authService');
 const userModel    = require('../repositories/userModel');
 const profileModel = require('../repositories/profileModel');
+const branchModel  = require('../repositories/branchModel');
 const response     = require('../../utils/responseHelper');
 const ROLES        = require('../../constants/roles');
 const { validateChangePassword } = require('../../validators/authValidator');

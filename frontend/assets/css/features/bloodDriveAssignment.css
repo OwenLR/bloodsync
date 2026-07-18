@@ -1,0 +1,85 @@
+/*
+ * bloodDriveAssignment.css — Volunteer/Phlebotomist "My Assignments" page.
+ *
+ * Relies on shared base classes already defined elsewhere and linked as
+ * extra stylesheets on this page (see pages/volunteer/drive.html /
+ * pages/phlebotomist/drive.html):
+ *   - .status-badge (base)         → features/bloodDrives.css
+ *   - .empty-state                 → features/bloodDrives.css
+ *   - .request-tabs, .tab-button,
+ *     .tab-button--active          → features/bloodRequests.css
+ * Do NOT redefine any of those three here — only new assignment-specific
+ * status-badge modifiers and card layout classes live in this file.
+ */
+
+/* ── Status badge modifiers — Blood Drive participant statuses ─────── */
+/* Assigned/Confirmed/Declined/'No Show' are distinct from Blood Request
+   statuses, so these are new modifiers on the shared .status-badge base,
+   same pattern as bloodRequests.css's --pending/--approved/etc. */
+.status-badge--assigned {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.status-badge--confirmed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge--declined {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status-badge--no-show {
+  background: #eeeeee;
+  color: #616161;
+}
+
+/* ── Assignment card ─────────────────────────────────────────────── */
+.assignment-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.assignment-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.assignment-drive-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+}
+
+.assignment-card-meta {
+  color: #444;
+  font-size: 13px;
+}
+
+.assignment-card-meta p {
+  margin-bottom: 4px;
+}
+
+.assignment-assigned-by {
+  font-size: 12px;
+  color: #888;
+}
+
+.assignment-role-notes {
+  font-style: italic;
+  color: #666;
+}
+
+.assignment-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}

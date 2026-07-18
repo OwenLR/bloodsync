@@ -129,3 +129,27 @@ export async function getDriveStats(driveId) {
   if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load drive stats.');
   return body.data;
 }
+
+// GET /api/blood-drives/my-assignments
+// Volunteer/Phlebotomist only. Returns every drive assignment for the
+// calling user — no params, scoped server-side via JWT. Used by the
+// "My Assignments" page (Incoming / History tabs, split client-side).
+export async function getMyAssignments() {
+  const res = await apiFetch('/api/blood-drives/my-assignments');
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load your assignments.');
+  return body.data;
+}
+
+// PATCH /api/blood-drives/:id/participants/me
+// Volunteer/Phlebotomist only. Self accept/decline — assignmentStatus
+// must be 'Confirmed' or 'Declined' (backend rejects anything else).
+export async function updateMyParticipationStatus(driveId, assignmentStatus) {
+  const res = await apiFetch(`/api/blood-drives/${driveId}/participants/me`, {
+    method: 'PATCH',
+    body: JSON.stringify({ assignment_status: assignmentStatus }),
+  });
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to update your assignment status.');
+  return body.data;
+}
