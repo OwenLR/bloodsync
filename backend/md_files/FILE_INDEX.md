@@ -435,3 +435,59 @@ CRITICAL: Must be registered BEFORE PATCH /:id to avoid Express route
 ## ADD new table reference (if FILE_INDEX.MD tracks tables — otherwise skip, covered in ARCHITECTURE.MD)
 staff_profiles — Admin + PRC Staff profile data (currently: profile_img
   only). Parallel structure to volunteer_profiles for the other role group.
+
+
+
+### UPDATED
+
+# Patch for FILE_INDEX.MD — Registration address block: PSGC dropdowns +
+# ZIP code lookup. Apply to your actual FILE_INDEX.MD, same as prior patches.
+
+## ADD new entry — app/services/postalCodeService.js
+
+## app/services/postalCodeService.js
+Purpose: Best-effort ZIP/postal code lookup by province + city/municipality
+         name, for the registration form's address block
+Exports: lookupZip({ province, municipality }) →
+         { post_code, matched_municipality, matched_location } | null
+Uses: use-postal-ph (unofficial npm package, MIT, zero deps — verified this
+      session: 2,139 rows, actively maintained). NOT PSGC, NOT an official
+      PHLPost dataset — confirmed via a public FOI request that no official
+      structured barangay/city-to-ZIP mapping exists (PHLPost pointed to a
+      static 2019 PDF instead).
+Note: Outside NCR, the data is one row per city/municipality — clean 1:1
+      match, verified specifically for Batangas (this project's actual PRC
+      chapter: 35 municipality rows, each a single post_code). Inside NCR,
+      ZIP is split by district/subdivision under each city — a
+      city-name-only match is unreliable there. This is a SUGGESTION only;
+      callers must keep the ZIP field editable after pre-filling.
+Should NOT contain: DB queries, HTTP handling (that's referenceController.js)
+
+## ADD new entry — app/controllers/referenceController.js
+
+## app/controllers/referenceController.js
+Purpose: Small standalone public reference-data endpoints not owned by any
+         single domain model
+Exports: lookupZip — reads req.query.province/municipality, calls
+         postalCodeService.lookupZip(). "No match" is NOT an error — returns
+         200 with data: null so the frontend can silently leave the ZIP
+         field blank, same pattern as geocoding fallback.
+Used By: referenceRoutes.js
+
+## ADD new entry — app/routes/referenceRoutes.js
+
+## app/routes/referenceRoutes.js
+Base path: /api/reference
+GET /zip-lookup → lookupZip — PUBLIC, no auth middleware (used pre-auth by
+                  the Volunteer/Phlebotomist registration form, same trust
+                  level as registrationRoutes.js's self-registration routes)
+
+## UPDATE existing entry — server.js
+ADD: mounted referenceRoutes at app.use("/api/reference", referenceRoutes)
+ADD to Helmet CSP connectSrc: https://psgc.gitlab.io (province/city/barangay
+  cascading dropdowns) — https://nominatim.openstreetmap.org was already
+  present for the blood drive map picker and registration geocoding, unchanged
+
+## UPDATE existing entry — package.json
+ADD dependency: use-postal-ph (^1.1.14) — see
+  app/services/postalCodeService.js above

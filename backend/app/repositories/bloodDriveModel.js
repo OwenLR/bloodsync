@@ -234,6 +234,47 @@ const getActiveDriveForUser = async (user_id) => {
     return result.rows[0];
 };
 
+/**
+ * getAssignmentsByUser(user_id)
+ * Returns every blood_drive_participants row for this user, joined with
+ * the parent drive's display fields (name, schedule, venue) and who
+ * assigned them. Used by the Volunteer/Phlebotomist "My Assignments"
+ * page — frontend splits into Incoming (assignment_status = 'Assigned')
+ * vs History (Confirmed/Declined/No Show) tabs client-side; this query
+ * intentionally returns everything unfiltered, same "no frontend
+ * filtering needed, backend just scopes to the caller" pattern as
+ * bloodRequestModel.js's getRequestsByBranch (see contract.md).
+ * Ordered newest-drive-first, same convention as getAllDrives/
+ * getDrivesByBranch.
+ */
+const getAssignmentsByUser = async (user_id) => {
+    const result = await pool.query(
+        `SELECT
+            bdp.drive_id,
+            bdp.user_id,
+            bdp.assignment_status,
+            bdp.role_notes,
+            bdp.assigned_at,
+            bd.name,
+            bd.status,
+            bd.start_datetime,
+            bd.end_datetime,
+            bd.venue_name,
+            bd.street_address,
+            bd.city,
+            bd.province,
+            ab.first_name AS assigned_by_first,
+            ab.last_name  AS assigned_by_last
+         FROM blood_drive_participants bdp
+         JOIN blood_drives bd  ON bdp.drive_id    = bd.drive_id
+         JOIN users ab         ON bdp.assigned_by = ab.user_id
+         WHERE bdp.user_id = $1
+         ORDER BY bd.start_datetime DESC`,
+        [user_id]
+    );
+    return result.rows;
+};
+
 const addParticipant = async (drive_id, user_id, assigned_by, role_notes) => {
     const result = await pool.query(
         `INSERT INTO blood_drive_participants
@@ -399,6 +440,7 @@ module.exports = {
     getParticipantsByDrive,
     getParticipant,
     getActiveDriveForUser,
+    getAssignmentsByUser,
     addParticipant,
     removeParticipant,
     updateParticipantStatus,

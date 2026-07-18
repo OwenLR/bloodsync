@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Review Registration | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodRequests.css" />
+  <link rel="stylesheet" href="/assets/css/features/userManagement.css" />
+</head>
+<body class="app-loading">
+
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="detail-page-header">
+        <div class="detail-header-identity">
+          <div id="detail-avatar-wrap"></div>
+          <div>
+            <button type="button" id="btn-back" class="btn-link-back">Back to Users</button>
+            <h1 class="page-title" id="detail-name">Review Registration</h1>
+            <span id="detail-role-badge" class="status-badge"></span>
+          </div>
+        </div>
+      </div>
+
+      <p id="detail-error" class="field-error" role="alert"></p>
+
+      <div id="detail-content" style="display:none;">
+
+        <div class="detail-section">
+          <h3>Account Details</h3>
+          <dl class="profile-detail-grid" id="detail-account-grid"></dl>
+        </div>
+
+        <div class="detail-columns">
+          <div class="detail-section">
+            <h3>Personal Information</h3>
+            <dl class="profile-detail-grid" id="detail-personal-grid"></dl>
+          </div>
+
+          <div class="detail-section">
+            <h3>Address</h3>
+            <dl class="profile-detail-grid" id="detail-address-grid"></dl>
+          </div>
+
+          <div class="detail-section">
+            <h3>Emergency Contact</h3>
+            <dl class="profile-detail-grid" id="detail-emergency-grid"></dl>
+          </div>
+        </div>
+
+        <div class="detail-section" id="detail-document-section">
+          <h3>Submitted Document</h3>
+          <p id="detail-document-empty" class="detail-empty-note" style="display:none;">No document submitted.</p>
+          <img id="detail-document-thumb" class="document-thumb" style="display:none;" alt="" />
+          <br />
+          <a id="detail-document-link" class="document-link" target="_blank" rel="noopener noreferrer" style="display:none;">Open Document</a>
+        </div>
+
+        <div class="detail-actions">
+          <button id="btn-decline" class="btn-danger">Decline</button>
+          <button id="btn-approve" class="btn-primary">Approve</button>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/admin/userApprovalDetail.js"></script>
+</body>
+</html>

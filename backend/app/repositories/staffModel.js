@@ -8,7 +8,7 @@ async function getStaffByBranch(branch_id) {
      FROM users u
      WHERE u.role_id IN (1, 2)
        AND u.branch_id = $1
-       AND u.status = 'active'`,
+       AND u.status = 'Active'`,
     [branch_id]
   );
   return result.rows;
@@ -19,7 +19,7 @@ async function getAllAdmins() {
     `SELECT u.user_id, u.email, u.first_name
      FROM users u
      WHERE u.role_id = 1
-       AND u.status = 'active'`
+       AND u.status = 'Active'`
   );
   return result.rows;
 }

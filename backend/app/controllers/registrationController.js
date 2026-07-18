@@ -32,6 +32,8 @@ const registerVolunteer = async (req, res) => {
         const errors = validateRegistration(req.body);
         if (errors.length > 0) return response.badRequest(res, errors[0]);
 
+        // Volunteer: profile document/upload is optional — no license
+        // requirement, unlike Phlebotomist below.
         const profile_img = req.file
             ? await uploadToCloudinary(req.file.buffer, 'profile_images')
             : null;
@@ -55,9 +57,20 @@ const registerPhlebotomist = async (req, res) => {
         const errors = validateRegistration(req.body);
         if (errors.length > 0) return response.badRequest(res, errors[0]);
 
-        const profile_img = req.file
-            ? await uploadToCloudinary(req.file.buffer, 'profile_images')
-            : null;
+        // NEW this session: Phlebotomist registration requires an uploaded
+        // document — this doubles as their extraction license/certification
+        // proof. Volunteer has no equivalent requirement (see
+        // registerVolunteer above — file stays optional there). This is the
+        // only behavioral difference between the two registration paths;
+        // validateRegistration() itself remains shared and role-agnostic.
+        if (!req.file) {
+            return response.badRequest(
+                res,
+                'A license/certification document is required for Phlebotomist registration.'
+            );
+        }
+
+        const profile_img = await uploadToCloudinary(req.file.buffer, 'profile_images');
 
         const result = await registrationService.register(
             { ...req.body, profile_img },
@@ -91,7 +104,6 @@ const declineRegistration = async (req, res) => {
     }
 };
 
-// Simple read — no business logic, direct repository call is correct here
 const getPendingRegistrations = async (req, res) => {
     try {
         const profiles = await profileModel.getAllProfiles('Pending');
@@ -113,7 +125,6 @@ const getVolunteerProfile = async (req, res) => {
 
 const getAvailableVolunteers = async (req, res) => {
     try {
-        // Optional filters: ?role=5 or ?role=6, ?municipality=Batangas City
         const roleId       = req.query.role         ? parseInt(req.query.role) : null;
         const municipality = req.query.municipality || null;
 

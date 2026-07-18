@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Users | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodRequests.css" />
+  <link rel="stylesheet" href="/assets/css/features/bloodDrives.css" />
+  <link rel="stylesheet" href="/assets/css/features/userManagement.css" />
+</head>
+<body class="app-loading">
+
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Users</h1>
+          <p class="page-subtitle">Manage and view all BloodSync accounts.</p>
+        </div>
+      </div>
+
+      <div class="request-tabs">
+        <button id="tab-all"       class="tab-button tab-button--active">All</button>
+        <button id="tab-staff"     class="tab-button">Staff</button>
+        <button id="tab-volphleb"  class="tab-button">Volunteer</button>
+        <button id="tab-requestor" class="tab-button">Requestor</button>
+        <button id="tab-pending"   class="tab-button">Pending</button>
+      </div>
+
+      <!-- All -->
+      <section id="section-all">
+        <p id="all-error" class="field-error" role="alert"></p>
+        <div id="all-table-container" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="all-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Staff & Admin -->
+      <section id="section-staff" style="display:none;">
+        <div class="table-toolbar">
+          <button id="btn-create-staff" class="btn-primary">Create Staff Account</button>
+        </div>
+        <p id="staff-error" class="field-error" role="alert"></p>
+        <div id="staff-table-container" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+              </tr>
+            </thead>
+            <tbody id="staff-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Vol/Phleb -->
+      <section id="section-volphleb" style="display:none;">
+        <p id="volphleb-error" class="field-error" role="alert"></p>
+        <div id="volphleb-table-container" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Contact</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="volphleb-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Requestor -->
+      <section id="section-requestor" style="display:none;">
+        <p id="requestor-error" class="field-error" role="alert"></p>
+        <div id="requestor-table-container" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="requestor-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Pending -->
+      <section id="section-pending" style="display:none;">
+        <p id="pending-error" class="field-error" role="alert"></p>
+        <div id="pending-table-container" class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pending-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/admin/users.js"></script>
+</body>
+</html>

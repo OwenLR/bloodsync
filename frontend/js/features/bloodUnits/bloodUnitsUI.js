@@ -11,6 +11,7 @@ const TBODY_ID      = 'units-tbody';
 const SKELETON_ID   = 'units-skeleton';
 const ERROR_ID      = 'units-error';
 const TABLE_WRAP_ID = 'units-table-container';
+const TABS_WRAP_ID  = 'units-tabs';
 
 // Terminal for THIS page's purposes — no action buttons once a unit reaches
 // any of these. Matches contract.md's terminal-state table. 'Expired' is
@@ -25,7 +26,21 @@ const TERMINAL_UNIT_STATUSES = [
   BLOOD_UNIT_STATUS.SEPARATED,
 ];
 
-let _branchId = null;
+// Display labels for the component tabs / empty-state messaging. Component
+// enum values themselves (contract.md's Blood Components list) aren't in
+// statusConstants.js — mirrored here locally rather than introducing a new
+// shared constants file unprompted. Candidate for a componentConstants.js
+// mirror if component values end up reused elsewhere.
+const COMPONENT_LABELS = {
+  'Whole Blood':               'Whole Blood',
+  'Packed Red Blood Cells':    'RBC',
+  'Platelets':                 'Platelet',
+  'Fresh Frozen Plasma':       'Plasma',
+};
+
+let _branchId        = null;
+let _allRows         = [];      // unfiltered cache from last fetch
+let _activeComponent = 'all';   // 'all' | one of the component enum strings
 
 // ---------------------------------------------------------------------------
 // Public entry — called from the entry file
@@ -37,13 +52,45 @@ export async function renderUnitsTable(branchId) {
   showSkeleton();
 
   try {
-    const rows = await getUnitsByBranch(_branchId);
+    _allRows = await getUnitsByBranch(_branchId);
     hideSkeleton();
-    renderRows(rows);
+    applyFilterAndRender();
   } catch (err) {
     hideSkeleton();
     showLoadError(err.message);
   }
+}
+
+// Wires the All / Whole Blood / RBC / Platelet / Plasma tab buttons.
+// Client-side filter over the already-fetched branch rows — no backend
+// query param exists for component filtering (contract.md), and none is
+// needed since the full branch dataset is already in hand after fetch.
+export function initComponentTabs() {
+  const tabsWrap = document.getElementById(TABS_WRAP_ID);
+  if (!tabsWrap) return;
+
+  tabsWrap.querySelectorAll('.tab-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _activeComponent = btn.dataset.component;
+      updateTabState(tabsWrap);
+      applyFilterAndRender();
+    });
+  });
+  updateTabState(tabsWrap);
+}
+
+function updateTabState(tabsWrap) {
+  tabsWrap.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.toggle('tab-button--active', btn.dataset.component === _activeComponent);
+  });
+}
+
+function applyFilterAndRender() {
+  const rows = _activeComponent === 'all'
+    ? _allRows
+    : _allRows.filter(r => r.component === _activeComponent);
+
+  renderRows(rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -272,22 +319,34 @@ function showLoadError(message) {
   el.textContent = message || 'Could not load blood units. Please try again.';
 }
 
+// Message reflects the active component tab — "No RBC units…" instead of a
+// generic message when a specific tab is filtered to zero results. 'all'
+// keeps the original generic wording.
 function showEmptyState() {
   let empty = document.getElementById('units-empty-state');
   if (!empty) {
     empty           = document.createElement('div');
     empty.id        = 'units-empty-state';
     empty.className = 'empty-state';
-
-    const h3 = document.createElement('h3');
-    h3.textContent = 'No blood units found';
-    const p = document.createElement('p');
-    p.textContent = 'There are no blood units in this branch\u2019s inventory yet.';
-
-    empty.appendChild(h3);
-    empty.appendChild(p);
     document.getElementById(TABLE_WRAP_ID).insertAdjacentElement('afterend', empty);
   }
+
+  empty.textContent = '';
+
+  const h3 = document.createElement('h3');
+  const p  = document.createElement('p');
+
+  if (_activeComponent === 'all') {
+    h3.textContent = 'No blood units found';
+    p.textContent  = 'There are no blood units in this branch\u2019s inventory yet.';
+  } else {
+    const label = COMPONENT_LABELS[_activeComponent] || _activeComponent;
+    h3.textContent = `No ${label} units found`;
+    p.textContent  = `There are no ${label} units in this branch\u2019s inventory yet.`;
+  }
+
+  empty.appendChild(h3);
+  empty.appendChild(p);
   empty.style.display = '';
 }
 

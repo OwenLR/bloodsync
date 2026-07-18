@@ -278,6 +278,75 @@ const confirmParticipation = async (token, action) => {
 };
 
 /**
+ * getMyAssignments(user_id)
+ * Returns every drive assignment for the calling Volunteer/Phlebotomist,
+ * with each row's drive status recomputed the same way the list endpoints
+ * do (getAllDrives/getDrivesByBranch) so a stale 'Upcoming'/'Ongoing' in
+ * the DB shows correctly without waiting on some other request to have
+ * triggered the write. Status drift correction still persists via
+ * updateDriveStatus, same as elsewhere in this file, but this function
+ * itself performs no assignment-status mutation.
+ * Frontend splits into Incoming (assignment_status = 'Assigned') vs
+ * History (Confirmed/Declined/No Show) tabs — no backend filtering, same
+ * "return everything scoped to the caller" pattern as the Blood Requests
+ * my-requests endpoint.
+ */
+const getMyAssignments = async (user_id) => {
+    const assignments = await bloodDriveModel.getAssignmentsByUser(user_id);
+    return Promise.all(
+        assignments.map(async (row) => {
+            const computed = computeDriveStatus(row);
+            if (computed !== row.status) {
+                await bloodDriveModel.updateDriveStatus(row.drive_id, computed);
+                row.status = computed;
+            }
+            return row;
+        })
+    );
+};
+
+/**
+ * updateMyParticipationStatus(drive_id, reqUser, assignment_status)
+ * Self-service accept/decline from the "My Assignments" web page — the
+ * authenticated counterpart to confirmParticipation() above, which is
+ * the token-based email-link path. Both paths remain available per
+ * product decision; this one clears confirmation_token too, so using
+ * the web path invalidates that assignment's email link the same way
+ * using the email link already invalidates itself.
+ * Restricted at the validator level (validateSelfUpdateParticipant) to
+ * only ever pass 'Confirmed' or 'Declined' — 'Assigned'/'No Show' stay
+ * reachable only through the existing Admin/Staff route.
+ * Looks up the participant row by (drive_id, reqUser.user_id) — never a
+ * body/param user_id — so a Volunteer/Phlebotomist can only ever act on
+ * their own assignment.
+ */
+const updateMyParticipationStatus = async (drive_id, reqUser, assignment_status) => {
+    const drive = await getDriveWithCurrentStatus(drive_id);
+    if (!drive) throw new BusinessError('Blood drive not found', 404);
+
+    try {
+        assertNotTerminal(drive);
+    } catch (err) {
+        throw new BusinessError(err.message, 400);
+    }
+
+    const participant = await bloodDriveModel.getParticipant(drive_id, reqUser.user_id);
+    if (!participant) {
+        throw new BusinessError('You are not assigned to this blood drive', 404);
+    }
+
+    const updated = await bloodDriveModel.updateParticipantStatus(
+        drive_id,
+        reqUser.user_id,
+        assignment_status
+    );
+
+    await bloodDriveModel.clearConfirmationToken(drive_id, reqUser.user_id);
+
+    return updated;
+};
+
+/**
  * getDriveStats(drive_id)
  * Returns aggregate counts for the drive monitoring dashboard.
  * Read-only — no mutations.
@@ -309,5 +378,7 @@ module.exports = {
     removeParticipant,
     updateParticipantStatus,
     confirmParticipation,
+    getMyAssignments,
+    updateMyParticipationStatus,
     getDriveStats,
 };

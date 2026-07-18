@@ -1,20 +1,5 @@
 /* Staff — Blood Testing (Blood Collections) page layout */
 /* .page-header moved to main.css (.page-header--with-action) — see its comments. */
-
-.page-header-filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.page-header-filter label {
-  font-size: 0.85rem;
-  color: #555;
-}
-
-.page-header-filter select {
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
+/* .page-header-filter (select-based status filter) removed — replaced by
+   .request-tabs in features/bloodCollections.css, same session as the
+   Blood Units component-tabs addition. */

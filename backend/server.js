@@ -42,14 +42,20 @@ app.use(
 // Security middleware
 // CSP configured to allow same-origin scripts (frontend JS modules),
 // the Socket.io CDN, Leaflet from unpkg.com, and WebSocket connections.
-// connectSrc includes Nominatim for reverse geocoding (Section B map picker).
+// connectSrc includes Nominatim for reverse geocoding (Section B map picker)
+// and forward geocoding on the field registration form (Volunteer/
+// Phlebotomist address -> lat/lng, silent on barangay select).
+// connectSrc also includes psgc.gitlab.io — PSGC (Philippine Standard
+// Geographic Code) API, used to populate the province/city/barangay
+// cascading dropdowns on the same registration form. Added this session,
+// added to CSP so those fetch() calls aren't silently blocked in-browser.
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc:  ["'self'"],
             scriptSrc:   ["'self'", "https://cdn.socket.io", "https://unpkg.com"],
             styleSrc:    ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "https://cdn.socket.io", "https://nominatim.openstreetmap.org", "https://unpkg.com"],
+            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "https://cdn.socket.io", "https://nominatim.openstreetmap.org", "https://psgc.gitlab.io", "https://unpkg.com"],
             imgSrc:      ["'self'", "data:", "https://res.cloudinary.com", "https://*.tile.openstreetmap.org", "https://unpkg.com"],
             fontSrc:     ["'self'"],
             objectSrc:   ["'none'"],
@@ -99,6 +105,7 @@ const donorInterviewRoutes   = require("./app/routes/donorInterviewRoutes");
 const bloodDriveRoutes       = require("./app/routes/bloodDriveRoutes");
 const volunteerProfileRoutes = require("./app/routes/volunteerProfileRoutes");
 const notificationRoutes     = require("./app/routes/notificationRoutes");
+const referenceRoutes        = require("./app/routes/referenceRoutes");
 
 app.use("/api/roles",             roleRoutes);
 app.use("/api/branches",          branchRoutes);
@@ -119,6 +126,7 @@ app.use("/api/donor-interviews",  donorInterviewRoutes);
 app.use("/api/blood-drives",      bloodDriveRoutes);
 app.use("/api/volunteers/me",     volunteerProfileRoutes);
 app.use("/api/notifications",     notificationRoutes);
+app.use("/api/reference",         referenceRoutes);
 
 // Serve frontend static files
 // In production (Railway): serves the frontend/ folder from the same deployment.

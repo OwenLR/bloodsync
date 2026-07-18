@@ -1,0 +1,239 @@
+/*
+ * register.css — Registration pages, additions on top of login.css.
+ * Do not redefine .login-card / .field / .btn-full-width here — those
+ * are shared classes from login.css, reused via the second <link> tag,
+ * same precedent as bloodUnits.html reusing bloodDrives.css.
+ *
+ * .role-toggle / .role-toggle-btn REMOVED this session — replaced by the
+ * two-step .role-cards flow below (Step 1: pick a role via a full card,
+ * Step 2: the form). Old in-form toggle is gone entirely, not just hidden.
+ */
+
+.login-card--wide {
+  max-width: 640px;
+}
+
+.register-success {
+  display: none;
+  font-size: 13px;
+  color: #1a7f37;
+  border: 1px solid #1a7f37;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+}
+
+.register-login-link {
+  margin-top: 16px;
+  font-size: 13px;
+  text-align: center;
+  color: #666;
+}
+
+.register-login-link a {
+  color: #c0392b;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.field-optional {
+  font-weight: 400;
+  color: #888;
+  font-size: 12px;
+}
+
+.field-row {
+  display: flex;
+  gap: 16px;
+}
+
+.field-row .field {
+  flex: 1;
+}
+
+/* Step 1 — role selection cards */
+.role-cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.role-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.role-card:hover {
+  border-color: #c0392b;
+  background: #fdf3f2;
+}
+
+.role-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+}
+
+.role-card-desc {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Step 2 — back-to-role-select link */
+.btn-link-back {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #c0392b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-link-back:hover {
+  text-decoration: underline;
+}
+
+/* Terms & Conditions checkbox row — added this session */
+.field-terms {
+  margin-top: 4px;
+}
+
+/* Terms & Conditions checkbox row — added this session.
+   A <div> wrapper (not <label>) around the checkbox + a separate
+   <label for="input-terms"> for the text.
+
+   ⚠ TEMPORARY HARDENING: the first version of this (plain flex, no
+   !important) still rendered broken — checkbox centered alone, label
+   text pushed entirely outside the box into the page's right margin.
+   That behavior (float/position being pulled out of flow, not just a
+   specificity loss) doesn't match a simple ".field label" collision
+   guess — root cause unconfirmed pending login.css review. The
+   !important resets below are a stopgap to force layout regardless of
+   what's fighting it. Replace with a clean, non-!important version once
+   the actual competing rule in login.css is identified. */
+.terms-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  position: static !important;
+  float: none !important;
+  width: 100% !important;
+  font-size: 13px;
+  color: #444;
+}
+
+.terms-row input[type="checkbox"] {
+  position: static !important;
+  float: none !important;
+  width: auto !important;
+  margin: 2px 0 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.terms-row label {
+  position: static !important;
+  float: none !important;
+  display: inline !important;
+  width: auto !important;
+  max-width: none !important;
+  text-align: left !important;
+  margin: 0 !important;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.terms-row a {
+  color: #c0392b;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.terms-row a:hover {
+  text-decoration: underline;
+}
+
+/* Privacy notice block — top of Step 2, added this session */
+.field-privacy-notice {
+  background: #fdf3f2;
+  border: 1px solid #f0d5d2;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
+.privacy-notice-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: #c0392b;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.privacy-notice-summary {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+
+.field-privacy-notice .terms-row {
+  margin: 0;
+}
+
+/*
+ * Terms & Conditions modal — scoped fixes only, main.css's shared
+ * .modal-dialog/.modal-body/.modal-field-label rules stay untouched
+ * (same "extend with a modifier, never override a shared class" rule
+ * gochas.md already flags for .btn-primary / .page-header).
+ *
+ * :has() widens the dialog only when it contains .terms-modal-content —
+ * every other modal in the app (confirm dialogs, reason modals, detail
+ * views) keeps main.css's 480px default untouched.
+ *
+ * .terms-modal-content also no longer reuses .modal-field-label for its
+ * headings — that class is main.css's form-field-label style (13px,
+ * margin-bottom only, no margin-top), never meant for stacked section
+ * headings, and produced inconsistent spacing against each section's
+ * <p> (which was falling back to the browser's default paragraph
+ * margin). Both are now explicitly set here instead.
+ */
+.modal-dialog:has(.terms-modal-content) {
+  max-width: 640px;
+}
+
+.modal-body:has(.terms-modal-content) {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.terms-modal-content h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #222;
+  margin: 20px 0 6px;
+}
+
+.terms-modal-content h3:first-child {
+  margin-top: 0;
+}
+
+.terms-modal-content p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #444;
+  margin: 0 0 4px;
+}

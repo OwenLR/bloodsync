@@ -27,13 +27,30 @@ const getAllProfiles = async (status = null) => {
     return result.rows;
 };
 
+// FIXED this session: previously only profile_img/latitude/longitude had
+// `|| null` fallbacks — every other field (address_*, nationality,
+// education, occupation, id_type, id_number, emergency_contact_name) was
+// passed to pool.query() as-is. When the frontend doesn't send one of
+// these (which it currently doesn't — see registrationValidator.js's
+// validateRegistration, which never required them), node-postgres throws
+// "Undefined values are not allowed" as a client-side binding error before
+// the query even reaches the DB — a hard 500-shaped crash, not a clean 400.
+// All optional fields now default to null explicitly, same pattern the
+// three fixed fields already used.
+//
+// id_number specifically: forced to null regardless of what's passed in.
+// The Government/National ID input has been removed from the
+// Volunteer/Phlebotomist registration form for now (see
+// fieldRegistrationUI.js/fieldRole.html for the removal note) — pending a
+// decision on how this field is actually verified/used. Re-enable by
+// removing the `null &&` short-circuit below once that's decided.
 const createProfile = async (userId, data) => {
     const {
         birthdate, sex, contact,
         address_street, address_brgy, address_municipality,
         address_province, zip_code, nationality,
         education, occupation,
-        id_type, id_number,
+        id_type, /* id_number intentionally ignored — see comment above */
         emergency_contact_name, emergency_contact_phone,
         profile_img,
         latitude, longitude,
@@ -56,14 +73,25 @@ const createProfile = async (userId, data) => {
             $18, $19
          ) RETURNING *`,
         [
-            userId, birthdate, sex, contact,
-            address_street, address_brgy, address_municipality,
-            address_province, zip_code, nationality,
-            education, occupation,
-            id_type, id_number,
-            emergency_contact_name, emergency_contact_phone,
+            userId,
+            birthdate || null,
+            sex || null,
+            contact || null,
+            address_street || null,
+            address_brgy || null,
+            address_municipality || null,
+            address_province || null,
+            zip_code || null,
+            nationality || null,
+            education || null,
+            occupation || null,
+            id_type || null,
+            null, // id_number — forced null, see comment above
+            emergency_contact_name || null,
+            emergency_contact_phone || null,
             profile_img || null,
-            latitude || null, longitude || null,
+            latitude || null,
+            longitude || null,
         ]
     );
     return result.rows[0];
@@ -81,6 +109,12 @@ const updateProfile = async (userId, data) => {
         latitude, longitude,
     } = data;
 
+    // NOTE: updateProfile() already uses COALESCE($n, column) throughout,
+    // so undefined values here just mean "don't change this column" —
+    // this function was never affected by the createProfile bug above.
+    // id_number left untouched (not forced null) since this is the existing
+    // self-profile-edit path (PATCH /api/volunteers/me/profile), unrelated
+    // to the registration-form removal.
     const result = await pool.query(
         `UPDATE volunteer_profiles SET
             birthdate                = COALESCE($1,  birthdate),
@@ -145,13 +179,7 @@ const deleteProfileByUserId = async (userId) => {
     );
 };
 
-// Returns all active Volunteers/Phlebotomists who have set their coordinates.
-// Used by bloodDriveStaffingService to rank by distance from drive venue.
-// role_id filter: 5 = Volunteer, 6 = Phlebotomist, null = both.
-// excludeUserIds: array of user_ids already assigned to the drive — excluded
-// from results so the suggestion list only shows unassigned candidates.
 const getVolunteersWithCoords = async (roleId = null, excludeUserIds = []) => {
-    // ANY($3::int[]) handles empty array correctly in pg — returns no exclusions
     const result = await pool.query(
         `SELECT
             vp.user_id,

@@ -5,6 +5,12 @@
 
 const { VENUE_TYPES, PARTICIPANT_STATUSES } = require('../constants/statuses');
 
+// Statuses a Volunteer/Phlebotomist may set on their OWN assignment via
+// the self-service route. Deliberately narrower than PARTICIPANT_STATUSES
+// (which also includes 'Assigned' and 'No Show') — those two remain
+// reachable only through the existing Admin/Staff route.
+const SELF_SERVICE_STATUSES = ['Confirmed', 'Declined'];
+
 /**
  * Validate blood drive creation payload.
  * Required: name, branch_id, start_datetime, end_datetime
@@ -137,6 +143,8 @@ const validateAddParticipant = (data) => {
 
 /**
  * Validate updating a participant's assignment_status.
+ * Used by the Admin/Staff route — allows the full PARTICIPANT_STATUSES set
+ * (Assigned, Confirmed, Declined, No Show).
  */
 const validateUpdateParticipant = (data) => {
     const errors = [];
@@ -147,6 +155,30 @@ const validateUpdateParticipant = (data) => {
     } else if (!PARTICIPANT_STATUSES.includes(assignment_status)) {
         errors.push(
             `assignment_status must be one of: ${PARTICIPANT_STATUSES.join(', ')}`
+        );
+    }
+
+    return errors;
+};
+
+/**
+ * Validate a Volunteer/Phlebotomist updating their OWN assignment_status
+ * (the "My Assignments" web accept/decline action — the authenticated
+ * counterpart to the email confirm/decline links).
+ * Narrower than validateUpdateParticipant on purpose: only 'Confirmed' or
+ * 'Declined' are accepted here. 'Assigned' and 'No Show' are rejected even
+ * though they're valid values in PARTICIPANT_STATUSES generally — those
+ * two stay reachable only through the existing Admin/Staff route.
+ */
+const validateSelfUpdateParticipant = (data) => {
+    const errors = [];
+    const { assignment_status } = data;
+
+    if (!assignment_status) {
+        errors.push('assignment_status is required');
+    } else if (!SELF_SERVICE_STATUSES.includes(assignment_status)) {
+        errors.push(
+            `assignment_status must be one of: ${SELF_SERVICE_STATUSES.join(', ')}`
         );
     }
 
@@ -234,6 +266,7 @@ module.exports = {
     validateCancelDrive,
     validateAddParticipant,
     validateUpdateParticipant,
+    validateSelfUpdateParticipant,
     validateSuggestions,
     validateBulkAssign,
 };

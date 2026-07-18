@@ -7,6 +7,7 @@ const {
     validateCancelDrive,
     validateAddParticipant,
     validateUpdateParticipant,
+    validateSelfUpdateParticipant,
     validateSuggestions,
     validateBulkAssign,
 } = require('../../validators/bloodDriveValidator');
@@ -210,6 +211,43 @@ const confirmParticipation = async (req, res) => {
     }
 };
 
+// GET /api/blood-drives/my-assignments
+// Volunteer/Phlebotomist only. Returns every drive assignment for the
+// calling user (scoped via req.user — no query params). Frontend splits
+// into Incoming (assignment_status = 'Assigned') vs History
+// (Confirmed/Declined/No Show) tabs client-side.
+const getMyAssignments = async (req, res) => {
+    try {
+        const assignments = await bloodDriveService.getMyAssignments(req.user.user_id);
+        return response.success(res, assignments);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+// PATCH /api/blood-drives/:id/participants/me
+// Volunteer/Phlebotomist only. Self-service accept/decline from the
+// "My Assignments" page — authenticated counterpart to the token-based
+// confirmParticipation() email link above. Only 'Confirmed'/'Declined'
+// accepted (validateSelfUpdateParticipant) — never 'Assigned'/'No Show'.
+// Acts only on the caller's own participant row (req.user.user_id),
+// never a body/param user_id.
+const updateMyParticipationStatus = async (req, res) => {
+    try {
+        const errors = validateSelfUpdateParticipant(req.body);
+        if (errors.length > 0) return response.badRequest(res, errors[0]);
+
+        const updated = await bloodDriveService.updateMyParticipationStatus(
+            req.params.id,
+            req.user,
+            req.body.assignment_status
+        );
+        return response.success(res, updated, 'Assignment status updated');
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 // GET /api/blood-drives/:id/stats
 // Returns aggregate counts: donors (total/new/returning), interviews,
 // screenings, donations, collections — all scoped to the drive.
@@ -277,6 +315,8 @@ module.exports = {
     removeParticipant,
     updateParticipantStatus,
     confirmParticipation,
+    getMyAssignments,
+    updateMyParticipationStatus,
     getSuggestedParticipants,
     bulkAddParticipants,
     getDriveStats,

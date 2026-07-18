@@ -19,13 +19,11 @@
 
       <div class="page-header page-header--with-action">
         <h1>Blood Testing</h1>
-        <div class="page-header-filter">
-          <label for="status-filter">Show:</label>
-          <select id="status-filter" aria-label="Filter collections">
-            <option value="pending">Pending Review</option>
-            <option value="reviewed">Reviewed (Safe / Rejected)</option>
-          </select>
-        </div>
+      </div>
+
+      <div class="request-tabs" id="collections-tabs">
+        <button type="button" id="tab-pending" class="tab-button">Pending Review</button>
+        <button type="button" id="tab-reviewed" class="tab-button">Reviewed</button>
       </div>
 
       <div id="collections-skeleton"></div>

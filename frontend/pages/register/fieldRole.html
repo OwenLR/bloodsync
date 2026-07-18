@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloodSync | Register as Volunteer / Phlebotomist</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/login.css" />
+  <link rel="stylesheet" href="/assets/css/pages/register.css" />
+</head>
+<body>
+
+  <div class="login-card login-card--wide">
+
+    <div class="login-brand">
+      <div class="brand-logo">
+        <div class="brand-cross" aria-hidden="true"></div>
+        <span class="brand-name">BloodSync</span>
+      </div>
+      <p class="brand-org">Philippine Red Cross · Batangas Chapter</p>
+    </div>
+
+    <!-- STEP 1: Role selection -->
+    <div id="step-role-select" class="register-step">
+      <h1 class="login-heading">Register as Volunteer or Phlebotomist</h1>
+      <p class="login-subheading">Choose your role to continue.</p>
+
+      <div class="role-cards">
+        <button type="button" class="role-card" data-role="volunteer">
+          <span class="role-card-title">Volunteer</span>
+          <span class="role-card-desc">Help at blood drives. No document required to register.</span>
+        </button>
+        <button type="button" class="role-card" data-role="phlebotomist">
+          <span class="role-card-title">Phlebotomist</span>
+          <span class="role-card-desc">Perform blood extraction. License document required to register.</span>
+        </button>
+      </div>
+
+      <p class="register-login-link">
+        Already have an account? <a href="/index.html">Sign in</a>
+      </p>
+    </div>
+
+    <!-- STEP 2: Form — content shared, requirements differ by role via JS -->
+    <div id="step-form" class="register-step" style="display: none;">
+      <button type="button" id="btn-back-role" class="btn-link-back">Back</button>
+
+      <h1 class="login-heading" id="form-heading">Register</h1>
+      <p class="login-subheading" id="form-subheading">
+        Your account will be reviewed by an admin before you can sign in.
+      </p>
+
+      <p id="register-error"   class="login-error"      role="alert"></p>
+      <p id="register-success" class="register-success" role="status"></p>
+
+      <!--
+        Privacy notice — moved to the very top, before any personal field,
+        since the person is about to share personal info and should see
+        this first, not discover it near the submit button. Summary text
+        is injected by fieldRegistrationUI.js from
+        constants/termsAndConditions.js's TERMS_SUMMARY (textContent only).
+        The required checkbox lives here too — its position in the DOM
+        doesn't affect validation (fieldRegistrationValidation.js just
+        reads #input-terms.checked wherever it sits).
+      -->
+      <div class="field field-privacy-notice" id="privacy-notice">
+        <p class="privacy-notice-heading">Your privacy, up front</p>
+        <p id="privacy-notice-summary" class="privacy-notice-summary"></p>
+        <div class="terms-row">
+          <input id="input-terms" type="checkbox" />
+          <label for="input-terms">
+            I have read and agree to the
+            <a href="#" id="link-view-terms">Terms and Conditions</a>
+          </label>
+        </div>
+        <p id="input-terms-error" class="field-error"></p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="input-first-name">First name</label>
+          <input id="input-first-name" type="text" autocomplete="given-name" required />
+          <p id="input-first-name-error" class="field-error"></p>
+        </div>
+        <div class="field">
+          <label for="input-last-name">Last name</label>
+          <input id="input-last-name" type="text" autocomplete="family-name" required />
+          <p id="input-last-name-error" class="field-error"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="input-email">Email address</label>
+        <input id="input-email" type="email" autocomplete="email" required />
+        <p id="input-email-error" class="field-error"></p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="input-password">Password</label>
+          <input id="input-password" type="password" placeholder="At least 8 characters" autocomplete="new-password" required />
+          <p id="input-password-error" class="field-error"></p>
+        </div>
+        <div class="field">
+          <label for="input-confirm-password">Confirm password</label>
+          <input id="input-confirm-password" type="password" autocomplete="new-password" required />
+          <p id="input-confirm-password-error" class="field-error"></p>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="input-sex">Sex</label>
+          <select id="input-sex">
+            <option value="">Select…</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+          <p id="input-sex-error" class="field-error"></p>
+        </div>
+        <div class="field">
+          <label for="input-birthdate">Birthdate</label>
+          <input id="input-birthdate" type="date" />
+          <p id="input-birthdate-error" class="field-error"></p>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="input-contact">Contact number</label>
+          <input id="input-contact" type="tel" placeholder="e.g. 09171234567" autocomplete="tel" />
+          <p id="input-contact-error" class="field-error"></p>
+        </div>
+        <div class="field">
+          <label for="input-zip-code">ZIP code</label>
+          <input id="input-zip-code" type="text" inputmode="numeric" />
+          <p id="input-zip-code-error" class="field-error"></p>
+        </div>
+      </div>
+
+      <!--
+        Address block, added this session. Province -> City/Municipality ->
+        Barangay are cascading dropdowns sourced from the PSGC API
+        (psgcApi.js), each disabled until its parent is chosen. Street stays
+        free text (no PSGC-level source for individual streets).
+        Selecting a barangay silently geocodes in the background
+        (fieldGeocodeApi.js) — no visible loading state, by design.
+      -->
+      <div class="field">
+        <label for="input-address-street">Street address <span class="field-optional">(optional)</span></label>
+        <input id="input-address-street" type="text" autocomplete="address-line1" />
+        <p id="input-address-street-error" class="field-error"></p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="input-address-province">Province</label>
+          <select id="input-address-province">
+            <option value="">Select Province…</option>
+          </select>
+          <p id="input-address-province-error" class="field-error"></p>
+        </div>
+        <div class="field">
+          <label for="input-address-city">City / Municipality</label>
+          <select id="input-address-city" disabled>
+            <option value="">Select City / Municipality…</option>
+          </select>
+          <p id="input-address-city-error" class="field-error"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="input-address-barangay">Barangay</label>
+        <select id="input-address-barangay" disabled>
+          <option value="">Select Barangay…</option>
+        </select>
+        <p id="input-address-barangay-error" class="field-error"></p>
+      </div>
+
+      <!--
+        Government/National ID number input stays removed - see the header
+        comment in fieldRegistrationUI.js for context. Unrelated to the
+        address/terms additions here.
+      -->
+
+      <div class="field">
+        <label for="input-emergency-contact">Emergency contact phone</label>
+        <input id="input-emergency-contact" type="tel" inputmode="numeric" />
+        <p id="input-emergency-contact-error" class="field-error"></p>
+      </div>
+
+      <!--
+        File input field. For Volunteer, fieldRegistrationUI.js removes
+        this entire wrapper (#field-profile-img) from the DOM on role
+        select — not present in markup by default for that reason. It's
+        (re-)created by JS only when Phlebotomist is selected, required
+        there since it doubles as license/certification proof.
+      -->
+
+      <button id="btn-register" class="btn-primary btn-full-width">Submit registration</button>
+    </div>
+
+  </div>
+
+  <script type="module" src="/js/entry/register/fieldRegister.js"></script>
+</body>
+</html>

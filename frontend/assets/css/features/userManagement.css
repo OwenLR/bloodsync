@@ -1,0 +1,169 @@
+/* userManagement.css — Admin Users page (Active / Pending tabs) and
+   the Pending Registration detail/review page. */
+
+.status-badge--active   { background: #e6f4ea; color: #1e7e34; }
+.status-badge--declined { background: #fce8e6; color: #c5221f; }
+
+/* ── List avatars (Active + Pending tables) ──────────────────────── */
+
+.avatar-cell {
+  width: 48px;
+}
+
+.avatar-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary-light, #fdecea);
+  color: var(--color-primary, #c0392b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* ── Detail page header avatar ────────────────────────────────────── */
+
+.detail-header-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar-thumb-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+
+.avatar-placeholder-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary-light, #fdecea);
+  color: var(--color-primary, #c0392b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Pending registration detail page ────────────────────────────── */
+
+.profile-detail-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 10px 16px;
+  margin-bottom: 0.5rem;
+}
+
+.profile-detail-grid dt {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.profile-detail-grid dd {
+  font-size: 0.9rem;
+  color: #111;
+  margin: 0;
+}
+
+.document-link {
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.document-thumb {
+  max-width: 240px;
+  max-height: 240px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #ddd);
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* ── Three-column layout: Personal / Address / Emergency Contact ─── */
+
+.detail-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 1.25rem;
+}
+
+.detail-columns .detail-section {
+  margin-bottom: 0;
+}
+
+@media (max-width: 900px) {
+  .detail-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-columns .profile-detail-grid {
+  grid-template-columns: 110px 1fr;
+}
+
+/* Add to the existing file */
+
+.form-stack .form-field {
+  margin-bottom: 1rem;
+}
+
+.form-stack select,
+.form-stack input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/* Provisional — reusing donorsUI.js's status-dot naming convention.
+   Please send donors.css / pages/admin/donors.css so these can be
+   reconciled to the actual color scheme rather than guessed here. */
+
+/* userManagement.css — replace the .user-name-cell rule */
+
+.user-name-cell {
+  vertical-align: middle;
+}
+
+.user-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.status-dot-active   { background: #1e7e34; }
+.status-dot-inactive { background: #999; }
+.status-dot-pending  { background: #b06000; }
+.status-dot-declined { background: #c5221f; }
+
+.status-badge--active   { background: #e6f4ea; color: #1e7e34; }
+.status-badge--inactive { background: #f1f1f1; color: #666; }
+.status-badge--declined { background: #fce8e6; color: #c5221f; }

@@ -10,6 +10,7 @@ const ALL_STAFF_AND_FIELD = [
     ROLES.ADMIN, ROLES.PRC_STAFF,
     ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST,
 ];
+const FIELD_ONLY = [ROLES.VOLUNTEER, ROLES.PHLEBOTOMIST];
 
 // ── Public — no auth ──────────────────────────────────────────
 router.get('/confirm',
@@ -31,6 +32,16 @@ router.get('/branch/:branch_id',
     verifyToken,
     checkRole(ADMIN_STAFF),
     bloodDriveController.getDrivesByBranch
+);
+
+// My Assignments — Volunteer/Phlebotomist only. Returns every drive
+// assignment for the calling user (scoped via req.user, no params).
+// MUST be registered BEFORE /:id to prevent 'my-assignments' being
+// matched as :id — same precedent as /branch/:branch_id above.
+router.get('/my-assignments',
+    verifyToken,
+    checkRole(FIELD_ONLY),
+    bloodDriveController.getMyAssignments
 );
 
 // Volunteers/Phlebotomists can view a single drive (e.g. to see their assignment)
@@ -99,6 +110,18 @@ router.post('/:id/participants/bulk',
     verifyToken,
     checkRole(ADMIN_STAFF),
     bloodDriveController.bulkAddParticipants
+);
+
+// Self-service accept/decline — Volunteer/Phlebotomist only. Authenticated
+// counterpart to the /confirm email-link route above. Only 'Confirmed'/
+// 'Declined' accepted (validated in the controller); acts only on the
+// caller's own participant row. Registered BEFORE
+// /:id/participants/:user_id to avoid 'me' being matched as :user_id —
+// same precedent as /participants/suggestions above.
+router.patch('/:id/participants/me',
+    verifyToken,
+    checkRole(FIELD_ONLY),
+    bloodDriveController.updateMyParticipationStatus
 );
 
 // Remove participant from drive

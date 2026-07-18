@@ -32,6 +32,7 @@
     "nodemailer": "^8.0.10",
     "pg": "^8.21.0",
     "socket.io": "^4.8.3",
+    "use-postal-ph": "^1.1.14",
     "validator": "^13.15.35",
     "xss": "^1.0.15"
   },

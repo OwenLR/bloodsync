@@ -12,11 +12,18 @@
  * avoid implying role restrictions that don't exist at the backend level.
  * The existing /pages/volunteer/ and /pages/phlebotomist/ routes are kept
  * for role-specific pages (dashboard, drive assignment, notifications).
+ *
+ * REGISTER routes — public, pre-auth self-registration pages.
  */
 
 export const ROUTES = Object.freeze({
   LOGIN:     '/index.html',
   NOT_FOUND: '/pages/404.html',
+
+  REGISTER: Object.freeze({
+    REQUESTOR: '/pages/register/requestor.html',
+    FIELD:     '/pages/register/fieldRole.html', 
+  }),
 
   ADMIN: Object.freeze({
     DASHBOARD:          '/pages/admin/dashboard.html',
@@ -26,10 +33,11 @@ export const ROUTES = Object.freeze({
     BLOOD_UNITS:        '/pages/admin/bloodUnits.html',
     BLOOD_REQUESTS:     '/pages/admin/bloodRequests.html',
     USERS:              '/pages/admin/users.html',
+    USER_APPROVAL_DETAIL: '/pages/admin/userApprovalDetail.html', 
     REPORTS:            '/pages/admin/reports.html',
     NOTIFICATIONS:      '/pages/admin/notifications.html',
     SETTINGS:           '/pages/admin/settings.html',
-  }),
+}),
 
   STAFF: Object.freeze({
     DASHBOARD:          '/pages/staff/dashboard.html',

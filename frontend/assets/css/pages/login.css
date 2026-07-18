@@ -71,3 +71,16 @@ body {
   width: 100%;
   padding: 10px;
 }
+
+.login-register-link {
+  margin-top: 16px;
+  font-size: 13px;
+  text-align: center;
+  color: #666;
+}
+
+.login-register-link a {
+  color: #c0392b;
+  text-decoration: none;
+  font-weight: 600;
+}

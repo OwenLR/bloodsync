@@ -11,7 +11,11 @@ const TBODY_ID       = 'collections-tbody';
 const SKELETON_ID    = 'collections-skeleton';
 const ERROR_ID       = 'collections-error';
 const TABLE_WRAP_ID  = 'collections-table-container';
-const FILTER_ID      = 'status-filter';
+
+const TAB_IDS = {
+  pending:  'tab-pending',
+  reviewed: 'tab-reviewed',
+};
 
 let _branchId      = null;
 let _allRows       = [];        // unfiltered cache from last fetch
@@ -36,14 +40,28 @@ export async function renderCollectionsTable(branchId) {
   }
 }
 
-export function initStatusFilter() {
-  const select = document.getElementById(FILTER_ID);
-  if (!select) return;
+// Wires the Pending Review / Reviewed tab buttons. Replaces the old
+// select-based initStatusFilter() — same _activeFilter state underneath,
+// only the input mechanism changed (tabs, matching the pattern established
+// by Blood Requests' Staff Management page).
+export function initCollectionsTabs() {
+  Object.entries(TAB_IDS).forEach(([filterValue, id]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      _activeFilter = filterValue;
+      updateTabState();
+      applyFilterAndRender();
+    });
+  });
+  updateTabState();
+}
 
-  select.value = _activeFilter;
-  select.addEventListener('change', () => {
-    _activeFilter = select.value;
-    applyFilterAndRender();
+function updateTabState() {
+  Object.entries(TAB_IDS).forEach(([filterValue, id]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.classList.toggle('tab-button--active', filterValue === _activeFilter);
   });
 }
 

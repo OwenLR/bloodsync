@@ -1,6 +1,8 @@
-const authService = require('../services/authService');
-const userModel   = require('../repositories/userModel');
-const response    = require('../../utils/responseHelper');
+const authService  = require('../services/authService');
+const userModel    = require('../repositories/userModel');
+const profileModel = require('../repositories/profileModel');
+const response     = require('../../utils/responseHelper');
+const ROLES        = require('../../constants/roles');
 const { validateChangePassword } = require('../../validators/authValidator');
 
 const COOKIE_OPTIONS = {
@@ -102,9 +104,13 @@ const logout = async (req, res) => {
 };
 
 // GET /api/auth/me
-// Returns JWT payload fields + first_name/last_name from DB lookup —
-// frontend needs name fields for navbar display on every page load
-// (in-memory user cache does not survive page reload).
+// profile_img: role-aware lookup (staff_profiles / volunteer_profiles),
+// see prior session note.
+// branch_name: added this session — PRC Staff only, needed for the navbar
+// role label ("PRC {branch_name}"). Other roles either have no branch_id
+// (Volunteer/Phlebotomist per current seed data) or don't need branch
+// context in their label (Admin/Requestor), so the lookup is skipped for
+// them rather than always joining branches for every role.
 const me = async (req, res) => {
     try {
         const user = await userModel.getUserById(req.user.user_id);
@@ -113,14 +119,32 @@ const me = async (req, res) => {
             return response.handleError(res, new Error('User not found'));
         }
 
+        let profile_img = null;
+        let branch_name = null;
+
+        if (req.user.role_id === ROLES.ADMIN || req.user.role_id === ROLES.PRC_STAFF) {
+            const staffProfile = await userModel.getStaffProfileByUserId(req.user.user_id);
+            profile_img = staffProfile ? staffProfile.profile_img : null;
+        } else if (req.user.role_id === ROLES.VOLUNTEER || req.user.role_id === ROLES.PHLEBOTOMIST) {
+            const volProfile = await profileModel.getProfileByUserId(req.user.user_id);
+            profile_img = volProfile ? volProfile.profile_img : null;
+        }
+
+        if (req.user.role_id === ROLES.PRC_STAFF && req.user.branch_id) {
+            const branch = await branchModel.getBranchById(req.user.branch_id);
+            branch_name = branch ? branch.branch_name : null;
+        }
+
         return response.success(res, {
             user: {
                 user_id:    req.user.user_id,
                 email:      req.user.email,
                 role_id:    req.user.role_id,
                 branch_id:  req.user.branch_id,
+                branch_name,
                 first_name: user.first_name,
                 last_name:  user.last_name,
+                profile_img,
             }
         }, 'User fetched');
     } catch (error) {

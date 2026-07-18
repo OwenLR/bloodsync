@@ -10,3 +10,31 @@
 .status-badge--withdrawn { background: #fce8e6; color: #c5221f; }
 .status-badge--expired   { background: #f3e8fd; color: #7b3fa0; }
 .status-badge--separated { background: #fff4e0; color: #b06000; }
+
+/* ── Tabs — identical to bloodRequests.css's .request-tabs/.tab-button
+   pattern (Staff Management page, same session). Duplicated rather than
+   shared since main.css wasn't touched — candidate for extraction into
+   main.css as a genuinely shared control once a cleanup pass happens,
+   same flag already open for .status-badge/.empty-state in sessionState.md. ── */
+.request-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color, #ddd);
+}
+
+.tab-button {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.tab-button--active {
+  color: #c0392b;
+  border-bottom-color: #c0392b;
+}

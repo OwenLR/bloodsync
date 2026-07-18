@@ -6,7 +6,7 @@ import { renderSidebar,
 import { revealAppShell }  from '../../layouts/appShell.js';
 import { getSidebarItems } from '../../constants/sidebarItems.js';
 import { ROLES }           from '../../constants/roles.js';
-import { renderCollectionsTable, initStatusFilter } from '../../features/bloodCollections/bloodCollectionsUI.js';
+import { renderCollectionsTable, initCollectionsTabs } from '../../features/bloodCollections/bloodCollectionsUI.js';
 import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 
 async function init() {
@@ -29,7 +29,7 @@ async function init() {
   revealAppShell();
   refreshBadge(); // non-blocking, sets navbar badge to the real unread count
 
-  initStatusFilter();
+  initCollectionsTabs();
   await renderCollectionsTable(user.branch_id);
 }
 

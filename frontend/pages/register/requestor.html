@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloodSync | Register — Requestor</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/pages/login.css" />
+  <link rel="stylesheet" href="/assets/css/pages/register.css" />
+</head>
+<body>
+
+  <div class="login-card">
+
+    <div class="login-brand">
+      <div class="brand-logo">
+        <div class="brand-cross" aria-hidden="true"></div>
+        <span class="brand-name">BloodSync</span>
+      </div>
+      <p class="brand-org">Philippine Red Cross · Batangas Chapter</p>
+    </div>
+
+    <div class="login-form-panel">
+      <h1 class="login-heading">Create your account</h1>
+      <p class="login-subheading">Register to request blood for a patient.</p>
+
+      <p id="register-error"   class="login-error"      role="alert"></p>
+      <p id="register-success" class="register-success" role="status"></p>
+
+      <div class="field">
+        <label for="input-first-name">First name</label>
+        <input id="input-first-name" type="text" placeholder="First name" autocomplete="given-name" required />
+      </div>
+
+      <div class="field">
+        <label for="input-last-name">Last name</label>
+        <input id="input-last-name" type="text" placeholder="Last name" autocomplete="family-name" required />
+      </div>
+
+      <div class="field">
+        <label for="input-email">Email address</label>
+        <input id="input-email" type="email" placeholder="Email" autocomplete="email" required />
+      </div>
+
+      <div class="field">
+        <label for="input-password">Password</label>
+        <input id="input-password" type="password" placeholder="At least 8 characters" autocomplete="new-password" required />
+      </div>
+
+      <div class="field">
+        <label for="input-confirm-password">Confirm password</label>
+        <input id="input-confirm-password" type="password" placeholder="Re-enter password" autocomplete="new-password" required />
+      </div>
+
+      <div class="field">
+        <label for="input-contact">Contact number <span class="field-optional">(optional)</span></label>
+        <input id="input-contact" type="tel" placeholder="e.g. 09171234567" autocomplete="tel" />
+      </div>
+
+      <button id="btn-register" class="btn-primary btn-full-width">Create account</button>
+
+      <p class="register-login-link">
+        Already have an account? <a href="/index.html">Sign in</a>
+      </p>
+    </div>
+
+  </div>
+
+  <script type="module" src="/js/entry/register/requestorRegister.js"></script>
+</body>
+</html>
