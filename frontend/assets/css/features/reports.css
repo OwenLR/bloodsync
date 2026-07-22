@@ -1,0 +1,183 @@
+/* ── Reports — tab bar ───────────────────────────────────────────── */
+/* Deliberately self-contained rather than borrowing bloodRequests.css's
+   .request-tabs — same visual pattern (tab-button / tab-button--active
+   class names, first established there), but this feature keeps its own
+   copy per project decision instead of adding a third borrower to the
+   .status-badge/.empty-state cross-file pattern already flagged as CSS
+   debt in sessionState.md. */
+
+.report-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color, #ddd);
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.tab-button--active {
+  color: var(--color-primary, #c0392b);
+  border-bottom-color: var(--color-primary, #c0392b);
+}
+
+/* ── Report panel / sections ────────────────────────────────────── */
+
+.report-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.report-section {
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.report-section h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem;
+}
+
+.report-scope-note {
+  color: var(--text-muted, #888);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+.report-empty-note {
+  color: var(--text-muted, #888);
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+/* ── Stat row — compact label:value chips, replaces one-number-per-card ─
+   Multiple stats share one horizontal row instead of each claiming a full
+   grid cell — the fix for "too much empty space around one number". */
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.stat-row-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f7f7f7;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.stat-row-value {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-primary, #c0392b);
+}
+
+.stat-row-label {
+  color: #666;
+}
+
+/* ── Gauge grid — status breakdowns as shared-scale "fullness rings"
+   (Inventory, Blood Drives, Blood Testing, Blood Requests). Each ring is a
+   2-slice doughnut (value + remainder) from chartHelper.js's
+   renderGaugeChart, all sharing one denominator computed in reportsUI.js's
+   gaugeDenominator() — ring fullness is the comparison, not chart height. */
+
+.gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 1.25rem;
+  justify-items: center;
+}
+
+.gauge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gauge-ring {
+  position: relative;
+  width: 108px;
+  height: 108px;
+}
+
+.gauge-ring canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.gauge-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #333;
+  pointer-events: none;
+}
+
+.gauge-label {
+  font-size: 0.8rem;
+  color: #666;
+  text-align: center;
+}
+
+/* Clickable variant — e.g. the "Pending" ring on Users doubles as a
+   shortcut to the Users page, replacing what used to be a separate
+   callout card. */
+a.gauge-card--clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+a.gauge-card--clickable:hover {
+  background: #f7f7f7;
+}
+
+/* ── Layout grids — Unit Flow stat-rows, Donor Activity Overview, User
+   Overview. auto-fit collapses to a single column on narrow screens. */
+
+.report-flow-grid,
+.report-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.report-flow-col h4 {
+  font-size: 0.85rem;
+  color: #444;
+  margin: 0 0 0.5rem;
+}
+
+/* ── Low-stock row highlight — Inventory report's stock table ──── */
+
+.report-row--low-stock {
+  background: #fdecea;
+}
+
+.report-row--low-stock td {
+  color: #c5221f;
+}

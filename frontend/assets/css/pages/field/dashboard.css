@@ -1,0 +1,75 @@
+/*
+ * pages/field/dashboard.css. Shared by both pages/volunteer/dashboard.html
+ * and pages/phlebotomist/dashboard.html (identical dashboards for both
+ * roles, same shared-file pattern already used for driveAssignment.js).
+ *
+ * .card-heading, .card-subtext, .kpi-card, .chart-card, .drive-list,
+ * .quick-actions, and .button-row are all reused from features/
+ * dashboard.css. Only the next-assignment-hero accent lives here, since
+ * it's unique to this dashboard.
+ */
+
+.next-assignment-hero {
+  border-left: 4px solid #c0392b;
+}
+
+.next-assignment-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.next-assignment-header .chart-card-title {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.drives-completed-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  background: #f0f0f0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.view-all-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c0392b;
+  white-space: nowrap;
+}
+
+.featured-assignment {
+  padding-bottom: 4px;
+}
+
+.compact-assignment-list {
+  margin-top: 12px;
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+}
+
+/* ── Your Impact card ────────────────────────────────────────────── */
+.impact-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.impact-stat-cell {
+  text-align: center;
+  padding: 8px 4px;
+}
+
+@media (max-width: 600px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .impact-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

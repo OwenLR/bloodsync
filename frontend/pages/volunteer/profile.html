@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/profile.css" />
+  <link rel="stylesheet" href="/assets/css/features/userManagement.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+    <main id="content" class="page-content">
+
+      <div class="page-header">
+        <h1 class="page-title">Profile</h1>
+        <p class="page-subtitle">This is the information you provided when you registered. Contact an admin to change your name, birthdate, or sex.</p>
+      </div>
+
+      <section class="profile-card" aria-labelledby="heading-identity">
+        <h2 class="profile-card-title" id="heading-identity">Account Information</h2>
+
+        <div class="profile-avatar-row">
+          <img class="avatar-thumb-lg field-error-hidden" id="profile-avatar" src="" alt="Profile photo" />
+          <div class="avatar-placeholder-lg field-error-hidden" id="profile-avatar-placeholder"></div>
+        </div>
+
+        <dl class="detail-list">
+          <dt>Name</dt>
+          <dd id="profile-name">—</dd>
+          <dt>Email</dt>
+          <dd id="profile-email">—</dd>
+          <dt>Role</dt>
+          <dd id="profile-role-label">—</dd>
+          <dt>Account Status</dt>
+          <dd id="profile-status">—</dd>
+          <dt>Birthdate</dt>
+          <dd id="profile-birthdate">—</dd>
+          <dt>Sex</dt>
+          <dd id="profile-sex">—</dd>
+        </dl>
+      </section>
+
+      <div class="detail-columns">
+        <section class="profile-card detail-section">
+          <h2 class="profile-card-title">Contact</h2>
+          <dl class="profile-detail-grid">
+            <dt>Phone</dt>
+            <dd id="profile-contact">—</dd>
+          </dl>
+        </section>
+
+        <section class="profile-card detail-section">
+          <h2 class="profile-card-title">Address</h2>
+          <dl class="profile-detail-grid">
+            <dt>Street</dt>
+            <dd id="profile-address-street">—</dd>
+            <dt>Barangay</dt>
+            <dd id="profile-address-brgy">—</dd>
+            <dt>City/Municipality</dt>
+            <dd id="profile-address-municipality">—</dd>
+            <dt>Province</dt>
+            <dd id="profile-address-province">—</dd>
+            <dt>ZIP Code</dt>
+            <dd id="profile-zip-code">—</dd>
+          </dl>
+        </section>
+
+        <section class="profile-card detail-section">
+          <h2 class="profile-card-title">Emergency Contact</h2>
+          <dl class="profile-detail-grid">
+            <dt>Name</dt>
+            <dd id="profile-emergency-name">—</dd>
+            <dt>Phone</dt>
+            <dd id="profile-emergency-phone">—</dd>
+          </dl>
+        </section>
+      </div>
+
+      <section class="profile-card" aria-labelledby="heading-registration">
+        <h2 class="profile-card-title" id="heading-registration">Registration Details</h2>
+        <dl class="detail-list">
+          <dt>Nationality</dt>
+          <dd id="profile-nationality">—</dd>
+          <dt>Education</dt>
+          <dd id="profile-education">—</dd>
+          <dt>Occupation</dt>
+          <dd id="profile-occupation">—</dd>
+        </dl>
+      </section>
+
+      <section class="profile-card" aria-labelledby="heading-photo">
+        <h2 class="profile-card-title" id="heading-photo">Profile Photo</h2>
+        <p class="profile-card-desc">Upload a profile photo. Accepted formats: JPEG, PNG, PDF. Max size: 5MB.</p>
+
+        <form id="photo-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="profile-img-input">Select File</label>
+            <input class="form-input" type="file" id="profile-img-input" name="profile_img" accept="image/jpeg,image/png,image/jpg,application/pdf" />
+          </div>
+
+          <div class="photo-preview-wrap photo-preview-hidden" id="photo-preview-wrap">
+            <img class="photo-preview" id="photo-preview" src="" alt="Preview of selected profile photo" />
+          </div>
+
+          <span class="field-error field-error-hidden profile-form-error" id="error-photo-form" aria-live="polite"></span>
+
+          <div class="profile-form-actions">
+            <button class="btn-primary" type="submit" id="btn-upload-photo">Upload Photo</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="profile-card" aria-labelledby="heading-password">
+        <h2 class="profile-card-title" id="heading-password">Change Password</h2>
+        <p class="profile-card-desc">Update your login password. You will not be logged out after changing it.</p>
+
+        <form id="password-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="current-password">Current Password</label>
+            <input class="form-input" type="password" id="current-password" name="current_password" autocomplete="current-password" required />
+            <span class="field-error field-error-hidden" id="error-current-password" aria-live="polite"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="new-password">New Password</label>
+            <input class="form-input" type="password" id="new-password" name="new_password" autocomplete="new-password" required />
+            <span class="field-error field-error-hidden" id="error-new-password" aria-live="polite"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="confirm-password">Confirm New Password</label>
+            <input class="form-input" type="password" id="confirm-password" name="confirm_password" autocomplete="new-password" required />
+            <span class="field-error field-error-hidden" id="error-confirm-password" aria-live="polite"></span>
+          </div>
+
+          <span class="field-error field-error-hidden profile-form-error" id="error-password-form" aria-live="polite"></span>
+
+          <div class="profile-form-actions">
+            <button class="btn-primary" type="submit" id="btn-change-password">Change Password</button>
+          </div>
+        </form>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/entry/shared/profileField.js"></script>
+</body>
+</html>

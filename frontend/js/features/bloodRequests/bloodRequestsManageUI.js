@@ -156,7 +156,7 @@ function buildRow(request) {
 
 function cell(text) {
   const td = document.createElement('td');
-  td.textContent = text ?? '—';
+  td.textContent = text ?? '-';
   return td;
 }
 
@@ -164,7 +164,7 @@ function urgencyCell(level) {
   const td = document.createElement('td');
   const span = document.createElement('span');
   span.className = `urgency-badge urgency-badge--${(level || '').toLowerCase()}`;
-  span.textContent = level ?? '—';
+  span.textContent = level ?? '-';
   td.appendChild(span);
   return td;
 }
@@ -253,8 +253,8 @@ function hideEmptyState() {
 }
 
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return '-';
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }

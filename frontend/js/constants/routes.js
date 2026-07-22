@@ -14,6 +14,12 @@
  * for role-specific pages (dashboard, drive assignment, notifications).
  *
  * REGISTER routes — public, pre-auth self-registration pages.
+ *
+ * PROFILE routes — added this session (Profile page build). One per role.
+ * SETTINGS routes intentionally left in place for now — Profile is being
+ * built to replace Settings entirely, but the old pages/entry files/routes
+ * are removed only once Profile is fully working (see sessionState.md
+ * Permanent Rules once that note is added — staged removal, not a swap).
  */
 
 export const ROUTES = Object.freeze({
@@ -36,6 +42,7 @@ export const ROUTES = Object.freeze({
     USER_APPROVAL_DETAIL: '/pages/admin/userApprovalDetail.html', 
     REPORTS:            '/pages/admin/reports.html',
     NOTIFICATIONS:      '/pages/admin/notifications.html',
+    PROFILE:            '/pages/admin/profile.html',
     SETTINGS:           '/pages/admin/settings.html',
 }),
 
@@ -52,6 +59,7 @@ export const ROUTES = Object.freeze({
     BLOOD_REQUEST_DETAIL: '/pages/staff/bloodRequestDetail.html', 
     REPORTS:            '/pages/staff/reports.html',
     NOTIFICATIONS:      '/pages/staff/notifications.html',
+    PROFILE:            '/pages/staff/profile.html',
     SETTINGS:           '/pages/staff/settings.html',
   }),
 
@@ -72,6 +80,7 @@ export const ROUTES = Object.freeze({
     DONORS:        '/pages/volunteer/donors.html',
     DRIVE:         '/pages/volunteer/drive.html',
     NOTIFICATIONS: '/pages/volunteer/notifications.html',
+    PROFILE:       '/pages/volunteer/profile.html',
   }),
 
   PHLEBOTOMIST: Object.freeze({
@@ -79,6 +88,7 @@ export const ROUTES = Object.freeze({
     DONORS:        '/pages/phlebotomist/donors.html',
     DRIVE:         '/pages/phlebotomist/drive.html',
     NOTIFICATIONS: '/pages/phlebotomist/notifications.html',
+    PROFILE:       '/pages/phlebotomist/profile.html',
   }),
 
   REQUESTOR: Object.freeze({
@@ -87,5 +97,6 @@ export const ROUTES = Object.freeze({
     REQUESTS:      '/pages/requestor/requests.html',
     AVAILABILITY:  '/pages/requestor/availability.html',
     NOTIFICATIONS: '/pages/requestor/notifications.html',
+    PROFILE:       '/pages/requestor/profile.html',
   }),
 });

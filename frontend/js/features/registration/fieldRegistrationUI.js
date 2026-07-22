@@ -58,7 +58,7 @@ const ROLE_COPY = {
   phlebotomist: {
     heading:    'Register as Phlebotomist',
     subheading: 'Your account will be reviewed by an admin before you can sign in. A license document is required.',
-    fileLabel:  'License / certification document (required — JPEG, PNG, or PDF, max 5MB)',
+    fileLabel:  'License document',
   },
 };
 

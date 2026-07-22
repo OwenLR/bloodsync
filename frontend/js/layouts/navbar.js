@@ -6,7 +6,8 @@
  *
  * Responsibilities:
  * - Render brand/logo (links to user's own dashboard — no redirect hop)
- * - Render current user's avatar (photo or initials fallback) + display name
+ * - Render current user's avatar (photo or initials fallback) + display name,
+ *   wrapped in a link to that role's Profile page (added this session)
  * - Render the notification badge placeholder (count passed in by caller)
  * - Handle logout button click
  *
@@ -17,13 +18,21 @@
  * - Open or listen to sockets
  * - Call any feature APIs
  *
- * Avatar (added this session): user.profile_img now comes from
- * GET /api/auth/me (authController.js's me() — role-aware lookup across
- * staff_profiles / volunteer_profiles). Requestor has no photo support
- * anywhere in the system, so that role always falls back to initials.
- * isImageUrl()/initials() are duplicated here rather than imported from
- * features/userManagement/ — layouts/ cannot import from features/ per
- * the Import Pyramid in rules.md (features are downstream of layouts).
+ * Avatar: user.profile_img comes from GET /api/auth/me (authController.js's
+ * me() — role-aware lookup across staff_profiles / volunteer_profiles).
+ * Requestor has no photo support anywhere in the system, so that role
+ * always falls back to initials. isImageUrl()/initials() are duplicated
+ * here rather than imported from features/ — layouts/ cannot import from
+ * features/ per the Import Pyramid in rules.md.
+ *
+ * Profile link (added this session): the avatar + display-name block is
+ * now a link to /pages/{role}/profile.html — same per-role href pattern
+ * already used by getNotificationsHref(). Logout remains its own button,
+ * outside the link, so it isn't accidentally triggered by a profile click.
+ *
+ * Role label ("{Name} | {Role Label}") unchanged from prior version —
+ * PRC Staff shows "PRC {branch_name}", falls back to "PRC Staff" if
+ * branch_name is unavailable.
  *
  * Usage:
  *   import { renderNavbar } from '../layouts/navbar.js';
@@ -33,17 +42,6 @@
  *
  * Expects <nav id="navbar"></nav> in the HTML page.
  * JS targets IDs — CSS targets classes.
- */
-/**
- * navbar.js — Top navigation bar for BloodSync web app.
- * (header comment unchanged from prior version, see previous file)
- *
- * Role label added this session: shown next to the name as
- * "{Name} | {Role Label}". PRC Staff shows "PRC {branch_name}" (no
- * "Staff" suffix — matches the exact format requested, distinct from
- * the Users page's longer "PRC {branch} Staff" convention). branch_name
- * comes from GET /api/auth/me (authController.js — PRC Staff only).
- * Falls back to "PRC Staff" if branch_name is unavailable.
  */
 
 import { logout, getDashboardHref } from '../core/auth.js';
@@ -87,6 +85,14 @@ export function renderNavbar(user, unreadCount = 0) {
   usernameSpan.className   = 'navbar-username';
   usernameSpan.textContent = `${buildDisplayName(user)} | ${buildRoleLabel(user)}`;
 
+  // Avatar + name wrapped in a link to this role's Profile page.
+  const profileLink       = document.createElement('a');
+  profileLink.href        = getProfileHref(user.role_id);
+  profileLink.className   = 'navbar-profile-link';
+  profileLink.setAttribute('aria-label', 'View profile');
+  profileLink.appendChild(avatarEl);
+  profileLink.appendChild(usernameSpan);
+
   const logoutBtn       = document.createElement('button');
   logoutBtn.id          = 'btn-logout';
   logoutBtn.className   = 'btn-logout';
@@ -96,8 +102,7 @@ export function renderNavbar(user, unreadCount = 0) {
     window.location.href = ROUTES.LOGIN;
   });
 
-  userSection.appendChild(avatarEl);
-  userSection.appendChild(usernameSpan);
+  userSection.appendChild(profileLink);
   userSection.appendChild(logoutBtn);
 
   rightSection.appendChild(notifLink);
@@ -169,6 +174,18 @@ function getNotificationsHref(roleId) {
     [ROLES.VOLUNTEER]:    ROUTES.VOLUNTEER.NOTIFICATIONS,
     [ROLES.PHLEBOTOMIST]: ROUTES.PHLEBOTOMIST.NOTIFICATIONS,
     [ROLES.REQUESTOR]:    ROUTES.REQUESTOR.NOTIFICATIONS,
+  };
+
+  return routes[roleId] || ROUTES.LOGIN;
+}
+
+function getProfileHref(roleId) {
+  const routes = {
+    [ROLES.ADMIN]:        ROUTES.ADMIN.PROFILE,
+    [ROLES.PRC_STAFF]:    ROUTES.STAFF.PROFILE,
+    [ROLES.VOLUNTEER]:    ROUTES.VOLUNTEER.PROFILE,
+    [ROLES.PHLEBOTOMIST]: ROUTES.PHLEBOTOMIST.PROFILE,
+    [ROLES.REQUESTOR]:    ROUTES.REQUESTOR.PROFILE,
   };
 
   return routes[roleId] || ROUTES.LOGIN;

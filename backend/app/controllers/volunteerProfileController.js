@@ -29,9 +29,24 @@ const getMyProfile = async (req, res) => {
  * PATCH /api/volunteers/me/profile
  * Update own profile. Identity fields are rejected by validator.
  * Profile image upload supported via multipart/form-data.
+ *
+ * FIXED this session: previously called validateUpdateVolunteerProfile(req.body)
+ * unconditionally, which fails with "At least one field is required to
+ * update" whenever req.body is empty — but multer puts an uploaded file on
+ * req.file, not req.body. A request sending ONLY a new photo (no other
+ * text fields — exactly what a dedicated "Update Photo" action sends) was
+ * being incorrectly rejected even though a valid file was present. The
+ * "nothing to update" check now considers req.file too, and only runs the
+ * field-level validator against whatever body fields actually exist.
  */
 const updateMyProfile = async (req, res) => {
     try {
+        const hasBodyFields = Object.keys(req.body).length > 0;
+
+        if (!hasBodyFields && !req.file) {
+            return response.badRequest(res, 'At least one field is required to update');
+        }
+
         const errors = validateUpdateVolunteerProfile(req.body);
         if (errors.length > 0) return response.badRequest(res, errors[0]);
 

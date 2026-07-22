@@ -6,19 +6,21 @@ Phase 2 in progress. Complete: Dashboards (all 5 roles), Blood Drives
 (4 steps), Blood Units/Inventory feature — all 4 sections (Testing, Units,
 Cleaning, Separation), Staff only, Notifications (all 5 roles),
 Blood Requests — all 3 sections (Requestor Submit Request, Requestor My
-Requests, Staff Management + Detail page).
-Not started: Vol/Phleb Drive pages, Reports, Vol/Phleb + Requestor
-Settings frontend, Requestor self-profile.
+Requests, Staff Management + Detail page), Vol/Phleb Drive
+Assignments ('My Assignments' — Incoming/History tabs, self accept/
+decline).
+Not started: Reports, Vol/Phleb + Requestor Settings frontend,
+Requestor self-profile. Blood Drive Endpoints full contract.md
+write-up (pre-existing gap, flagged this session, not yet
+backfilled).
 
 ## Current Phase
 Phase 2 — Features / Web
 
 ## Next Up
-Vol/Phleb Drive pages — `pages/volunteer/drive.html` +
-`pages/phlebotomist/drive.html`, "My Assignment" view. Routes already
-exist (`ROUTES.VOLUNTEER.DRIVE` / `ROUTES.PHLEBOTOMIST.DRIVE`), no page
-built yet. Reports is explicitly build-last per prior direction — do not
-jump to it before Drive pages.
+Reports — aggregate data display, read-only, explicitly build-last per
+prior direction. Vol/Phleb Drive Assignments (previously next-up) is now
+built — see Built section below.
 
 ---
 
@@ -170,6 +172,57 @@ jump to it before Drive pages.
   brute-force protection is correct there specifically. Do not revert the
   general limiter to IP-keying or a 15-minute window — see gochas.md #66
   for why that combination breaks normal multi-page-navigation usage.
+- Blood Drive assignment accept/decline has TWO valid paths, not one:
+the original email token link (GET /confirm) and the authenticated
+"My Assignments" self-service route (PATCH /:id/participants/me).
+Both remain supported per product decision (this session) — do not
+remove or deprecate either one without an explicit new decision. Using
+either path clears the assignment's confirmation_token, so they're
+mutually exclusive single-use actions on the same assignment, not two
+independent channels that could both fire.
+
+Backend — additive only to the existing Blood Drive feature, nothing
+pre-existing changed:
+
+
+bloodDriveModel.js gained getAssignmentsByUser(user_id)
+bloodDriveService.js gained getMyAssignments(user_id) and
+updateMyParticipationStatus(drive_id, reqUser, assignment_status)
+bloodDriveValidator.js gained validateSelfUpdateParticipant —
+narrower than the Admin/Staff validator, only accepts
+Confirmed/Declined
+bloodDriveController.js + bloodDriveRoutes.js gained
+GET /my-assignments and PATCH /:id/participants/me, both
+Volunteer/Phlebotomist only, both registered before their
+parameterized sibling routes to avoid Express route shadowing (same
+precedent as /branch/:branch_id and /participants/suggestions)
+
+
+Frontend files:
+
+
+js/features/bloodDrives/bloodDrivesApi.js — gained
+getMyAssignments() and updateMyParticipationStatus() (added to the
+existing Blood Drives API file, per the "feature-to-feature API reuse"
+Permanent Rule — no new Api file created)
+js/features/bloodDrives/bloodDriveAssignmentUI.js (new) — tabs,
+card rendering, Accept (no confirmation)/Decline (confirmModal,
+danger=true) actions
+js/entry/shared/driveAssignment.js (new) — one shared entry file for
+both roles, same "Shared entry file pattern" as
+entry/shared/notifications.js
+pages/volunteer/drive.html + pages/phlebotomist/drive.html (new)
+assets/css/features/bloodDriveAssignment.css (new) — card layout +
+4 new .status-badge--* modifiers (Assigned/Confirmed/Declined/No
+Show). Does not redefine .status-badge/.empty-state
+(bloodDrives.css) or .request-tabs/.tab-button* (bloodRequests.css)
+— both linked in as extra stylesheets, same existing "borrow shared
+base classes" pattern already flagged as CSS debt for
+bloodUnits.html/requests.html.
+assets/css/main.css gained one new modifier, .btn-sm (applied
+alongside .btn-primary/.btn-secondary, same convention as
+.btn-full-width) — no generic small-button modifier existed before
+this (notifications.css's .btn-xs is page-specific).
 
 ## Role Responsibilities (FINAL)
 | Role | Donation Workflow | Management |
@@ -332,9 +385,7 @@ Rules).
 ---
 
 ## Not Started
-- [ ] Vol/Phleb Drive pages — `pages/volunteer/drive.html` +
-      `pages/phlebotomist/drive.html`, "My Assignment" view. **Next up.**
-- [ ] Reports — aggregate data display, read-only, build last
+- [ ] Reports — aggregate data display, read-only, build last 
 - [ ] User guide / help page — before UAT
 - [ ] Requestor self-profile endpoint — backend not scoped yet
 - [ ] Vol/Phleb Settings frontend — backend ready, frontend not built
@@ -366,6 +417,14 @@ Rules).
       replicated for consistency with the existing pattern each time,
       not introduced new. Needs a proper pass wiring the real
       skeleton.js calls into each feature file once prioritized.
+- [ ] contract.md has no full "Blood Drive Endpoints" section — only
+the two new participant self-service endpoints (added this
+session) are documented there. The pre-existing CRUD/participant
+surface (GET /, GET /:id, POST /, PATCH /:id, PATCH /:id/cancel,
+GET/POST/DELETE/PATCH .../participants, .../suggestions, .../bulk,
+GET /:id/stats, GET /confirm) still needs its own write-up.
+Flagged, not backfilled, to keep this session's contract.md patch
+scoped to what actually changed.
 - [ ] CSP enhancement (optional, deferred): add
       `frameSrc: ["'self'", "https://res.cloudinary.com"]` to
       server.js's Helmet config to allow inline PDF preview on the Blood

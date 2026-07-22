@@ -1,15 +1,8 @@
 /*
- * dashboard.css — Admin dashboard page layout.
- * Minimal functional styles only — design pass in Phase 4.
+ * pages/admin/dashboard.css — Admin-specific overrides only.
  *
- * Owned by: pages/admin/dashboard.html
+ * All shared dashboard styling (KPI cards, chart cards, quick actions,
+ * skeleton) lives in features/dashboard.css — do not redefine those
+ * classes here. This file is intentionally near-empty; add Admin-only
+ * tweaks here if/when they come up.
  */
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 700;
-}

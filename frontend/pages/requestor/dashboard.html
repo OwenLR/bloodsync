@@ -1,12 +1,11 @@
-<!-- requestor dashboard -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard|BloodSync</title>
+  <title>Dashboard | BloodSync</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/dashboard.css" />
   <link rel="stylesheet" href="/assets/css/pages/requestor/dashboard.css" />
 </head>
 <body class="app-loading">
@@ -17,13 +16,20 @@
     <aside id="sidebar"></aside>
 
     <main id="content" class="page-content">
-      <div class="page-header">
-        <h1 class="page-title">Dashboard</h1>
+
+      <!-- No .page-header here on purpose — the hero below serves as
+           this page's banner/title, matching the warmer public-facing
+           register for Requestor vs. Admin/Staff's plain page-header. -->
+      <section id="dashboard-hero" class="dashboard-hero"></section>
+
+      <div class="dashboard-grid">
+        <section id="active-request-card" class="chart-card"></section>
+        <section id="mission-blurb" class="chart-card"></section>
+        <section id="availability-teaser" class="chart-card"></section>
       </div>
 
-      <div id="dashboard-content">
-        <!-- Phase 2 summary cards go here -->
-      </div>
+      <section id="quick-actions" class="quick-actions"></section>
+
     </main>
   </div>
 

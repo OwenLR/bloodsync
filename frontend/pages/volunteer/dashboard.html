@@ -1,13 +1,17 @@
-<!-- volunteer dashboard -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard|BloodSync</title>
+  <title>Dashboard | BloodSync</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
-  <link rel="stylesheet" href="/assets/css/pages/volunteer/dashboard.css" />
+  <link rel="stylesheet" href="/assets/css/features/dashboard.css" />
+  <!-- bloodDriveAssignment.css linked for the .status-badge--assigned/
+       --confirmed/--declined/--no-show modifiers and .assignment-role-notes
+       used on the Upcoming Assignments card below. Same shared-base-class
+       pattern as Staff's dashboard borrowing bloodDrives.css. -->
+  <link rel="stylesheet" href="/assets/css/features/bloodDriveAssignment.css" />
+  <link rel="stylesheet" href="/assets/css/pages/field/dashboard.css" />
 </head>
 <body class="app-loading">
 
@@ -21,13 +25,29 @@
         <h1 class="page-title">Dashboard</h1>
       </div>
 
-      <div id="dashboard-content">
-        <!-- Phase 2 summary cards go here -->
+      <!-- Motivational card first, per this session's layout decision. -->
+      <section id="mission-blurb" class="chart-card"></section>
+
+      <div id="assignments-skeleton" class="dashboard-skeleton">
+        <div class="skeleton-item">
+          <div class="skeleton-line skeleton-line-wide"></div>
+          <div class="skeleton-line skeleton-line-narrow"></div>
+        </div>
       </div>
+      <div id="assignments-error" class="field-error"></div>
+
+      <!-- Upcoming Assignments only. History lives on the My Assignments
+           page (driveRouteFor), not duplicated here. -->
+      <section id="next-assignment-card" class="chart-card next-assignment-hero" style="display:none;"></section>
+
+      <section id="impact-stats-card" class="chart-card"></section>
+
+      <section id="quick-actions" class="quick-actions"></section>
+
     </main>
   </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script type="module" src="/js/entry/volunteer/dashboard.js"></script>
+  <script type="module" src="/js/entry/shared/dashboard.js"></script>
 </body>
 </html>

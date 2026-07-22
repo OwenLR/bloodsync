@@ -1,13 +1,112 @@
 /*
- * dashboard.css — Dashboard page layout.
- * Minimal functional styles only — design pass in Phase 4.
+ * pages/requestor/dashboard.css. Requestor Dashboard.
+ *
+ * Deliberately warmer/public-facing register than Admin/Staff. Hero
+ * banner and stepper are Requestor-specific and live here, not in
+ * features/dashboard.css, since Admin/Staff never use them. .chart-card,
+ * .quick-actions, .quick-actions-list, .card-heading, .card-subtext,
+ * .donation-fact, and skeleton classes ARE reused from features/
+ * dashboard.css and main.css.
  */
 
-.page-header {
+.dashboard-hero {
+  background: linear-gradient(135deg, #c0392b, #922b21);
+  color: #fff;
+  padding: 40px 32px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.hero-motto {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.hero-subtext {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 20px;
+}
+
+.hero-cta {
+  display: inline-block;
+  background: #fff;
+  color: #c0392b;
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.hero-cta:hover {
+  background: #f5f5f5;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
   margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 20px;
+/* ── Request status stepper ─────────────────────────────────────── */
+.request-stepper {
+  display: flex;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.request-stepper-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+}
+
+.request-stepper-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: #ddd;
+  z-index: 0;
+}
+
+.request-stepper-step--done:not(:last-child)::after {
+  background: #c0392b;
+}
+
+.request-stepper-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ddd;
+  z-index: 1;
+  margin-bottom: 6px;
+}
+
+.request-stepper-step--done .request-stepper-dot,
+.request-stepper-step--active .request-stepper-dot {
+  background: #c0392b;
+}
+
+.request-stepper-label {
+  font-size: 11px;
+  color: #888;
+  text-align: center;
+}
+
+.request-stepper-step--active .request-stepper-label {
+  color: #c0392b;
   font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .dashboard-hero { padding: 28px 20px; }
+  .hero-motto { font-size: 18px; }
 }

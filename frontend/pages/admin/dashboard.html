@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard|BloodSync</title>
+  <title>Dashboard | BloodSync</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/dashboard.css" />
   <link rel="stylesheet" href="/assets/css/pages/admin/dashboard.css" />
 </head>
 <body class="app-loading">
@@ -19,13 +20,58 @@
         <h1 class="page-title">Dashboard</h1>
       </div>
 
-      <div id="dashboard-content">
-        <!-- Phase 2 summary cards go here -->
+      <div id="dashboard-skeleton" class="dashboard-skeleton">
+        <div class="skeleton-item">
+          <div class="skeleton-line skeleton-line-wide"></div>
+          <div class="skeleton-line skeleton-line-narrow"></div>
+        </div>
+        <div class="skeleton-item">
+          <div class="skeleton-line skeleton-line-wide"></div>
+          <div class="skeleton-line skeleton-line-narrow"></div>
+        </div>
+        <div class="skeleton-item">
+          <div class="skeleton-line skeleton-line-wide"></div>
+          <div class="skeleton-line skeleton-line-narrow"></div>
+        </div>
+      </div>
+
+      <div id="dashboard-error" class="field-error"></div>
+
+      <div id="dashboard-content" style="display:none;">
+
+        <section id="kpi-row" class="kpi-grid"></section>
+
+        <section class="chart-grid">
+          <div class="chart-card">
+            <h2 class="chart-card-title">Active Staff by Branch</h2>
+            <div class="chart-canvas-wrap">
+              <canvas id="chart-staff-branch"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h2 class="chart-card-title">User Roles</h2>
+            <div class="chart-canvas-wrap">
+              <canvas id="chart-user-roles"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card chart-card--wide">
+            <h2 class="chart-card-title">Donations - Last 30 Days</h2>
+            <div class="chart-canvas-wrap">
+              <canvas id="chart-donation-trend"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <section id="quick-actions" class="quick-actions"></section>
+
       </div>
     </main>
   </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://unpkg.com/chart.js@4.5.1/dist/chart.umd.js"></script>
   <script type="module" src="/js/entry/admin/dashboard.js"></script>
 </body>
 </html>

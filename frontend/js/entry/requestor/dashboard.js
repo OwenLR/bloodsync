@@ -1,15 +1,16 @@
 // ─── js/entry/requestor/dashboard.js ─────────────────────────────────────────
 
-import { requireAuth }        from '../../core/guards/authGuard.js';
-import { requireRole }        from '../../core/guards/roleGuard.js';
-import { renderNavbar }       from '../../layouts/navbar.js';
+import { requireAuth }            from '../../core/guards/authGuard.js';
+import { requireRole }            from '../../core/guards/roleGuard.js';
+import { renderNavbar }           from '../../layouts/navbar.js';
 import { renderSidebar,
-         clearSidebar }       from '../../layouts/sidebar.js';
-import { revealAppShell }     from '../../layouts/appShell.js';
-import { getSidebarItems }    from '../../constants/sidebarItems.js';
-import { ROLES }              from '../../constants/roles.js';
-import { initSocket }         from '../../core/socket.js';
-import { refreshBadge }       from '../../features/notifications/notificationsUI.js';
+         clearSidebar }           from '../../layouts/sidebar.js';
+import { revealAppShell }         from '../../layouts/appShell.js';
+import { getSidebarItems }        from '../../constants/sidebarItems.js';
+import { ROLES }                  from '../../constants/roles.js';
+import { initSocket }             from '../../core/socket.js';
+import { refreshBadge }           from '../../features/notifications/notificationsUI.js';
+import { initRequestorDashboard } from '../../features/dashboard/requestorDashboardUI.js';
 
 async function init() {
   const user = await requireAuth();
@@ -26,6 +27,8 @@ async function init() {
 
   refreshBadge(); // non-blocking, sets navbar badge to the real unread count
   initSocket(user);
+
+  initRequestorDashboard(); // non-blocking — handles its own skeleton/error state
 }
 
 init();

@@ -131,7 +131,7 @@ function buildRow(unit) {
 
 function cell(text) {
   const td = document.createElement('td');
-  td.textContent = text ?? '—';
+  td.textContent = text ?? '-';
   return td;
 }
 
@@ -286,7 +286,7 @@ function buildDetailBody(detail) {
   }
 
   addDetailRow(dl, 'Processed By',
-    detail.processed_by_first ? `${detail.processed_by_first} ${detail.processed_by_last}` : '—');
+    detail.processed_by_first ? `${detail.processed_by_first} ${detail.processed_by_last}` : '-');
 
   return dl;
 }
@@ -295,7 +295,7 @@ function addDetailRow(dl, label, value) {
   const dt = document.createElement('dt');
   dt.textContent = label;
   const dd = document.createElement('dd');
-  dd.textContent = value ?? '—';
+  dd.textContent = value ?? '-';
   dl.appendChild(dt);
   dl.appendChild(dd);
 }
@@ -356,8 +356,8 @@ function hideEmptyState() {
 }
 
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return '-';
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }

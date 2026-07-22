@@ -306,10 +306,12 @@ const updateUnitStatus = async (id, status, reason, user_id, dbClient = pool) =>
             withdrawal_reason = CASE
                 WHEN $1::varchar = 'Withdrawn' THEN $2
                 ELSE withdrawal_reason
-            END
+            END,
+            status_updated_at = NOW(),
+            status_updated_by = $4
          WHERE unit_id = $3
          RETURNING *`,
-        [status, reason, id]
+        [status, reason, id, user_id]
     );
     return result.rows[0];
 };

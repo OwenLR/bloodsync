@@ -105,11 +105,11 @@ function _renderTable(donors) {
 
     const email = document.createElement('td');
     email.className = 'donor-email-cell';
-    email.textContent = donor.email || '—';
+    email.textContent = donor.email || '-';
 
     const bloodType = document.createElement('td');
     bloodType.className = 'donor-bloodtype-cell';
-    bloodType.textContent = donor.blood_type || '—';
+    bloodType.textContent = donor.blood_type || '-';
 
     tr.appendChild(name);
     tr.appendChild(email);
@@ -196,12 +196,12 @@ function _renderViewContent(donor, container) {
 
   const fields = [
     ['Full Name',    `${donor.first_name} ${donor.last_name}`],
-    ['Birthdate',    _formatBirthdate(donor.birthdate) || '—'],
-    ['Sex',          donor.sex         || '—'],
-    ['Blood Type',   donor.blood_type  || '—'],
-    ['Email',        donor.email       || '—'],
-    ['Contact',      donor.contact     || '—'],
-    ['Status',       donor.status      || '—'],
+    ['Birthdate',    _formatBirthdate(donor.birthdate) || '-'],
+    ['Sex',          donor.sex         || '-'],
+    ['Blood Type',   donor.blood_type  || '-'],
+    ['Email',        donor.email       || '-'],
+    ['Contact',      donor.contact     || '-'],
+    ['Status',       donor.status      || '-'],
   ];
 
   const dl = document.createElement('dl');

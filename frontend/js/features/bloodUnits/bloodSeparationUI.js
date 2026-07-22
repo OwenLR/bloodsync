@@ -75,7 +75,7 @@ function buildRow(unit) {
 
 function cell(text) {
   const td = document.createElement('td');
-  td.textContent = text ?? '—';
+  td.textContent = text ?? '-';
   return td;
 }
 
@@ -103,7 +103,7 @@ function actionsCell(unit) {
 async function handleSeparate(unit) {
   const confirmed = await confirmModal(
     `Separate this ${unit.blood_type} Whole Blood unit (${unit.barcode})? ` +
-    'There is no going back — the unit will be marked Separated and 3 new ' +
+    'There is no going back! the unit will be marked Separated and 3 new ' +
     'Pending collections (Packed Red Blood Cells, Platelets, Fresh Frozen ' +
     'Plasma) will be created, each needing to pass Blood Testing again.',
     'Separate Unit'
@@ -137,7 +137,7 @@ function showResultModal(sourceUnit, derivedCollections) {
   const list = document.createElement('ul');
   (derivedCollections || []).forEach(c => {
     const li = document.createElement('li');
-    li.textContent = `${c.component} — expires ${formatDate(c.expiration_date)}`;
+    li.textContent = `${c.component} - expires ${formatDate(c.expiration_date)}`;
     list.appendChild(li);
   });
   body.appendChild(list);
@@ -191,8 +191,8 @@ function hideEmptyState() {
 }
 
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return '-';
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }

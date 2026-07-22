@@ -1,13 +1,8 @@
 /*
- * dashboard.css — Dashboard page layout.
- * Minimal functional styles only — design pass in Phase 4.
+ * pages/staff/dashboard.css — Staff-specific overrides only.
+ *
+ * All shared dashboard styling (KPI cards, chart cards, quick actions,
+ * skeleton, drive list) lives in features/dashboard.css — do not
+ * redefine those classes here. This file is intentionally near-empty;
+ * add Staff-only tweaks here if/when they come up.
  */
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 700;
-}

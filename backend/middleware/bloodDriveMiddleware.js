@@ -57,7 +57,7 @@ const requireBloodDrive = async (req, res, next) => {
             if (!activeDrive) {
                 return response.forbidden(
                     res,
-                    'Access denied — you are not assigned to an active blood drive at this time'
+                    'Access denied! You are not assigned to an active blood drive at this time'
                 );
             }
 

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reports | BloodSync</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="/assets/css/features/dashboard.css" />
+  <link rel="stylesheet" href="/assets/css/features/reports.css" />
+</head>
+<body class="app-loading">
+  <nav id="navbar"></nav>
+
+  <div class="page-shell">
+    <aside id="sidebar"></aside>
+
+    <main id="content" class="page-content">
+
+      <div class="page-header page-header--with-action">
+        <h1>Reports</h1>
+      </div>
+
+      <div id="report-tabs" class="report-tabs"></div>
+
+      <div id="report-skeleton" class="report-skeleton" style="display:none;">
+        <div class="skeleton-item skeleton-row">
+          <div class="skeleton-line skeleton-line-wide"></div>
+          <div class="skeleton-line skeleton-line-narrow"></div>
+        </div>
+        <div class="skeleton-item skeleton-row">
+          <div class="skeleton-line skeleton-line-wide"></div>
+          <div class="skeleton-line skeleton-line-narrow"></div>
+        </div>
+      </div>
+
+      <div id="report-error" class="field-error"></div>
+
+      <div id="report-content" style="display:none;"></div>
+
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/chart.js@4.5.1/dist/chart.umd.js"></script>
+  <script type="module" src="/js/entry/admin/reports.js"></script>
+</body>
+</html>

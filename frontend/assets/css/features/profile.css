@@ -1,0 +1,92 @@
+/**
+ * assets/css/features/profile.css
+ *
+ * Shared styles for the Profile feature (all 5 roles).
+ * Replaces features/settings.css — Settings is retired once every role's
+ * Profile page is live (see sessionState.md).
+ *
+ * Vol/Phleb's larger read-only field set reuses .detail-list (main.css)
+ * and .detail-columns / .profile-detail-grid (userManagement.css) rather
+ * than duplicating grid/dt/dd rules here — see profile.html files.
+ *
+ * Avatar display reuses .avatar-thumb-lg / .avatar-placeholder-lg from
+ * userManagement.css — see profile.html files' extra <link> tag.
+ */
+
+/* ---- Layout ---- */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 900px;
+}
+
+@media (max-width: 720px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Card ---- */
+
+.profile-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.profile-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: #111;
+}
+
+.profile-card-desc {
+  font-size: 0.875rem;
+  color: #555;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+/* ---- Form ---- */
+
+.profile-form-actions {
+  margin-top: 20px;
+}
+
+.profile-form-error {
+  display: block;
+  margin-top: 12px;
+}
+
+/* ---- Current avatar display (identity block header) ---- */
+
+.profile-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+/* ---- Photo upload preview ---- */
+
+.photo-preview-wrap {
+  margin: 12px 0;
+}
+
+.photo-preview-hidden {
+  display: none;
+}
+
+.photo-preview {
+  display: block;
+  max-width: 140px;
+  max-height: 140px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  object-fit: cover;
+}

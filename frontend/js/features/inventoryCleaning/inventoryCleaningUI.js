@@ -103,7 +103,7 @@ function buildRow(unit) {
   tr.appendChild(cell(unit.component));
   tr.appendChild(cell(`${unit.volume_ml} mL`));
   tr.appendChild(cell(unit.barcode));
-  tr.appendChild(cell(unit.first_name ? `${unit.first_name} ${unit.last_name}` : '—'));
+  tr.appendChild(cell(unit.first_name ? `${unit.first_name} ${unit.last_name}` : '-'));
   tr.appendChild(cell(formatDate(unit.expiration_date)));
   tr.appendChild(expiryCell(unit));
 
@@ -141,7 +141,7 @@ function checkboxCell(unit) {
 
 function cell(text) {
   const td = document.createElement('td');
-  td.textContent = text ?? '—';
+  td.textContent = text ?? '-';
   return td;
 }
 
@@ -254,7 +254,7 @@ function openBulkRemoveModal() {
   reasonInput.rows        = 3;
   reasonInput.placeholder = 'e.g. Routine expiry cleanup';
   reasonInput.className   = 'modal-textarea';
-  reasonInput.value       = 'Expired — removed during inventory cleaning';
+  reasonInput.value       = 'Expired! Removed during inventory cleaning';
 
   const confirmLabel = document.createElement('label');
   confirmLabel.setAttribute('for', 'cleaning-confirm-input');
@@ -372,8 +372,8 @@ function hideEmptyState() {
 }
 
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return '-';
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }

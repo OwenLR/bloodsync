@@ -106,6 +106,7 @@ const bloodDriveRoutes       = require("./app/routes/bloodDriveRoutes");
 const volunteerProfileRoutes = require("./app/routes/volunteerProfileRoutes");
 const notificationRoutes     = require("./app/routes/notificationRoutes");
 const referenceRoutes        = require("./app/routes/referenceRoutes");
+const reportRoutes           = require("./app/routes/reportRoutes");
 
 app.use("/api/roles",             roleRoutes);
 app.use("/api/branches",          branchRoutes);
@@ -121,6 +122,7 @@ app.use("/api/donations",         donationRoutes);
 app.use("/api/blood-collections", bloodCollectionRoutes);
 app.use("/api/blood-units",       bloodUnitRoutes);
 app.use("/api/blood-requests",    bloodRequestRoutes);
+app.use("/api/reports",           reportRoutes);
 app.use("/api",                   registrationRoutes);
 app.use("/api/donor-interviews",  donorInterviewRoutes);
 app.use("/api/blood-drives",      bloodDriveRoutes);

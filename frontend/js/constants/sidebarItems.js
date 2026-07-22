@@ -10,10 +10,16 @@
  *
  * Item shape:
  *   Flat item:   { label: string, href: string }
- *   Group item:  { label: string, group: true, children: [{ label, href }] }
+ *   Group item:  { label: string, group: true, children: [{ label, href }], openByDefault?: boolean }
  *
  * Group items render as a collapsible <details>/<summary> block in sidebar.js.
- * The group is open by default | field roles navigate between steps constantly.
+ * openByDefault defaults to true if omitted (existing behavior, unchanged for
+ * field-role workflow groups | those roles navigate between steps constantly
+ * during a drive, so staying open saves clicks). Set openByDefault: false for
+ * groups that aren't a constant-navigation context, e.g. Staff's Donors group
+ * below. A group with an active child page is always rendered open regardless
+ * of openByDefault, so the current page is never hidden behind a collapsed
+ * summary.
  *
  * Sections per role:
  *   Admin        | general, management
@@ -28,14 +34,19 @@
  *   the sidebar does not restrict by role label. This allows cooperation:
  *   any assigned user can perform any step during an active blood drive.
  *
- * Admin/Staff Donors group (Option B):
+ * Admin vs Staff Donors item:
  *   Admin and PRC Staff are not required to be assigned to a blood drive |
  *   they can register donors and run the full donor workflow as walk-ins
  *   (drive_id = NULL for these operations, which is correct, not a bug).
- *   The Donors sidebar item is a collapsible group containing the donor
- *   list page plus all five field workflow steps, using the SAME routes
- *   as Volunteer/Phlebotomist (ROUTES.FIELD.*) | the pages are shared,
- *   only the sidebar entry point differs by role.
+ *   Staff's Donors item is a collapsible group containing the donor list
+ *   page plus all five field workflow steps, using the SAME routes as
+ *   Volunteer/Phlebotomist (ROUTES.FIELD.*) | the pages are shared, only
+ *   the sidebar entry point differs by role. Defaults closed
+ *   (openByDefault: false) since it's not a constant-navigation context
+ *   the way a Vol/Phleb's active-drive workflow is.
+ *   Admin's Donors item is a plain flat link (Donor List only, no field
+ *   workflow access | Admin is permanently excluded from field workflow
+ *   pages, see rules.md) — no collapsible wrapper needed for a single link.
  */
 
 import { ROLES }  from './roles.js';
@@ -46,15 +57,8 @@ const SIDEBAR_DEFINITIONS = {
   [ROLES.ADMIN]: {
     general: [
       { label: 'Dashboard', href: ROUTES.ADMIN.DASHBOARD },
-      {
-        label:    'Donors',
-        group:    true,
-        children: [
-          { label: 'Donor List', href: ROUTES.ADMIN.DONORS },
-        ],
-      },
+      { label: 'Donors',    href: ROUTES.ADMIN.DONORS    },
       { label: 'Blood Drives',   href: ROUTES.ADMIN.BLOOD_DRIVES   },
-      { label: 'Blood Units',    href: ROUTES.ADMIN.BLOOD_UNITS    },
     ],
     management: [
       { label: 'Users',    href: ROUTES.ADMIN.USERS    },
@@ -67,8 +71,9 @@ const SIDEBAR_DEFINITIONS = {
     general: [
       { label: 'Dashboard', href: ROUTES.STAFF.DASHBOARD },
       {
-        label:    'Donors',
-        group:    true,
+        label:       'Donors',
+        group:       true,
+        openByDefault: false,
         children: [
           { label: 'Donor List',        href: ROUTES.STAFF.DONORS     },
           { label: 'Register Donor',    href: ROUTES.FIELD.REGISTER   },

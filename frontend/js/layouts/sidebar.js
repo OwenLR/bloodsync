@@ -17,8 +17,11 @@
  *   Group: { label: string, group: true, children: [{ label, href }] }
  *
  * Group items render as a <details>/<summary> collapsible block.
- * Groups are open by default — field roles navigate between workflow
- * steps constantly during a blood drive.
+ * Open/closed on load is controlled by the item's openByDefault flag
+ * (set in constants/sidebarItems.js) — defaults to true if omitted.
+ * A group containing the current page is always forced open regardless
+ * of openByDefault, so the active page is never hidden behind a
+ * collapsed summary.
  *
  * Usage:
  *   renderSidebar(getSidebarItems(user.role_id, 'general'), 'General');
@@ -112,7 +115,13 @@ function renderGroup(item) {
 
   // Check if any child is the current page — keep group open and styled
   const hasActiveChild = item.children.some(child => isActivePage(child.href));
-  details.open = true; // always open by default for field role usability
+
+  // openByDefault defaults to true if not specified (existing behavior).
+  // A group containing the active page is always forced open, regardless
+  // of openByDefault, so the current page is never hidden on load.
+  const openByDefault = item.openByDefault !== false;
+  details.open = openByDefault || hasActiveChild;
+
   if (hasActiveChild) {
     details.classList.add('sidebar-group-active');
   }

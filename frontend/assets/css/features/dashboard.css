@@ -1,0 +1,285 @@
+/*
+ * features/dashboard.css. Shared dashboard building blocks.
+ *
+ * Used by all 5 role dashboards (Admin, Staff, Volunteer, Phlebotomist,
+ * Requestor). Each role's page-specific CSS file (pages/{role}/dashboard.css)
+ * must NOT redefine these classes, extend with a modifier class instead,
+ * same rule as .btn-primary / .page-header (see gochas.md's CSS section).
+ *
+ * Chart canvases need an explicit-height wrapper because Chart.js's
+ * maintainAspectRatio:false relies on its parent having a real height,
+ * without .chart-canvas-wrap, canvases collapse to 0px tall.
+ */
+
+/* ── KPI cards ───────────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  display: block;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  color: inherit;
+}
+
+a.kpi-card {
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+a.kpi-card:hover {
+  border-color: #c00;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.kpi-card--alert {
+  border-color: #c00;
+  background: #fdecea;
+}
+
+.kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.2;
+}
+
+.kpi-card--alert .kpi-value {
+  color: #c00;
+}
+
+.kpi-label {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.kpi-sublabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #c00;
+  margin-top: 4px;
+}
+
+/* ── Chart cards ─────────────────────────────────────────────────── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 16px 18px;
+}
+
+.chart-card--wide {
+  grid-column: 1 / -1;
+}
+
+.chart-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.chart-canvas-wrap {
+  position: relative;
+  height: 220px;
+}
+
+.chart-empty-state {
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* ── Generic card text (reused by Requestor and Field dashboards) ──── */
+.card-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.card-subtext {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 14px;
+}
+
+.donation-fact {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+  min-height: 42px;
+}
+
+/* ── Generic button row (grouped actions outside Quick Actions) ────── */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+/* ── Quick actions ───────────────────────────────────────────────── */
+.quick-actions {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 16px 18px;
+}
+
+.quick-actions-heading {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.quick-actions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ── Drive list (Staff dashboard's Upcoming Drives widget) ──────────
+   .status-badge / .status-badge--* are NOT defined here. They come
+   from features/bloodDrives.css, linked separately on the Staff
+   dashboard page. Same shared-base-class pattern used elsewhere
+   (bloodUnits.html, requests.html). See sessionState.md Not Started
+   for the flagged future cleanup of that pattern. */
+.drive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drive-list-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  color: inherit;
+}
+
+.drive-list-item:hover {
+  border-color: #c00;
+  background: #fafafa;
+}
+
+.drive-list-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+  min-width: 52px;
+}
+
+.drive-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.drive-list-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+}
+
+.drive-list-venue {
+  font-size: 12px;
+  color: #888;
+}
+
+/* ── Skeleton (loading state) ───────────────────────────────────────
+   Reuses .skeleton-item / .skeleton-line from main.css, just lays
+   them out in a row to roughly match the KPI grid shape while loading. */
+.dashboard-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ── Drive list rows (upcoming drives widgets) ──────────────────────
+   Generic, not Staff-specific. Reusable if another dashboard ever
+   needs a similar "upcoming drives" list. */
+.drive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drive-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  color: inherit;
+  transition: border-color 0.15s;
+}
+
+.drive-row:hover {
+  border-color: #c00;
+}
+
+.drive-row-name {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drive-row-meta {
+  font-size: 12px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.drive-row-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.drive-row-status--upcoming {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.drive-row-status--ongoing {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .drive-row {
+    flex-wrap: wrap;
+  }
+}

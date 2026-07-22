@@ -10,6 +10,7 @@ import { getSidebarItems }    from '../../constants/sidebarItems.js';
 import { ROLES }              from '../../constants/roles.js';
 import { initSocket }         from '../../core/socket.js';
 import { refreshBadge }       from '../../features/notifications/notificationsUI.js';
+import { initAdminDashboard } from '../../features/dashboard/adminDashboardUI.js';
 
 async function init() {
   const user = await requireAuth();
@@ -27,6 +28,8 @@ async function init() {
 
   refreshBadge(); // non-blocking, sets navbar badge to the real unread count
   initSocket(user);
+
+  initAdminDashboard(); // non-blocking — handles its own skeleton/error states
 }
 
 init();

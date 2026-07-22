@@ -10,6 +10,7 @@ import { getSidebarItems }    from '../../constants/sidebarItems.js';
 import { ROLES }              from '../../constants/roles.js';
 import { initSocket }         from '../../core/socket.js';
 import { refreshBadge }       from '../../features/notifications/notificationsUI.js';
+import { initStaffDashboard } from '../../features/dashboard/staffDashboardUI.js';
 
 async function init() {
   const user = await requireAuth();
@@ -20,13 +21,15 @@ async function init() {
   renderNavbar(user, 0);
 
   clearSidebar();
-  renderSidebar(getSidebarItems(user.role_id, 'general'),    'General');
-  renderSidebar(getSidebarItems(user.role_id, 'management'), 'Management');
+  renderSidebar(getSidebarItems(user.role_id, 'general'),     'General');
+  renderSidebar(getSidebarItems(user.role_id, 'management'),  'Management');
 
   revealAppShell();
 
   refreshBadge(); // non-blocking, sets navbar badge to the real unread count
   initSocket(user);
+
+  initStaffDashboard(user); // non-blocking — handles its own skeleton/error states
 }
 
 init();

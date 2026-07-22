@@ -228,9 +228,9 @@ function hideEmptyState() {
 }
 
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return '-';
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) +
     ' ' + d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
 }

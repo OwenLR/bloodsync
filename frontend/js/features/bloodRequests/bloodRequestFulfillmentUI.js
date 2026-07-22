@@ -84,7 +84,7 @@ function getRequestorLocation() {
 function setLocationNote(usedLocation) {
   document.getElementById(LOCATION_NOTE_ID).textContent = usedLocation
     ? 'Branches sorted by distance from your current location.'
-    : 'Location unavailable — showing branches in default order.';
+    : 'Location unavailable - showing branches in default order.';
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +250,7 @@ async function fetchAndRenderEstimate(branchId) {
     if (token !== _estimateRequestToken) return; // a newer selection superseded this fetch
     el.textContent = est.is_open
       ? `Estimated response time: ${est.estimate}`
-      : `${est.estimate} — ${est.next_open}`;
+      : `${est.estimate} - ${est.next_open}`;
   } catch {
     if (token !== _estimateRequestToken) return;
     el.textContent = ''; // non-blocking — don't let this fail the branch selection flow

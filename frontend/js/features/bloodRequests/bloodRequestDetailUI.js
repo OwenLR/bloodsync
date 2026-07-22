@@ -119,7 +119,7 @@ function buildItemsSection(detail) {
     tr.appendChild(cell(item.blood_type));
     tr.appendChild(cell(item.component));
     tr.appendChild(cell(item.units_requested));
-    tr.appendChild(cell(item.units_fulfilled ?? '—'));
+    tr.appendChild(cell(item.units_fulfilled ?? '-'));
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
@@ -397,19 +397,19 @@ function addRow(dl, label, value) {
   const dt = document.createElement('dt');
   dt.textContent = label;
   const dd = document.createElement('dd');
-  dd.textContent = value ?? '—';
+  dd.textContent = value ?? '-';
   dl.appendChild(dt);
   dl.appendChild(dd);
 }
 
 function cell(text) {
   const td = document.createElement('td');
-  td.textContent = text ?? '—';
+  td.textContent = text ?? '-';
   return td;
 }
 
 function capitalize(str) {
-  if (!str) return '—';
+  if (!str) return '-';
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
@@ -429,9 +429,9 @@ function showLoadError(message) {
 }
 
 function formatDate(isoString) {
-  if (!isoString) return '—';
+  if (!isoString) return '-';
   const d = new Date(isoString);
-  if (isNaN(d.getTime())) return '—';
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) +
     ' ' + d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
 }
