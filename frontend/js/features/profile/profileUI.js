@@ -1,70 +1,79 @@
 /**
- * profileUI.js — DOM rendering and event handlers shared across Admin /
- * PRC Staff / Requestor Profile pages.
+ * profileUI.js — Shared across Admin / PRC Staff / Requestor Profile
+ * pages, plus two pieces reused by profileFieldUI.js (Vol/Phleb):
+ * initAvatarUpload() and renderAvatar().
  *
- * Responsibilities:
- *   - renderIdentity()        — read-only identity block (all 3 roles)
- *   - initPasswordForm()      — password change, identical for all 5 roles
- *   - initStaffPhotoForm()    — profile photo upload, PRC Staff only
+ * Redesigned this session: identity block is now a profile header
+ * (large avatar, name, role/branch badges) instead of a plain label/
+ * value list. Profile photo upload moved onto a pencil-icon button
+ * overlaid on the avatar (click -> pick file -> uploads immediately) —
+ * no separate upload form/button. Password change is collapsed behind
+ * an Edit affordance (components/editToggle.js) so the page reads as a
+ * profile on display, not a form that's permanently open.
  *
- * Does NOT call apiFetch directly — uses profileApi.js.
- * Does NOT own business logic — delegates to profileValidation.js.
- *
- * Migrated from features/settings/settingsUI.js.
+ * Also added this session: show/hide toggle on each password input in
+ * the edit form ([data-toggle-password] buttons), and a labeled masked
+ * row ("Current Password" + dots) in the view state instead of a bare
+ * <p>.
  */
 
 import { changePassword, updateStaffPhoto } from './profileApi.js';
 import { validateChangePassword, validateProfilePhoto } from './profileValidation.js';
 import { showToast } from '../../components/toast.js';
+import { initEditToggle } from '../../components/editToggle.js';
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
 
 // ---------------------------------------------------------------------------
-// Identity block — Admin / PRC Staff / Requestor
+// Identity header — Admin / PRC Staff / Requestor
 // ---------------------------------------------------------------------------
 
-/**
- * Fill the read-only identity block on the Profile page.
- * Expects #profile-name and #profile-email to exist in the page's HTML.
- * Optional, only filled if present:
- *   #profile-role-label — plain role name (Admin / PRC Staff / Requestor)
- *   #profile-branch     — PRC Staff only, from user.branch_name
- *   #profile-avatar-wrap / #profile-avatar / #profile-avatar-placeholder
- *                        — PRC Staff only, current photo or initials
- *
- * @param {object} user      — from requireAuth() (GET /api/auth/me shape)
- * @param {string} roleLabel — e.g. 'Admin', 'PRC Staff', 'Requestor'
- */
 export function renderIdentity(user, roleLabel) {
   setText('profile-name', buildDisplayName(user));
   setText('profile-email', user.email || '—');
   setText('profile-role-label', roleLabel);
 
   const branchEl = document.getElementById('profile-branch');
-  if (branchEl) {
-    setText('profile-branch', user.branch_name || '—');
-  }
+  if (branchEl) setText('profile-branch', user.branch_name || '—');
 
   renderAvatar(user);
 }
 
-function renderAvatar(user) {
+/**
+ * Renders the avatar from any object with { profile_img, first_name,
+ * last_name } — used for the initial identity render (user object) and
+ * again after a successful upload (API response's saved row), so the
+ * same rendering logic always drives what's on screen.
+ */
+export function renderAvatar(source) {
   const img         = document.getElementById('profile-avatar');
   const placeholder = document.getElementById('profile-avatar-placeholder');
-  if (!img && !placeholder) return; // page doesn't have an avatar block (Admin/Requestor)
+  const docLink      = document.getElementById('profile-avatar-doc-link');
+  if (!img && !placeholder) return;
 
-  const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
-  const isImage = user.profile_img && IMAGE_EXTENSIONS.some(ext => user.profile_img.toLowerCase().includes(ext));
+  const isImage = source.profile_img && IMAGE_EXTENSIONS.some(ext => source.profile_img.toLowerCase().includes(ext));
 
   if (isImage) {
-    if (img) {
-      img.src = user.profile_img;
-      img.classList.remove('field-error-hidden');
-    }
-    if (placeholder) placeholder.classList.add('field-error-hidden');
-  } else {
-    if (img) img.classList.add('field-error-hidden');
+    if (img) { img.src = source.profile_img; img.classList.remove('hidden'); }
+    if (placeholder) placeholder.classList.add('hidden');
+    if (docLink) docLink.classList.add('hidden');
+  } else if (source.profile_img) {
+    // Non-image document on file (PDF) — no thumbnail, show a link instead.
+    if (img) img.classList.add('hidden');
     if (placeholder) {
-      placeholder.textContent = initials(user.first_name, user.last_name);
-      placeholder.classList.remove('field-error-hidden');
+      placeholder.textContent = '\u{1F4C4}'; // document glyph
+      placeholder.classList.remove('hidden');
+    }
+    if (docLink) {
+      docLink.href = source.profile_img;
+      docLink.classList.remove('hidden');
+    }
+  } else {
+    if (img) img.classList.add('hidden');
+    if (docLink) docLink.classList.add('hidden');
+    if (placeholder) {
+      placeholder.textContent = initials(source.first_name, source.last_name);
+      placeholder.classList.remove('hidden');
     }
   }
 }
@@ -76,9 +85,7 @@ function initials(firstName, lastName) {
 }
 
 function buildDisplayName(user) {
-  if (user.first_name && user.last_name) {
-    return `${user.first_name} ${user.last_name}`;
-  }
+  if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
   return user.email || 'User';
 }
 
@@ -88,7 +95,87 @@ function setText(id, value) {
 }
 
 // ---------------------------------------------------------------------------
-// Password change section — identical for all 5 roles
+// Avatar upload — pencil button overlaid on the avatar. Shared by PRC
+// Staff (this file) and Volunteer/Phlebotomist (profileFieldUI.js
+// imports initAvatarUpload directly). Selecting a file uploads
+// immediately — no separate "Upload" button.
+// ---------------------------------------------------------------------------
+
+export function initAvatarUpload(uploadFn) {
+  const trigger     = document.getElementById('profile-avatar-edit-btn');
+  const fileInput   = document.getElementById('profile-img-input');
+  const spinner     = document.getElementById('profile-avatar-spinner');
+  const errorEl     = document.getElementById('error-photo-form');
+  const img         = document.getElementById('profile-avatar');
+  const placeholder = document.getElementById('profile-avatar-placeholder');
+
+  if (!trigger || !fileInput) return;
+
+  trigger.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('field-error-hidden'); }
+    if (!file) return;
+
+    const { valid, error } = validateProfilePhoto(file);
+    if (!valid) {
+      if (errorEl) { errorEl.textContent = error; errorEl.classList.remove('field-error-hidden'); }
+      fileInput.value = '';
+      return;
+    }
+
+    // Instant local preview for images so the change feels immediate.
+    if (file.type.startsWith('image/') && img) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        img.src = ev.target.result;
+        img.classList.remove('hidden');
+        if (placeholder) placeholder.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    spinner?.classList.remove('hidden');
+    trigger.disabled = true;
+
+    try {
+      const { res, body } = await uploadFn(file);
+
+      if (!res.ok || !body.success) {
+        const msg = res.status === 500
+          ? 'An unexpected error occurred. Please try again or contact support if the problem persists.'
+          : (body.message || 'Photo could not be uploaded. Please try again.');
+        if (errorEl) { errorEl.textContent = msg; errorEl.classList.remove('field-error-hidden'); }
+        return;
+      }
+
+      // Re-render from the server's saved value — covers the PDF case,
+      // which doesn't get the instant <img> preview above.
+      if (body.data) renderAvatar(body.data);
+      showToast('Photo updated successfully.', 'success');
+
+    } catch {
+      if (errorEl) {
+        errorEl.textContent = 'An unexpected error occurred. Please try again or contact support if the problem persists.';
+        errorEl.classList.remove('field-error-hidden');
+      }
+    } finally {
+      spinner?.classList.add('hidden');
+      trigger.disabled = false;
+      fileInput.value = '';
+    }
+  });
+}
+
+/** Convenience wrapper for PRC Staff's photo endpoint. */
+export function initStaffAvatarUpload() {
+  initAvatarUpload(updateStaffPhoto);
+}
+
+// ---------------------------------------------------------------------------
+// Password card — identical fields/endpoint for all 5 roles. Collapsed
+// behind an Edit trigger (components/editToggle.js).
 // ---------------------------------------------------------------------------
 
 function setFieldError(fieldId, message) {
@@ -123,6 +210,31 @@ function restoreButton(btn) {
   btn.textContent = btn.dataset.originalText || 'Save';
 }
 
+// ---------------------------------------------------------------------------
+// Password field show/hide toggles — [data-toggle-password="<input-id>"]
+// buttons, each holding an .icon-eye + .icon-eye-off SVG pair already in
+// the static HTML. Purely flips input.type and swaps which icon shows —
+// no innerHTML, no data from the API involved.
+// ---------------------------------------------------------------------------
+
+function initPasswordVisibilityToggles() {
+  document.querySelectorAll('[data-toggle-password]').forEach((btn) => {
+    const input = document.getElementById(btn.dataset.togglePassword);
+    if (!input) return;
+
+    const eyeIcon    = btn.querySelector('.icon-eye');
+    const eyeOffIcon = btn.querySelector('.icon-eye-off');
+
+    btn.addEventListener('click', () => {
+      const nowShowing = input.type === 'password';
+      input.type = nowShowing ? 'text' : 'password';
+      eyeIcon?.classList.toggle('hidden', nowShowing);
+      eyeOffIcon?.classList.toggle('hidden', !nowShowing);
+      btn.setAttribute('aria-label', nowShowing ? 'Hide password' : 'Show password');
+    });
+  });
+}
+
 export function initPasswordForm() {
   const form         = document.getElementById('password-form');
   const currentInput = document.getElementById('current-password');
@@ -131,6 +243,10 @@ export function initPasswordForm() {
   const submitBtn    = document.getElementById('btn-change-password');
 
   if (!form) return;
+
+  initPasswordVisibilityToggles();
+
+  const { setViewMode } = initEditToggle('password-card');
 
   currentInput.addEventListener('input', () => clearFieldError('error-current-password'));
   newInput.addEventListener('input',     () => clearFieldError('error-new-password'));
@@ -160,7 +276,6 @@ export function initPasswordForm() {
 
       if (!res.ok || !body.success) {
         const msg = body.message || 'Password could not be changed. Please try again.';
-
         if (res.status === 400 && msg.toLowerCase().includes('current')) {
           setFieldError('error-current-password', 'Current password is incorrect.');
         } else {
@@ -171,107 +286,10 @@ export function initPasswordForm() {
 
       form.reset();
       showToast('Password updated successfully.', 'success');
+      setViewMode();
 
     } catch {
       setFieldError('error-password-form', 'An unexpected error occurred. Please try again or contact support if the problem persists.');
-    } finally {
-      restoreButton(submitBtn);
-    }
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Profile photo section — PRC Staff only
-// ---------------------------------------------------------------------------
-
-export function initStaffPhotoForm() {
-  const form        = document.getElementById('photo-form');
-  const fileInput   = document.getElementById('profile-img-input');
-  const preview     = document.getElementById('photo-preview');
-  const previewWrap = document.getElementById('photo-preview-wrap');
-  const submitBtn   = document.getElementById('btn-upload-photo');
-  const errorEl     = document.getElementById('error-photo-form');
-
-  if (!form) return;
-
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0];
-    errorEl.textContent = '';
-    errorEl.classList.add('field-error-hidden');
-
-    if (!file) {
-      previewWrap.classList.add('photo-preview-hidden');
-      return;
-    }
-
-    const { valid, error } = validateProfilePhoto(file);
-    if (!valid) {
-      errorEl.textContent = error;
-      errorEl.classList.remove('field-error-hidden');
-      fileInput.value = '';
-      previewWrap.classList.add('photo-preview-hidden');
-      return;
-    }
-
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        preview.src = ev.target.result;
-        previewWrap.classList.remove('photo-preview-hidden');
-      };
-      reader.readAsDataURL(file);
-    } else {
-      preview.removeAttribute('src');
-      previewWrap.classList.remove('photo-preview-hidden');
-    }
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const file = fileInput.files[0];
-    errorEl.textContent = '';
-    errorEl.classList.add('field-error-hidden');
-
-    const { valid, error } = validateProfilePhoto(file ?? null);
-    if (!valid) {
-      errorEl.textContent = error;
-      errorEl.classList.remove('field-error-hidden');
-      return;
-    }
-
-    setButtonLoading(submitBtn, 'Uploading…');
-
-    try {
-      const { res, body } = await updateStaffPhoto(file);
-
-      if (!res.ok || !body.success) {
-        const msg = res.status === 500
-          ? 'An unexpected error occurred. Please try again or contact support if the problem persists.'
-          : (body.message || 'Photo could not be uploaded. Please try again.');
-        errorEl.textContent = msg;
-        errorEl.classList.remove('field-error-hidden');
-        return;
-      }
-
-      // Reflect the new photo immediately in the identity block's avatar,
-      // without a full page reload — body.data is { profile_id, user_id,
-      // profile_img } per contract.md.
-      const img         = document.getElementById('profile-avatar');
-      const placeholder = document.getElementById('profile-avatar-placeholder');
-      if (img && body.data?.profile_img) {
-        img.src = body.data.profile_img;
-        img.classList.remove('field-error-hidden');
-        if (placeholder) placeholder.classList.add('field-error-hidden');
-      }
-
-      showToast('Profile photo updated successfully.', 'success');
-      form.reset();
-      previewWrap.classList.add('photo-preview-hidden');
-
-    } catch {
-      errorEl.textContent = 'An unexpected error occurred. Please try again or contact support if the problem persists.';
-      errorEl.classList.remove('field-error-hidden');
     } finally {
       restoreButton(submitBtn);
     }

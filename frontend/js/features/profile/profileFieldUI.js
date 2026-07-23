@@ -1,38 +1,37 @@
 /**
- * profileFieldUI.js — DOM rendering for Volunteer/Phlebotomist's Profile
- * page. Kept separate from profileUI.js because Vol/Phleb have a much
- * larger field set (full registration data) than Admin/Staff/Requestor's
- * simple identity block.
+ * profileFieldUI.js — Volunteer/Phlebotomist Profile page.
  *
- * Sourced from GET /api/volunteers/me/profile (contract.md — includes
- * every field captured at registration: birthdate, sex, contact, address,
- * zip, nationality, education, occupation, id_type, emergency contact,
- * profile_img, status). Identity fields (name/birthdate/sex) are shown
- * here for reference only — they're locked server-side
- * (volunteerProfileValidator.js's LOCKED_FIELDS), same "contact an
- * admin" convention as the registration form.
- *
- * initPhotoForm() added this session — relies on the backend fix to
- * volunteerProfileController.js/volunteerProfileValidator.js that makes
- * a file-only (empty body) PATCH /api/volunteers/me/profile request
- * valid, since this form sends profile_img alone, no other fields.
- *
- * Address editing (Stage 5) extends this file later — not yet wired here.
+ * Redesigned this session to match profileUI.js's profile-page treatment:
+ * large avatar with pencil-overlay upload (reuses profileUI.js's
+ * initAvatarUpload against the Vol/Phleb endpoint), status badge, and
+ * the Contact & Address card collapsed behind an Edit affordance
+ * (components/editToggle.js) instead of always-open form fields.
  */
 
-import { getMyVolunteerProfile, updateVolunteerPhoto } from './profileApi.js';
-import { validateProfilePhoto }                        from './profileValidation.js';
-import { showToast }                                    from '../../components/toast.js';
+import { getMyVolunteerProfile, updateVolunteerPhoto, updateVolunteerAddress } from './profileApi.js';
+import { validateAddressUpdate }                                              from './profileValidation.js';
+import { renderAvatar, initAvatarUpload }                                     from './profileUI.js';
+import { getProvinces, getCitiesMunicipalities, getBarangays }                from '../registration/psgcApi.js';
+import { geocodeBarangay }                                                     from '../registration/fieldGeocodeApi.js';
+import { showToast }                                                            from '../../components/toast.js';
+import { initEditToggle }                                                      from '../../components/editToggle.js';
 
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
+let selectedProvince = null;
+let selectedCity     = null;
+let geocodedLat       = null;
+let geocodedLon       = null;
 
-/**
- * Fetch and render the full Vol/Phleb profile as read-only text.
- * Returns the fetched profile object so later stages (address edit)
- * can reuse it without a second fetch.
- *
- * @returns {Promise<object|null>} the profile data, or null on failure
- */
+const STATUS_BADGE_CLASS = {
+  Active:   'status-badge--active',
+  Inactive: 'status-badge--inactive',
+  Pending:  'status-badge--pending',
+  Declined: 'status-badge--declined',
+};
+
+// ---------------------------------------------------------------------------
+// Read-only sections
+// ---------------------------------------------------------------------------
+
 export async function loadAndRenderProfile() {
   try {
     const profile = await getMyVolunteerProfile();
@@ -48,64 +47,34 @@ function renderProfile(profile) {
   setText('profile-name', `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || '—');
   setText('profile-email', profile.email || '—');
   setText('profile-role-label', profile.role_name || '—');
-  setText('profile-status', profile.status || '—');
   setText('profile-birthdate', formatDate(profile.birthdate));
   setText('profile-sex', profile.sex || '—');
-
-  setText('profile-contact', profile.contact || '—');
-
-  setText('profile-address-street', profile.address_street || '—');
-  setText('profile-address-brgy', profile.address_brgy || '—');
-  setText('profile-address-municipality', profile.address_municipality || '—');
-  setText('profile-address-province', profile.address_province || '—');
-  setText('profile-zip-code', profile.zip_code || '—');
-
   setText('profile-nationality', profile.nationality || '—');
   setText('profile-education', profile.education || '—');
   setText('profile-occupation', profile.occupation || '—');
-  setText('profile-id-type', profile.id_type || '—'); // only present on Phlebotomist's page
+  setText('profile-id-type', profile.id_type || '—'); // Phlebotomist's page only
 
-  setText('profile-emergency-name', profile.emergency_contact_name || '—');
-  setText('profile-emergency-phone', profile.emergency_contact_phone || '—');
+  const statusBadge = document.getElementById('profile-status-badge');
+  if (statusBadge) {
+    statusBadge.textContent = profile.status || '—';
+    statusBadge.className = 'status-badge ' + (STATUS_BADGE_CLASS[profile.status] || 'status-badge--inactive');
+  }
 
+  renderAddressView(profile);
   renderAvatar(profile);
 }
 
-function renderAvatar(profile) {
-  const img         = document.getElementById('profile-avatar');
-  const placeholder = document.getElementById('profile-avatar-placeholder');
-  if (!img && !placeholder) return;
-
-  const isImage = profile.profile_img && IMAGE_EXTENSIONS.some(ext => profile.profile_img.toLowerCase().includes(ext));
-
-  if (isImage) {
-    if (img) {
-      img.src = profile.profile_img;
-      img.classList.remove('field-error-hidden');
-    }
-    if (placeholder) placeholder.classList.add('field-error-hidden');
-  } else if (profile.profile_img) {
-    // Non-image (PDF) document on file — no thumbnail, show a link instead
-    const linkWrap = document.getElementById('profile-avatar-doc-link');
-    if (linkWrap) {
-      linkWrap.href = profile.profile_img;
-      linkWrap.classList.remove('field-error-hidden');
-    }
-    if (img) img.classList.add('field-error-hidden');
-    if (placeholder) placeholder.classList.add('field-error-hidden');
-  } else {
-    if (img) img.classList.add('field-error-hidden');
-    if (placeholder) {
-      placeholder.textContent = initials(profile.first_name, profile.last_name);
-      placeholder.classList.remove('field-error-hidden');
-    }
-  }
+function renderAddressView(profile) {
+  setText('view-contact', profile.contact || '—');
+  setText('view-zip', profile.zip_code || '—');
+  setText('view-address', formatAddress(profile));
+  setText('view-emergency-name', profile.emergency_contact_name || '—');
+  setText('view-emergency-phone', profile.emergency_contact_phone || '—');
 }
 
-function initials(firstName, lastName) {
-  const a = (firstName || '').charAt(0);
-  const b = (lastName || '').charAt(0);
-  return (a + b).toUpperCase() || '?';
+function formatAddress(profile) {
+  const parts = [profile.address_street, profile.address_brgy, profile.address_municipality, profile.address_province].filter(Boolean);
+  return parts.length ? parts.join(', ') : '—';
 }
 
 function setText(id, value) {
@@ -119,8 +88,223 @@ function formatDate(isoOrDateString) {
 }
 
 // ---------------------------------------------------------------------------
-// Photo/document upload — Volunteer + Phlebotomist
+// Photo/document upload — reuses profileUI.js's pencil-on-avatar pattern
 // ---------------------------------------------------------------------------
+
+export function initVolunteerAvatarUpload() {
+  initAvatarUpload(updateVolunteerPhoto);
+}
+
+// ---------------------------------------------------------------------------
+// Contact + Address + Emergency Contact edit
+// ---------------------------------------------------------------------------
+
+export async function initAddressForm(profile) {
+  const form = document.getElementById('address-form');
+  if (!form) return;
+
+  const { setViewMode } = initEditToggle('address-card');
+
+  attachAddressListeners();
+  await loadProvinces();
+  await prefillAddress(profile);
+
+  form.addEventListener('submit', (e) => handleAddressSubmit(e, setViewMode));
+}
+
+async function loadProvinces() {
+  const select = document.getElementById('input-address-province');
+  try {
+    const provinces = await getProvinces();
+    provinces.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.code;
+      opt.textContent = p.name;
+      select.appendChild(opt);
+    });
+  } catch {
+    showToast('Could not load provinces. Please refresh.', 'error');
+  }
+}
+
+function attachAddressListeners() {
+  document.getElementById('input-address-province').addEventListener('change', onProvinceChange);
+  document.getElementById('input-address-city').addEventListener('change', onCityChange);
+  document.getElementById('input-address-barangay').addEventListener('change', onBarangayChange);
+}
+
+async function onProvinceChange(e) {
+  const code = e.target.value;
+  const citySelect     = document.getElementById('input-address-city');
+  const barangaySelect = document.getElementById('input-address-barangay');
+
+  resetSelect(citySelect, 'City / Municipality');
+  resetSelect(barangaySelect, 'Barangay');
+  clearGeocode();
+
+  if (!code) { selectedProvince = null; return; }
+
+  selectedProvince = { code, name: e.target.selectedOptions[0]?.textContent || '' };
+  selectedCity = null;
+
+  citySelect.disabled = true;
+  try {
+    const cities = await getCitiesMunicipalities(code);
+    populateSelect(citySelect, cities);
+  } catch {
+    showToast('Could not load cities/municipalities. Please try again.', 'error');
+  } finally {
+    citySelect.disabled = false;
+  }
+}
+
+async function onCityChange(e) {
+  const code = e.target.value;
+  const barangaySelect = document.getElementById('input-address-barangay');
+
+  resetSelect(barangaySelect, 'Barangay');
+  clearGeocode();
+
+  if (!code) { selectedCity = null; return; }
+
+  selectedCity = { code, name: e.target.selectedOptions[0]?.textContent || '' };
+
+  barangaySelect.disabled = true;
+  try {
+    const barangays = await getBarangays(code);
+    populateSelect(barangaySelect, barangays);
+  } catch {
+    showToast('Could not load barangays. Please try again.', 'error');
+  } finally {
+    barangaySelect.disabled = false;
+  }
+}
+
+async function onBarangayChange(e) {
+  if (!e.target.value) { clearGeocode(); return; }
+
+  const barangayName = e.target.selectedOptions[0]?.textContent || '';
+  if (!selectedProvince || !selectedCity || !barangayName) return;
+
+  const coords = await geocodeBarangay({
+    barangay: barangayName,
+    city:     selectedCity.name,
+    province: selectedProvince.name,
+  });
+
+  if (coords) {
+    geocodedLat = coords.latitude;
+    geocodedLon = coords.longitude;
+  } else {
+    clearGeocode();
+  }
+}
+
+async function prefillAddress(profile) {
+  setValue('input-contact', profile.contact);
+  setValue('input-address-street', profile.address_street);
+  setValue('input-zip-code', profile.zip_code);
+  setValue('input-emergency-name', profile.emergency_contact_name);
+  setValue('input-emergency-contact', profile.emergency_contact_phone);
+
+  if (!profile.address_province) return;
+
+  try {
+    const provinceSelect = document.getElementById('input-address-province');
+    const provinceMatch  = findOptionByName(provinceSelect, profile.address_province);
+    if (!provinceMatch) return;
+
+    provinceSelect.value = provinceMatch.value;
+    selectedProvince = { code: provinceMatch.value, name: provinceMatch.textContent };
+
+    const citySelect = document.getElementById('input-address-city');
+    citySelect.disabled = true;
+    const cities = await getCitiesMunicipalities(selectedProvince.code);
+    populateSelect(citySelect, cities);
+    citySelect.disabled = false;
+
+    if (!profile.address_municipality) return;
+    const cityMatch = findOptionByName(citySelect, profile.address_municipality);
+    if (!cityMatch) return;
+
+    citySelect.value = cityMatch.value;
+    selectedCity = { code: cityMatch.value, name: cityMatch.textContent };
+
+    const barangaySelect = document.getElementById('input-address-barangay');
+    barangaySelect.disabled = true;
+    const barangays = await getBarangays(selectedCity.code);
+    populateSelect(barangaySelect, barangays);
+    barangaySelect.disabled = false;
+
+    if (!profile.address_brgy) return;
+    const brgyMatch = findOptionByName(barangaySelect, profile.address_brgy);
+    if (!brgyMatch) return;
+
+    barangaySelect.value = brgyMatch.value;
+
+    const coords = await geocodeBarangay({
+      barangay: brgyMatch.textContent,
+      city:     selectedCity.name,
+      province: selectedProvince.name,
+    });
+    if (coords) {
+      geocodedLat = coords.latitude;
+      geocodedLon = coords.longitude;
+    }
+  } catch {
+    showToast('Could not load your saved address into the form. You can still re-select it manually.', 'error');
+  }
+}
+
+function findOptionByName(selectEl, name) {
+  const target = (name || '').trim().toLowerCase();
+  if (!target) return null;
+  return Array.from(selectEl.options).find(o => o.textContent.trim().toLowerCase() === target) || null;
+}
+
+function populateSelect(selectEl, items) {
+  const placeholder = selectEl.options[0];
+  selectEl.innerHTML = '';
+  selectEl.appendChild(placeholder);
+  items.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.code;
+    opt.textContent = item.name;
+    selectEl.appendChild(opt);
+  });
+}
+
+function resetSelect(selectEl, placeholderLabel) {
+  selectEl.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = `Select ${placeholderLabel}…`;
+  selectEl.appendChild(placeholder);
+}
+
+function clearGeocode() {
+  geocodedLat = null;
+  geocodedLon = null;
+}
+
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value || '';
+}
+
+function clearAddressFieldErrors() {
+  document.querySelectorAll('#address-form .field-error').forEach(el => {
+    el.textContent = '';
+    el.classList.add('field-error-hidden');
+  });
+}
+
+function showAddressFieldError(fieldId, message) {
+  const el = document.getElementById(`${fieldId}-error`);
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('field-error-hidden');
+}
 
 function setButtonLoading(btn, loadingText) {
   btn.disabled = true;
@@ -133,89 +317,58 @@ function restoreButton(btn) {
   btn.textContent = btn.dataset.originalText || 'Save';
 }
 
-export function initPhotoForm() {
-  const form        = document.getElementById('photo-form');
-  const fileInput   = document.getElementById('profile-img-input');
-  const preview     = document.getElementById('photo-preview');
-  const previewWrap = document.getElementById('photo-preview-wrap');
-  const submitBtn   = document.getElementById('btn-upload-photo');
-  const errorEl     = document.getElementById('error-photo-form');
+function stripDigits(value) {
+  return (value || '').replace(/\D/g, '');
+}
 
-  if (!form) return;
+async function handleAddressSubmit(e, setViewMode) {
+  e.preventDefault();
+  clearAddressFieldErrors();
 
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0];
-    errorEl.textContent = '';
-    errorEl.classList.add('field-error-hidden');
+  const barangaySelect = document.getElementById('input-address-barangay');
 
-    if (!file) {
-      previewWrap.classList.add('photo-preview-hidden');
+  const data = {
+    contact:                stripDigits(document.getElementById('input-contact').value),
+    address_street:         document.getElementById('input-address-street').value.trim(),
+    address_province:       selectedProvince ? selectedProvince.name : '',
+    address_municipality:   selectedCity ? selectedCity.name : '',
+    address_brgy:           barangaySelect.value ? (barangaySelect.selectedOptions[0]?.textContent || '') : '',
+    zip_code:                stripDigits(document.getElementById('input-zip-code').value),
+    emergency_contact_name:  document.getElementById('input-emergency-name').value.trim(),
+    emergency_contact_phone: stripDigits(document.getElementById('input-emergency-contact').value),
+  };
+
+  const errors = validateAddressUpdate(data);
+  if (errors.length > 0) {
+    errors.forEach(({ field, message }) => showAddressFieldError(field, message));
+    const firstField = document.getElementById(errors[0].field);
+    if (firstField) firstField.focus();
+    return;
+  }
+
+  const submitBtn = document.getElementById('btn-save-address');
+  setButtonLoading(submitBtn, 'Saving…');
+
+  try {
+    const payload = {
+      ...data,
+      ...(geocodedLat != null ? { latitude: geocodedLat } : {}),
+      ...(geocodedLon != null ? { longitude: geocodedLon } : {}),
+    };
+
+    const { res, body } = await updateVolunteerAddress(payload);
+
+    if (!res.ok || !body.success) {
+      showToast(body.message || 'Could not save your changes. Please try again.', 'error');
       return;
     }
 
-    const { valid, error } = validateProfilePhoto(file);
-    if (!valid) {
-      errorEl.textContent = error;
-      errorEl.classList.remove('field-error-hidden');
-      fileInput.value = '';
-      previewWrap.classList.add('photo-preview-hidden');
-      return;
-    }
-
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        preview.src = ev.target.result;
-        previewWrap.classList.remove('photo-preview-hidden');
-      };
-      reader.readAsDataURL(file);
-    } else {
-      preview.removeAttribute('src');
-      previewWrap.classList.remove('photo-preview-hidden');
-    }
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const file = fileInput.files[0];
-    errorEl.textContent = '';
-    errorEl.classList.add('field-error-hidden');
-
-    const { valid, error } = validateProfilePhoto(file ?? null);
-    if (!valid) {
-      errorEl.textContent = error;
-      errorEl.classList.remove('field-error-hidden');
-      return;
-    }
-
-    setButtonLoading(submitBtn, 'Uploading…');
-
-    try {
-      const { res, body } = await updateVolunteerPhoto(file);
-
-      if (!res.ok || !body.success) {
-        const msg = res.status === 500
-          ? 'An unexpected error occurred. Please try again or contact support if the problem persists.'
-          : (body.message || 'Photo could not be uploaded. Please try again.');
-        errorEl.textContent = msg;
-        errorEl.classList.remove('field-error-hidden');
-        return;
-      }
-
-      // body.data is the full updated profile row (profileModel.updateProfile's
-      // RETURNING *) — reuse the same renderAvatar() the initial load uses.
-      renderAvatar(body.data);
-
-      showToast('Photo updated successfully.', 'success');
-      form.reset();
-      previewWrap.classList.add('photo-preview-hidden');
-
-    } catch {
-      errorEl.textContent = 'An unexpected error occurred. Please try again or contact support if the problem persists.';
-      errorEl.classList.remove('field-error-hidden');
-    } finally {
-      restoreButton(submitBtn);
-    }
-  });
+    renderAddressView(body.data);
+    showToast('Contact and address updated successfully.', 'success');
+    setViewMode();
+  } catch {
+    showToast('An unexpected error occurred. Please try again.', 'error');
+  } finally {
+    restoreButton(submitBtn);
+  }
 }

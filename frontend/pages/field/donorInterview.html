@@ -74,7 +74,22 @@
 
       <!-- Interview form (hidden until donor selected) -->
       <div id="interview-form-section" class="workflow-card" style="display:none">
-        <p class="workflow-card-title">Interview Questionnaire</p>
+        <div class="workflow-card-title-row">
+          <p class="workflow-card-title">Interview Questionnaire</p>
+          <!--
+            Pre-fill button — added this session. Fills every question with
+            the answer that does NOT match its defer_if value, so the
+            interviewer only has to flip the few that don't apply instead
+            of clicking through every question one by one. Hidden by
+            default; donorInterview.js shows/hides it in lockstep with
+            #interview-submit-section (only meaningful while the form is
+            actually editable — hidden in every "already done"/deferred/
+            cooldown state, same as the Submit button).
+          -->
+          <button type="button" id="btn-prefill-safe" class="btn-secondary btn-sm" style="display:none">
+            Pre-fill Safe Answers
+          </button>
+        </div>
 
         <p id="interview-already-done" class="form-error" style="display:none"></p>
         <!-- Text set dynamically by donorInterview.js (_setAlreadyDoneMessage) —

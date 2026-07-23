@@ -123,10 +123,10 @@ app.use("/api/blood-collections", bloodCollectionRoutes);
 app.use("/api/blood-units",       bloodUnitRoutes);
 app.use("/api/blood-requests",    bloodRequestRoutes);
 app.use("/api/reports",           reportRoutes);
+app.use("/api/volunteers/me",     volunteerProfileRoutes);
 app.use("/api",                   registrationRoutes);
 app.use("/api/donor-interviews",  donorInterviewRoutes);
 app.use("/api/blood-drives",      bloodDriveRoutes);
-app.use("/api/volunteers/me",     volunteerProfileRoutes);
 app.use("/api/notifications",     notificationRoutes);
 app.use("/api/reference",         referenceRoutes);
 

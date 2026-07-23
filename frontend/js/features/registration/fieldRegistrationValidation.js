@@ -8,6 +8,15 @@
  * profileData straight through) so those rules live here only.
  *
  * CHANGED this session:
+ * - Added nationality, education, occupation, emergency_contact_name —
+ *   all optional, free text, light length-based sanity check only (same
+ *   treatment as address_street). profileModel.js's createProfile()
+ *   already accepted and inserted these columns; the form itself just
+ *   never collected them. registrationValidator.js (backend) has no
+ *   rule for any of the four, so this isn't mirroring anything there —
+ *   same category as the existing address_street check.
+ *
+ * CHANGED previous session:
  * - Returns an array of { field, message } instead of plain strings, so
  *   fieldRegistrationUI.js can route each error to its own inline
  *   "-error" element instead of a single global error box.
@@ -58,6 +67,10 @@ const FIELD_IDS = {
   address_municipality:    'input-address-city',
   address_brgy:            'input-address-barangay',
   zip_code:                'input-zip-code',
+  nationality:             'input-nationality',
+  education:               'input-education',
+  occupation:              'input-occupation',
+  emergency_contact_name:  'input-emergency-name',
   emergency_contact_phone: 'input-emergency-contact',
   profile_img:             'input-profile-img',
   terms:                   'input-terms',
@@ -72,7 +85,8 @@ export function validateFieldRegistrationForm(data, confirmPassword, role) {
     sex, contact, birthdate,
     address_street, address_province, address_municipality, address_brgy,
     zip_code,
-    emergency_contact_phone,
+    nationality, education, occupation,
+    emergency_contact_name, emergency_contact_phone,
     profile_img,
     terms_accepted,
   } = data;
@@ -125,6 +139,21 @@ export function validateFieldRegistrationForm(data, confirmPassword, role) {
 
   if (zip_code && !/^\d{4,10}$/.test(zip_code)) {
     push('zip_code', 'ZIP code must be 4 to 10 digits.');
+  }
+
+  // Optional, free text — same light length-based sanity check as
+  // address_street. Backend has no format rule for any of these three.
+  if (nationality && nationality.trim().length > 100) {
+    push('nationality', 'Nationality is too long.');
+  }
+  if (education && education.trim().length > 150) {
+    push('education', 'Education is too long.');
+  }
+  if (occupation && occupation.trim().length > 150) {
+    push('occupation', 'Occupation is too long.');
+  }
+  if (emergency_contact_name && emergency_contact_name.trim().length > 150) {
+    push('emergency_contact_name', 'Emergency contact name is too long.');
   }
 
   if (emergency_contact_phone && !/^\d{7,15}$/.test(emergency_contact_phone)) {

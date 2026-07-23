@@ -690,3 +690,11 @@ body.app-ready .page-content {
   font-weight: 600;
   flex-shrink: 0;
 }
+
+/* ── Generic hidden utility ──────────────────────────────────────── */
+/* Added for the Profile redesign (components/editToggle.js and avatar/
+   document-link toggling in profileUI.js / profileFieldUI.js). Existing
+   single-purpose hidden classes (.field-error-hidden, .notif-badge-hidden,
+   .photo-preview-hidden) stay as-is for their own call sites — this is a
+   feature-agnostic one for new reusable components going forward. */
+.hidden { display: none !important; }

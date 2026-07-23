@@ -6,8 +6,7 @@ import { renderSidebar,
 import { revealAppShell }       from '../../layouts/appShell.js';
 import { getSidebarItems }      from '../../constants/sidebarItems.js';
 import { ROLES }                from '../../constants/roles.js';
-import { loadAndRenderProfile,
-         initPhotoForm }        from '../../features/profile/profileFieldUI.js';
+import { loadAndRenderProfile, initAddressForm, initVolunteerAvatarUpload } from '../../features/profile/profileFieldUI.js';
 import { initPasswordForm }     from '../../features/profile/profileUI.js';
 import { refreshBadge }         from '../../features/notifications/notificationsUI.js';
 
@@ -27,8 +26,9 @@ async function init() {
   refreshBadge();
 
   initPasswordForm();
-  initPhotoForm();
-  await loadAndRenderProfile();
+initVolunteerAvatarUpload();
+const profile = await loadAndRenderProfile();
+if (profile) await initAddressForm(profile);
 }
 
 init();

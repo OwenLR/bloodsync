@@ -6,6 +6,12 @@
  * goes through apiFetch either.
  *
  * CHANGED this session:
+ * - Added nationality, education, occupation, emergency_contact_name to
+ *   the collected form data — profileModel.js's createProfile() already
+ *   accepted these columns, the form just never sent them. All four are
+ *   optional, same "only append if present" treatment as address_street.
+ *
+ * CHANGED previous session:
  * - Address block: cascading Province -> City/Municipality -> Barangay
  *   dropdowns (psgcApi.js), Street stays free text. Selecting a barangay
  *   silently geocodes (fieldGeocodeApi.js) and fills hidden lat/lng
@@ -364,6 +370,10 @@ async function handleSubmit() {
   const barangaySelect          = document.getElementById('input-address-barangay');
   const address_brgy            = barangaySelect.value ? (barangaySelect.selectedOptions[0]?.textContent || '') : '';
   const zip_code                = stripNonDigits(document.getElementById('input-zip-code').value);
+  const nationality              = document.getElementById('input-nationality').value.trim();
+  const education                = document.getElementById('input-education').value.trim();
+  const occupation                = document.getElementById('input-occupation').value.trim();
+  const emergency_contact_name  = document.getElementById('input-emergency-name').value.trim();
   const emergency_contact_phone = stripNonDigits(document.getElementById('input-emergency-contact').value);
   const fileInput                = document.getElementById('input-profile-img');
   const profile_img              = fileInput ? (fileInput.files[0] || null) : null;
@@ -377,6 +387,10 @@ async function handleSubmit() {
     ...(address_street ? { address_street } : {}),
     address_province, address_municipality, address_brgy,
     ...(zip_code ? { zip_code } : {}),
+    ...(nationality ? { nationality } : {}),
+    ...(education ? { education } : {}),
+    ...(occupation ? { occupation } : {}),
+    ...(emergency_contact_name ? { emergency_contact_name } : {}),
     ...(emergency_contact_phone ? { emergency_contact_phone } : {}),
     ...(profile_img ? { profile_img } : {}),
     ...(geocodedLat != null ? { latitude: geocodedLat } : {}),

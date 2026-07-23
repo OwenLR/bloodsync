@@ -6,9 +6,7 @@ import { renderSidebar,
 import { revealAppShell }    from '../../layouts/appShell.js';
 import { getSidebarItems }   from '../../constants/sidebarItems.js';
 import { ROLES }             from '../../constants/roles.js';
-import { renderIdentity,
-         initPasswordForm,
-         initStaffPhotoForm } from '../../features/profile/profileUI.js';
+import { renderIdentity, initPasswordForm, initStaffAvatarUpload } from '../../features/profile/profileUI.js';
 import { refreshBadge }      from '../../features/notifications/notificationsUI.js';
 
 async function init() {
@@ -26,8 +24,8 @@ async function init() {
   refreshBadge();
 
   renderIdentity(user, 'PRC Staff');
-  initPasswordForm();
-  initStaffPhotoForm();
+initPasswordForm();
+initStaffAvatarUpload();
 }
 
 init();

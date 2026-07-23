@@ -67,3 +67,44 @@ export function validateProfilePhoto(file) {
 
   return { valid: true, error: null };
 }
+
+/**
+ * Validate the Volunteer/Phlebotomist address/contact edit form.
+ * Mirrors fieldRegistrationValidation.js's address rules — province,
+ * city/municipality, and barangay stay required for UX consistency with
+ * registration, even though registrationValidator.js (backend) doesn't
+ * technically enforce them. Street stays optional, light length check
+ * only. Returns [{ field, message }] — field values are DOM input IDs,
+ * same convention as fieldRegistrationValidation.js, so the caller can
+ * route each error to its own inline "-error" element.
+ */
+export function validateAddressUpdate(data) {
+  const errors = [];
+  const push = (field, message) => errors.push({ field, message });
+
+  const {
+    contact, address_street, address_province, address_municipality,
+    address_brgy, zip_code, emergency_contact_phone,
+  } = data;
+
+  if (contact && !/^\d{7,15}$/.test(contact)) {
+    push('input-contact', 'Contact number must be 7 to 15 digits.');
+  }
+
+  if (!address_province) push('input-address-province', 'Province is required.');
+  if (!address_municipality) push('input-address-city', 'City/Municipality is required.');
+  if (!address_brgy) push('input-address-barangay', 'Barangay is required.');
+  if (address_street && address_street.trim().length > 200) {
+    push('input-address-street', 'Street address is too long.');
+  }
+
+  if (zip_code && !/^\d{4,10}$/.test(zip_code)) {
+    push('input-zip-code', 'ZIP code must be 4 to 10 digits.');
+  }
+
+  if (emergency_contact_phone && !/^\d{7,15}$/.test(emergency_contact_phone)) {
+    push('input-emergency-contact', 'Emergency contact phone must be 7 to 15 digits.');
+  }
+
+  return errors;
+}

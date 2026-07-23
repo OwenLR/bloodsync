@@ -6,7 +6,6 @@
   <title>Profile | BloodSync</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
   <link rel="stylesheet" href="/assets/css/features/profile.css" />
-  <link rel="stylesheet" href="/assets/css/features/userManagement.css" />
 </head>
 <body class="app-loading">
   <nav id="navbar"></nav>
@@ -14,137 +13,173 @@
     <aside id="sidebar"></aside>
     <main id="content" class="page-content">
 
-      <div class="page-header">
-        <h1 class="page-title">Profile</h1>
-        <p class="page-subtitle">This is the information you provided when you registered. Contact an admin to change your name, birthdate, or sex.</p>
-      </div>
-
-      <section class="profile-card" aria-labelledby="heading-identity">
-        <h2 class="profile-card-title" id="heading-identity">Account Information</h2>
-
-        <div class="profile-avatar-row">
-          <img class="avatar-thumb-lg field-error-hidden" id="profile-avatar" src="" alt="Profile photo" />
-          <div class="avatar-placeholder-lg field-error-hidden" id="profile-avatar-placeholder"></div>
+      <section class="profile-header">
+        <div class="profile-avatar-wrap">
+          <img class="profile-avatar-lg hidden" id="profile-avatar" src="" alt="Profile photo" />
+          <div class="profile-avatar-placeholder-lg hidden" id="profile-avatar-placeholder"></div>
+          <button type="button" class="profile-avatar-edit-btn" id="profile-avatar-edit-btn" aria-label="Change profile photo">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <span class="profile-avatar-spinner hidden" id="profile-avatar-spinner"></span>
+          <input type="file" id="profile-img-input" class="profile-avatar-file-input" accept="image/jpeg,image/png,image/jpg,application/pdf" />
         </div>
-
-        <dl class="detail-list">
-          <dt>Name</dt>
-          <dd id="profile-name">—</dd>
-          <dt>Email</dt>
-          <dd id="profile-email">—</dd>
-          <dt>Role</dt>
-          <dd id="profile-role-label">—</dd>
-          <dt>Account Status</dt>
-          <dd id="profile-status">—</dd>
-          <dt>Birthdate</dt>
-          <dd id="profile-birthdate">—</dd>
-          <dt>Sex</dt>
-          <dd id="profile-sex">—</dd>
-        </dl>
+        <div class="profile-header-info">
+          <h1 class="profile-name" id="profile-name">—</h1>
+          <div class="profile-badges">
+            <span class="profile-role-badge" id="profile-role-label">—</span>
+            <span class="status-badge" id="profile-status-badge">—</span>
+            <a class="profile-doc-link hidden" id="profile-avatar-doc-link" target="_blank" rel="noopener noreferrer">View current document</a>
+          </div>
+          <p class="profile-email" id="profile-email">—</p>
+        </div>
+        <span class="field-error field-error-hidden" id="error-photo-form" role="alert"></span>
       </section>
-
-      <div class="detail-columns">
-        <section class="profile-card detail-section">
-          <h2 class="profile-card-title">Contact</h2>
-          <dl class="profile-detail-grid">
-            <dt>Phone</dt>
-            <dd id="profile-contact">—</dd>
-          </dl>
-        </section>
-
-        <section class="profile-card detail-section">
-          <h2 class="profile-card-title">Address</h2>
-          <dl class="profile-detail-grid">
-            <dt>Street</dt>
-            <dd id="profile-address-street">—</dd>
-            <dt>Barangay</dt>
-            <dd id="profile-address-brgy">—</dd>
-            <dt>City/Municipality</dt>
-            <dd id="profile-address-municipality">—</dd>
-            <dt>Province</dt>
-            <dd id="profile-address-province">—</dd>
-            <dt>ZIP Code</dt>
-            <dd id="profile-zip-code">—</dd>
-          </dl>
-        </section>
-
-        <section class="profile-card detail-section">
-          <h2 class="profile-card-title">Emergency Contact</h2>
-          <dl class="profile-detail-grid">
-            <dt>Name</dt>
-            <dd id="profile-emergency-name">—</dd>
-            <dt>Phone</dt>
-            <dd id="profile-emergency-phone">—</dd>
-          </dl>
-        </section>
-      </div>
 
       <section class="profile-card" aria-labelledby="heading-registration">
         <h2 class="profile-card-title" id="heading-registration">Registration Details</h2>
-        <dl class="detail-list">
-          <dt>Nationality</dt>
-          <dd id="profile-nationality">—</dd>
-          <dt>Education</dt>
-          <dd id="profile-education">—</dd>
-          <dt>Occupation</dt>
-          <dd id="profile-occupation">—</dd>
-          <dt>ID Type</dt>
-          <dd id="profile-id-type">—</dd>
-        </dl>
+        <p class="profile-card-desc">Contact an admin to update these. Locked at registration.</p>
+        <div class="profile-info-grid">
+          <div class="profile-info-item"><span class="profile-info-label">Birthdate</span><span class="profile-info-value" id="profile-birthdate">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">Sex</span><span class="profile-info-value" id="profile-sex">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">Nationality</span><span class="profile-info-value" id="profile-nationality">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">Education</span><span class="profile-info-value" id="profile-education">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">Occupation</span><span class="profile-info-value" id="profile-occupation">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">ID Type</span><span class="profile-info-value" id="profile-id-type">—</span></div>
+        </div>
       </section>
 
-      <section class="profile-card" aria-labelledby="heading-photo">
-        <h2 class="profile-card-title" id="heading-photo">License / Certification Document</h2>
-        <p class="profile-card-desc">Update your license or certification document. Accepted formats: JPEG, PNG, PDF. Max size: 5MB.</p>
+      <section class="profile-card" id="address-card" aria-labelledby="heading-address">
+        <div class="profile-card-header">
+          <h2 class="profile-card-title" id="heading-address">Contact &amp; Address</h2>
+          <button type="button" class="card-edit-trigger" data-edit-trigger>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            Edit
+          </button>
+        </div>
+        <p class="profile-card-desc">Used to find your nearest blood drive assignments.</p>
 
-        <form id="photo-form" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="profile-img-input">Select File</label>
-            <input class="form-input" type="file" id="profile-img-input" name="profile_img" accept="image/jpeg,image/png,image/jpg,application/pdf" />
-          </div>
+        <div data-view class="profile-info-grid">
+          <div class="profile-info-item"><span class="profile-info-label">Contact Number</span><span class="profile-info-value" id="view-contact">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">ZIP Code</span><span class="profile-info-value" id="view-zip">—</span></div>
+          <div class="profile-info-item profile-info-item--full"><span class="profile-info-label">Address</span><span class="profile-info-value" id="view-address">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">Emergency Contact Name</span><span class="profile-info-value" id="view-emergency-name">—</span></div>
+          <div class="profile-info-item"><span class="profile-info-label">Emergency Contact Phone</span><span class="profile-info-value" id="view-emergency-phone">—</span></div>
+        </div>
 
-          <div class="photo-preview-wrap photo-preview-hidden" id="photo-preview-wrap">
-            <img class="photo-preview" id="photo-preview" src="" alt="Preview of selected document" />
-          </div>
-
-          <span class="field-error field-error-hidden profile-form-error" id="error-photo-form" aria-live="polite"></span>
-
-          <div class="profile-form-actions">
-            <button class="btn-primary" type="submit" id="btn-upload-photo">Upload Document</button>
-          </div>
-        </form>
+        <div data-edit class="hidden">
+          <form id="address-form" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="input-contact">Contact number</label>
+              <input class="form-input" type="tel" id="input-contact" placeholder="e.g. 09171234567" />
+              <span class="field-error field-error-hidden" id="input-contact-error"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-address-street">Street address <span class="field-optional">(optional)</span></label>
+              <input class="form-input" type="text" id="input-address-street" autocomplete="address-line1" />
+              <span class="field-error field-error-hidden" id="input-address-street-error"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-address-province">Province</label>
+              <select class="form-input" id="input-address-province">
+                <option value="">Select Province…</option>
+              </select>
+              <span class="field-error field-error-hidden" id="input-address-province-error"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-address-city">City / Municipality</label>
+              <select class="form-input" id="input-address-city" disabled>
+                <option value="">Select City / Municipality…</option>
+              </select>
+              <span class="field-error field-error-hidden" id="input-address-city-error"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-address-barangay">Barangay</label>
+              <select class="form-input" id="input-address-barangay" disabled>
+                <option value="">Select Barangay…</option>
+              </select>
+              <span class="field-error field-error-hidden" id="input-address-barangay-error"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-zip-code">ZIP code</label>
+              <input class="form-input" type="text" id="input-zip-code" inputmode="numeric" />
+              <span class="field-error field-error-hidden" id="input-zip-code-error"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-emergency-name">Emergency contact name <span class="field-optional">(optional)</span></label>
+              <input class="form-input" type="text" id="input-emergency-name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-emergency-contact">Emergency contact phone</label>
+              <input class="form-input" type="tel" id="input-emergency-contact" inputmode="numeric" />
+              <span class="field-error field-error-hidden" id="input-emergency-contact-error"></span>
+            </div>
+            <div class="profile-form-actions">
+              <button class="btn-primary" type="submit" id="btn-save-address">Save Changes</button>
+              <button class="btn-secondary" type="button" data-edit-cancel>Cancel</button>
+            </div>
+          </form>
+        </div>
       </section>
 
-      <section class="profile-card" aria-labelledby="heading-password">
-        <h2 class="profile-card-title" id="heading-password">Change Password</h2>
-        <p class="profile-card-desc">Update your login password. You will not be logged out after changing it.</p>
+      <section class="profile-card" id="password-card" aria-labelledby="heading-password">
+  <div class="profile-card-header">
+    <h2 class="profile-card-title" id="heading-password">Password</h2>
+    <button type="button" class="card-edit-trigger" data-edit-trigger>
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      Change
+    </button>
+  </div>
 
-        <form id="password-form" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="current-password">Current Password</label>
-            <input class="form-input" type="password" id="current-password" name="current_password" autocomplete="current-password" required />
-            <span class="field-error field-error-hidden" id="error-current-password" aria-live="polite"></span>
-          </div>
+  <div data-view>
+    <div class="profile-info-item">
+      <span class="profile-info-label">Current Password</span>
+      <span class="profile-info-value profile-password-mask">••••••••••••</span>
+    </div>
+  </div>
 
-          <div class="form-group">
-            <label class="form-label" for="new-password">New Password</label>
-            <input class="form-input" type="password" id="new-password" name="new_password" autocomplete="new-password" required />
-            <span class="field-error field-error-hidden" id="error-new-password" aria-live="polite"></span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="confirm-password">Confirm New Password</label>
-            <input class="form-input" type="password" id="confirm-password" name="confirm_password" autocomplete="new-password" required />
-            <span class="field-error field-error-hidden" id="error-confirm-password" aria-live="polite"></span>
-          </div>
-
-          <span class="field-error field-error-hidden profile-form-error" id="error-password-form" aria-live="polite"></span>
-
-          <div class="profile-form-actions">
-            <button class="btn-primary" type="submit" id="btn-change-password">Change Password</button>
-          </div>
-        </form>
-      </section>
+  <div data-edit class="hidden">
+    <form id="password-form" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="current-password">Current Password</label>
+        <div class="password-input-wrap">
+          <input class="form-input" type="password" id="current-password" name="current_password" autocomplete="current-password" required />
+          <button type="button" class="password-toggle-btn" data-toggle-password="current-password" aria-label="Show password">
+            <svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-eye-off hidden" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.35 21.35 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.35 21.35 0 0 1-3.22 4.44M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
+        <span class="field-error field-error-hidden" id="error-current-password" aria-live="polite"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="new-password">New Password</label>
+        <div class="password-input-wrap">
+          <input class="form-input" type="password" id="new-password" name="new_password" autocomplete="new-password" required />
+          <button type="button" class="password-toggle-btn" data-toggle-password="new-password" aria-label="Show password">
+            <svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-eye-off hidden" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.35 21.35 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.35 21.35 0 0 1-3.22 4.44M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
+        <span class="field-error field-error-hidden" id="error-new-password" aria-live="polite"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="confirm-password">Confirm New Password</label>
+        <div class="password-input-wrap">
+          <input class="form-input" type="password" id="confirm-password" name="confirm_password" autocomplete="new-password" required />
+          <button type="button" class="password-toggle-btn" data-toggle-password="confirm-password" aria-label="Show password">
+            <svg class="icon-eye" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-eye-off hidden" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.35 21.35 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.35 21.35 0 0 1-3.22 4.44M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
+        <span class="field-error field-error-hidden" id="error-confirm-password" aria-live="polite"></span>
+      </div>
+      <span class="field-error field-error-hidden profile-form-error" id="error-password-form" aria-live="polite"></span>
+      <div class="profile-form-actions">
+        <button class="btn-primary" type="submit" id="btn-change-password">Save Password</button>
+        <button class="btn-secondary" type="button" data-edit-cancel>Cancel</button>
+      </div>
+    </form>
+  </div>
+</section>
 
     </main>
   </div>

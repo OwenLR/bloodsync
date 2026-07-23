@@ -178,10 +178,42 @@
       </div>
 
       <!--
+        Additional profile details, added this session. All optional, free
+        text — profileModel.js's createProfile() already accepts these
+        columns (nationality, education, occupation); the form just never
+        collected them before. Shown read-only later on the Profile page's
+        "Registration Details" card.
+      -->
+      <div class="field-row">
+        <div class="field">
+          <label for="input-nationality">Nationality <span class="field-optional">(optional)</span></label>
+          <input id="input-nationality" type="text" autocomplete="country-name" />
+          <p id="input-nationality-error" class="field-error"></p>
+        </div>
+        <div class="field">
+          <label for="input-education">Education <span class="field-optional">(optional)</span></label>
+          <input id="input-education" type="text" />
+          <p id="input-education-error" class="field-error"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="input-occupation">Occupation <span class="field-optional">(optional)</span></label>
+        <input id="input-occupation" type="text" />
+        <p id="input-occupation-error" class="field-error"></p>
+      </div>
+
+      <!--
         Government/National ID number input stays removed - see the header
         comment in fieldRegistrationUI.js for context. Unrelated to the
         address/terms additions here.
       -->
+
+      <div class="field">
+        <label for="input-emergency-name">Emergency contact name <span class="field-optional">(optional)</span></label>
+        <input id="input-emergency-name" type="text" />
+        <p id="input-emergency-name-error" class="field-error"></p>
+      </div>
 
       <div class="field">
         <label for="input-emergency-contact">Emergency contact phone</label>

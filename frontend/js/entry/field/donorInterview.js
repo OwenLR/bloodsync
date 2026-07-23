@@ -151,6 +151,7 @@ async function _handleDonorSelected(donor) {
   _hideEl(document.getElementById('proceed-section'));
   _hideEl(document.getElementById('interview-already-done'));
   _hideEl(document.getElementById('interview-deferred-notice'));
+  _setPrefillButtonVisible(false);
 
   try {
     const fullDonor = await getDonorById(donor.donor_id);
@@ -241,6 +242,7 @@ async function _checkExistingInterviewDriveScoped(donor) {
           _setAlreadyDoneMessage();
           _showEl(document.getElementById('interview-already-done'));
           _hideEl(document.getElementById('interview-submit-section'));
+          _setPrefillButtonVisible(false);
           document.getElementById('question-list') && (document.getElementById('question-list').innerHTML = '');
 
           _renderDeferralNotice(completedInterview, 'interview');
@@ -259,6 +261,7 @@ async function _checkExistingInterviewDriveScoped(donor) {
 
         const submitSection = document.getElementById('interview-submit-section');
         if (submitSection) _hideEl(submitSection);
+        _setPrefillButtonVisible(false);
 
         const questionList = document.getElementById('question-list');
         if (questionList) questionList.innerHTML = '';
@@ -303,6 +306,7 @@ async function _checkExistingInterviewWalkIn(donor) {
         _setAlreadyDoneMessage();
         _showEl(document.getElementById('interview-already-done'));
         _hideEl(document.getElementById('interview-submit-section'));
+        _setPrefillButtonVisible(false);
 
         {
           const questionList = document.getElementById('question-list');
@@ -321,6 +325,7 @@ async function _checkExistingInterviewWalkIn(donor) {
         _hideEl(document.getElementById('interview-already-done'));
         _hideEl(document.getElementById('interview-submit-section'));
         _hideEl(document.getElementById('proceed-section'));
+        _setPrefillButtonVisible(false);
 
         {
           const questionList = document.getElementById('question-list');
@@ -436,6 +441,7 @@ async function _initInterviewForm(donor) {
   const submitSection = document.getElementById('interview-submit-section');
   _showEl(formSection);
   if (submitSection) _showEl(submitSection);
+  _setPrefillButtonVisible(true);
 
   await _loadQuestions(donor.sex);
 }
@@ -536,10 +542,78 @@ function _updateDeferWarning(question, selectedValue) {
   }
 }
 
+// ─── Pre-fill Safe Answers ────────────────────────────────────────────────────
+
+/**
+ * Show/hide the "Pre-fill Safe Answers" button. Kept in lockstep with
+ * #interview-submit-section everywhere that section is toggled — the
+ * button is only meaningful while the form is actually editable (hidden
+ * in every "already done" / deferred / cooldown state, same reasoning
+ * as the Submit button itself).
+ */
+function _setPrefillButtonVisible(visible) {
+  const btn = document.getElementById('btn-prefill-safe');
+  if (!btn) return;
+  btn.style.display = visible ? '' : 'none';
+}
+
+/**
+ * Fills every question with the answer that does NOT match its defer_if
+ * value — i.e. the answer that would NOT defer the donor — so the
+ * interviewer only has to flip the handful that don't apply instead of
+ * clicking through every question one by one. A question with no usable
+ * defer_if value ('YES'/'NO') is left blank rather than guessed at, since
+ * there's no rule on file to infer a safe answer from.
+ *
+ * Fires the same _updateDeferWarning() the per-radio change listener
+ * would, so any question programmatically left on its deferring answer
+ * (shouldn't happen here, but defensive) still shows its warning banner
+ * correctly.
+ */
+function _prefillSafeAnswers() {
+  if (!_questions || _questions.length === 0) return;
+
+  let filled  = 0;
+  let skipped = 0;
+
+  _questions.forEach(q => {
+    if (q.defer_if !== 'YES' && q.defer_if !== 'NO') {
+      skipped += 1;
+      return;
+    }
+
+    const safeAnswer = q.defer_if === 'YES' ? 'NO' : 'YES';
+    const radio = document.querySelector(
+      `input[name="question_${q.question_id}"][value="${safeAnswer}"]`
+    );
+
+    if (radio) {
+      radio.checked = true;
+      _updateDeferWarning(q, safeAnswer);
+      filled += 1;
+    }
+  });
+
+  if (filled === 0) {
+    showToast('No questions could be pre-filled — none have a deferral rule on file.', 'warning');
+    return;
+  }
+
+  showToast(
+    skipped > 0
+      ? `Pre-filled ${filled} question(s). ${skipped} had no rule on file and were left blank.`
+      : 'Pre-filled the safe answer for every question. Review and adjust any that don\u2019t apply.',
+    skipped > 0 ? 'warning' : 'success'
+  );
+}
+
 function _setupInterviewForm() {
   const form = document.getElementById('interview-form');
   if (!form) return;
   form.addEventListener('submit', _handleInterviewSubmit);
+
+  const prefillBtn = document.getElementById('btn-prefill-safe');
+  if (prefillBtn) prefillBtn.addEventListener('click', _prefillSafeAnswers);
 }
 
 async function _handleInterviewSubmit(e) {
@@ -621,6 +695,7 @@ async function _handleInterviewSubmit(e) {
     if (isDeferred) {
       showToast('Interview submitted. This donor has been deferred.', 'warning');
       _hideEl(document.getElementById('interview-submit-section'));
+      _setPrefillButtonVisible(false);
 
       if (_isFieldRole()) {
         _renderDeferralNotice(_createdInterview, 'the donor interview');
@@ -634,6 +709,7 @@ async function _handleInterviewSubmit(e) {
       // Passed — store interview for screening page and show proceed
       showToast('Interview submitted successfully.', 'success');
       _hideEl(document.getElementById('interview-submit-section'));
+      _setPrefillButtonVisible(false);
       _showEl(document.getElementById('proceed-section'));
 
       try {

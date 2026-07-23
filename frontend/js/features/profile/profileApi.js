@@ -99,3 +99,31 @@ export async function updateVolunteerPhoto(file) {
   const body = await res.json();
   return { res, body };
 }
+
+/**
+ * Update the current Volunteer/Phlebotomist's contact/address/emergency
+ * contact fields. Same endpoint as updateVolunteerPhoto — sent as
+ * multipart (route is registered multipart-only per contract.md), with
+ * no file attached. Backend fix from Stage 4 isn't needed here since
+ * this call always has body fields.
+ *
+ * @param {object} fields — any of: contact, address_street, address_brgy,
+ *   address_municipality, address_province, zip_code,
+ *   emergency_contact_name, emergency_contact_phone, latitude, longitude
+ * @returns {Promise<{ res: Response, body: object }>}
+ */
+export async function updateVolunteerAddress(fields) {
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') {
+      formData.append(key, value);
+    }
+  });
+
+  const res  = await apiFetch('/api/volunteers/me/profile', {
+    method: 'PATCH',
+    body:   formData,
+  });
+  const body = await res.json();
+  return { res, body };
+}
