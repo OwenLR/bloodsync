@@ -55,7 +55,7 @@ app.use(helmet({
             defaultSrc:  ["'self'"],
             scriptSrc:   ["'self'", "https://cdn.socket.io", "https://unpkg.com"],
             styleSrc:    ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "https://cdn.socket.io", "https://nominatim.openstreetmap.org", "https://psgc.gitlab.io", "https://unpkg.com"],
+            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "wss://bloodsync.site", "https://cdn.socket.io", "https://nominatim.openstreetmap.org", "https://psgc.gitlab.io", "https://unpkg.com"],
             imgSrc:      ["'self'", "data:", "https://res.cloudinary.com", "https://*.tile.openstreetmap.org", "https://unpkg.com"],
             fontSrc:     ["'self'"],
             objectSrc:   ["'none'"],
