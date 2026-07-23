@@ -1,5 +1,5 @@
 [build]
-buildCommand = "npm install"
+buildCommand = "npm install --prefix backend"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "npm start --prefix backend"
