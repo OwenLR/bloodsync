@@ -21,7 +21,6 @@
  * are removed only once Profile is fully working (see sessionState.md
  * Permanent Rules once that note is added — staged removal, not a swap).
  */
-
 export const ROUTES = Object.freeze({
   LOGIN:     '/index.html',
   NOT_FOUND: '/pages/404.html',
@@ -43,7 +42,6 @@ export const ROUTES = Object.freeze({
     REPORTS:            '/pages/admin/reports.html',
     NOTIFICATIONS:      '/pages/admin/notifications.html',
     PROFILE:            '/pages/admin/profile.html',
-    SETTINGS:           '/pages/admin/settings.html',
 }),
 
   STAFF: Object.freeze({
@@ -60,19 +58,14 @@ export const ROUTES = Object.freeze({
     REPORTS:            '/pages/staff/reports.html',
     NOTIFICATIONS:      '/pages/staff/notifications.html',
     PROFILE:            '/pages/staff/profile.html',
-    SETTINGS:           '/pages/staff/settings.html',
   }),
 
-  // Shared donor workflow pages — used by both Volunteer and Phlebotomist.
-  // Entry files under /pages/field/ accept both roles via requireRole guard.
-  // NOTE: Donation and Collection are combined on donorDonation.html.
-  // COLLECTION kept as alias so any hardcoded links don't 404.
   FIELD: Object.freeze({
     REGISTER:   '/pages/field/donorRegistration.html',
     INTERVIEW:  '/pages/field/donorInterview.html',
     SCREENING:  '/pages/field/donorScreening.html',
     DONATION:   '/pages/field/donorDonation.html',
-    COLLECTION: '/pages/field/donorDonation.html',  // combined — same page as DONATION
+    COLLECTION: '/pages/field/donorDonation.html',
   }),
 
   VOLUNTEER: Object.freeze({

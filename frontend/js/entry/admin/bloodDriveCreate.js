@@ -18,6 +18,48 @@ import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 const FORM_KEY    = 'blood-drive-create';
 const REQUIRED    = ['name', 'branch_id', 'start_datetime', 'end_datetime'];
 
+// ─── Venue Type "Other" detail ────────────────────────────────────────────────
+//
+// contract.md's venue_type is a fixed enum (School/Hospital/Community Center/
+// Church/Government/Other) — there is no separate backend column for "what
+// kind of Other". Rather than inventing an unsent field, the free-text detail
+// typed when "Other" is selected is folded into venue_name itself using a
+// simple " (Other: ...)" suffix, and unpacked back out again when editing an
+// existing drive so the Specify field re-populates correctly.
+
+const OTHER_SUFFIX_RE = / \(Other: (.+)\)$/;
+
+function splitVenueNameOther(venueName) {
+  const match = (venueName || '').match(OTHER_SUFFIX_RE);
+  if (match) {
+    return { base: venueName.slice(0, match.index), detail: match[1] };
+  }
+  return { base: venueName || '', detail: '' };
+}
+
+function combineVenueNameOther(base, detail) {
+  const trimmedBase   = (base || '').trim();
+  const trimmedDetail = (detail || '').trim();
+  if (!trimmedDetail) return trimmedBase;
+  return trimmedBase ? `${trimmedBase} (Other: ${trimmedDetail})` : `Other: ${trimmedDetail}`;
+}
+
+function toggleVenueTypeOther() {
+  const select = document.getElementById('venue_type');
+  const group  = document.getElementById('venue_type_other_group');
+  if (!select || !group) return;
+
+  const isOther = select.value === 'Other';
+  group.style.display = isOther ? '' : 'none';
+
+  if (!isOther) {
+    const otherInput = document.getElementById('venue_type_other');
+    const otherError = document.getElementById('venue_type_other-error');
+    if (otherInput) otherInput.value = '';
+    if (otherError) otherError.textContent = '';
+  }
+}
+
 // ─── Determine mode ───────────────────────────────────────────────────────────
 
 function getEditId() {
@@ -126,15 +168,27 @@ function readFormValues() {
   const lat = get('venue_latitude');
   const lon = get('venue_longitude');
 
+  // venue_name: when venue_type is 'Other', fold the Specify field's text
+  // into venue_name (see splitVenueNameOther/combineVenueNameOther above).
+  const venueType     = get('venue_type') || undefined;
+  const rawVenueName  = get('venue_name').trim();
+  const otherDetail   = get('venue_type_other').trim();
+  const venue_name    = venueType === 'Other'
+    ? (combineVenueNameOther(rawVenueName, otherDetail) || undefined)
+    : (rawVenueName || undefined);
+
   return {
     name:             get('name').trim(),
     description:      get('description').trim() || undefined,
     branch_id:        get('branch_id') ? parseInt(get('branch_id'), 10) : undefined,
     slots_available:  get('slots_available') ? parseInt(get('slots_available'), 10) : undefined,
+    // start_datetime/end_datetime: flatpickr's real (hidden) input holds
+    // 'Y-m-dTH:i' — same "YYYY-MM-DDTHH:mm" shape the native datetime-local
+    // input used to produce, so nothing downstream needed to change.
     start_datetime:   get('start_datetime'),
     end_datetime:     get('end_datetime'),
-    venue_name:       get('venue_name').trim() || undefined,
-    venue_type:       get('venue_type') || undefined,
+    venue_name:       venue_name,
+    venue_type:       venueType,
     building:         get('building').trim() || undefined,
     floor_room:       get('floor_room').trim() || undefined,
     street_address:   get('street_address').trim() || undefined,
@@ -149,6 +203,80 @@ function readFormValues() {
   };
 }
 
+// ─── Date & time pickers (flatpickr) ──────────────────────────────────────────
+//
+// Replaces the native <input type="datetime-local"> — browser-default
+// date pickers are slow to navigate (scroll-driven year selection, wildly
+// inconsistent UI across browsers). flatpickr gives a real calendar grid
+// with a typeable year field and prev/next month arrows — no scrolling.
+//
+// The underlying input (same id, same element) keeps holding the real
+// value in dateFormat 'Y-m-dTH:i' — identical shape to what datetime-local
+// used to produce — so readFormValues()/populateForm() barely change.
+// flatpickr's `altInput: true` renders a second, friendlier-formatted
+// input for display; the original becomes type="hidden" and is what
+// getElementById(id).value still reads from.
+
+let _startPicker = null;
+let _endPicker   = null;
+
+function initDateTimePickers() {
+  if (typeof window.flatpickr === 'undefined') {
+    // Fallback — flatpickr failed to load (e.g. offline/CDN blocked).
+    // Revert to the native picker so the field is still usable.
+    document.getElementById('start_datetime').type = 'datetime-local';
+    document.getElementById('end_datetime').type   = 'datetime-local';
+    return;
+  }
+
+  const isEdit = !!getEditId();
+
+  const commonOpts = {
+    enableTime:      true,
+    dateFormat:      'Y-m-dTH:i',
+    altInput:        true,
+    altFormat:       'M j, Y \u2014 h:i K',
+    time_24hr:       false,
+    minuteIncrement: 5,
+    // Only block past dates in create mode (bloodsync.md item 13). Edit
+    // mode may need to display/adjust an Ongoing drive's original start
+    // time, which can already be in the past — no client-side check
+    // existed for this before either, so this preserves that behavior.
+    minDate:         isEdit ? undefined : 'today',
+  };
+
+  _startPicker = window.flatpickr('#start_datetime', {
+    ...commonOpts,
+    onChange: (selectedDates) => {
+      updateSubmitState();
+      if (!getEditId()) saveForm(FORM_KEY);
+      // Keep the end picker from allowing a date before the new start date
+      if (_endPicker && selectedDates[0]) {
+        _endPicker.set('minDate', selectedDates[0]);
+      }
+    },
+  });
+
+  _endPicker = window.flatpickr('#end_datetime', {
+    ...commonOpts,
+    onChange: () => {
+      updateSubmitState();
+      if (!getEditId()) saveForm(FORM_KEY);
+    },
+  });
+}
+
+// Re-syncs a flatpickr instance's calendar + alt display after something
+// external (restoreForm's draft restore, or populateForm's edit-mode fill)
+// has set the underlying input's raw value directly. Passing `false` as
+// the second arg to setDate() suppresses onChange so this doesn't
+// double-fire saveForm()/updateSubmitState() during initial population.
+function resyncPicker(picker, id) {
+  if (!picker) return;
+  const el = document.getElementById(id);
+  if (el && el.value) picker.setDate(el.value, false);
+}
+
 // ─── Populate form for edit mode ──────────────────────────────────────────────
 
 function populateForm(drive) {
@@ -161,8 +289,15 @@ function populateForm(drive) {
   set('description',     drive.description);
   set('branch_id',       drive.branch_id);
   set('slots_available', drive.slots_available);
-  set('venue_name',      drive.venue_name);
-  set('venue_type',      drive.venue_type);
+  // venue_name — split off any "(Other: ...)" suffix so venue_name shows
+  // just the base name and the Specify field gets the detail back.
+  const { base: venueNameBase, detail: venueOtherDetail } = splitVenueNameOther(drive.venue_name);
+  set('venue_name', venueNameBase);
+  set('venue_type', drive.venue_type);
+  if (drive.venue_type === 'Other' && venueOtherDetail) {
+    set('venue_type_other', venueOtherDetail);
+  }
+  toggleVenueTypeOther(); // reflect the loaded venue_type's Other/non-Other state
   set('building',        drive.building);
   set('floor_room',      drive.floor_room);
   set('street_address',  drive.street_address);
@@ -178,17 +313,21 @@ function populateForm(drive) {
   if (drive.venue_latitude)  set('venue_latitude',  drive.venue_latitude);
   if (drive.venue_longitude) set('venue_longitude', drive.venue_longitude);
 
-  // datetime-local expects "YYYY-MM-DDTHH:mm"
+  // start_datetime/end_datetime — set via flatpickr's setDate() so both
+  // the calendar state and the friendly alt-display update, not just the
+  // raw underlying value (a plain el.value assignment wouldn't refresh
+  // flatpickr's own UI).
   if (drive.start_datetime) {
-    set('start_datetime', toDatetimeLocal(drive.start_datetime));
+    _startPicker?.setDate(toDatetimeLocal(drive.start_datetime), false);
+    if (_endPicker) _endPicker.set('minDate', toDatetimeLocal(drive.start_datetime));
   }
   if (drive.end_datetime) {
-    set('end_datetime', toDatetimeLocal(drive.end_datetime));
+    _endPicker?.setDate(toDatetimeLocal(drive.end_datetime), false);
   }
 }
 
 function toDatetimeLocal(isoString) {
-  // Slice to "YYYY-MM-DDTHH:mm" which datetime-local inputs expect
+  // Slice to "YYYY-MM-DDTHH:mm" — same shape flatpickr's dateFormat expects
   return isoString ? isoString.slice(0, 16) : '';
 }
 
@@ -197,6 +336,18 @@ function toDatetimeLocal(isoString) {
 async function handleSubmit(editId, user) {
   clearAllFieldErrors();
   clearFeedback('submit-error');
+
+  // venue_type "Other" requires the Specify field — this is a client-side
+  // convention (see combineVenueNameOther note above), not something
+  // validateDriveForm knows about, so it's checked here first.
+  const venueTypeEl = document.getElementById('venue_type');
+  if (venueTypeEl && venueTypeEl.value === 'Other') {
+    const otherVal = document.getElementById('venue_type_other').value.trim();
+    if (!otherVal) {
+      showFieldError('venue_type_other', 'Please specify the venue type.');
+      return;
+    }
+  }
 
   const values = readFormValues();
   const validation = validateDriveForm(values);
@@ -678,6 +829,9 @@ async function init() {
   document.getElementById('back-link').href   = drivesRoute;
   document.getElementById('cancel-link').href = drivesRoute;
 
+  // Init date/time pickers before populateForm()/restoreForm() need them
+  initDateTimePickers();
+
   const editId = getEditId();
 
   if (editId) {
@@ -711,6 +865,10 @@ async function init() {
     // Create mode — populate branches then restore draft
     await populateBranches(user);
     restoreForm(FORM_KEY);
+    // restoreForm() may have set start_datetime/end_datetime's raw value
+    // directly — resync flatpickr's calendar + alt display to match.
+    resyncPicker(_startPicker, 'start_datetime');
+    resyncPicker(_endPicker, 'end_datetime');
     updateSubmitState();
 
     // Auto-save draft on every change
@@ -723,6 +881,12 @@ async function init() {
   }
 
   attachRequiredListeners();
+
+  // venue_type "Other" toggle — set initial visibility (handles edit-mode
+  // pre-filled values via populateForm()'s own toggleVenueTypeOther() call,
+  // and create-mode's default empty state here) and wire the live listener.
+  document.getElementById('venue_type').addEventListener('change', toggleVenueTypeOther);
+  toggleVenueTypeOther();
 
   // Initialise the map picker.
   // In edit mode: map starts at existing coordinates (marker pre-placed).

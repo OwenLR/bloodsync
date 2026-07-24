@@ -284,3 +284,18 @@
   margin: 0;
   font-size: 0.9rem;
 }
+
+
+.drive-stats-heading {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888888;
+  margin: 16px 0 8px;
+}
+
+.drive-stats-list dd {
+  font-weight: 600;
+  text-align: right;
+}

@@ -346,7 +346,11 @@ a {
   border-radius: 4px;
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
   margin: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -373,6 +377,8 @@ a {
 .modal-body {
   padding: 20px;
   font-size: 14px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .modal-footer {

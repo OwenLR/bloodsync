@@ -55,9 +55,10 @@
   white-space: nowrap;
 }
 
-.data-table th:last-child {
+
+/* .data-table th:last-child {
   text-align: right;
-}
+} */
 
 .data-table td {
   padding: 12px 14px;
@@ -98,7 +99,6 @@
 .donor-bloodtype-cell {
   text-align: right;
   font-weight: 600;
-  width: 100px;
 }
 
 /* Status dot — replaces the old full status column, sits inline before the name */

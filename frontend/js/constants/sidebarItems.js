@@ -63,7 +63,7 @@ const SIDEBAR_DEFINITIONS = {
     management: [
       { label: 'Users',    href: ROUTES.ADMIN.USERS    },
       { label: 'Reports',  href: ROUTES.ADMIN.REPORTS  },
-      { label: 'Settings', href: ROUTES.ADMIN.SETTINGS },
+      // { label: 'Settings', href: ROUTES.ADMIN.SETTINGS },
     ],
   },
 
@@ -91,7 +91,7 @@ const SIDEBAR_DEFINITIONS = {
     ],
     management: [
       { label: 'Reports',  href: ROUTES.STAFF.REPORTS  },
-      { label: 'Settings', href: ROUTES.STAFF.SETTINGS },
+      // { label: 'Settings', href: ROUTES.STAFF.SETTINGS },
     ],
   },
 

@@ -816,30 +816,23 @@ function renderStatsPane(stats, container) {
 
   sections.forEach(({ heading, rows }) => {
     const h4 = document.createElement('h4');
-    h4.style.cssText = 'font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#888;margin:16px 0 8px;';
+    h4.className = 'drive-stats-heading';
     h4.textContent = heading;
     container.appendChild(h4);
 
-    const table = document.createElement('table');
-    table.style.cssText = 'width:100%;border-collapse:collapse;font-size:14px;';
+    const dl = document.createElement('dl');
+    dl.className = 'drive-detail-list drive-stats-list';
 
     rows.forEach(([label, value]) => {
-      const tr = document.createElement('tr');
-
-      const tdLabel = document.createElement('td');
-      tdLabel.style.cssText = 'padding:5px 0;color:#444;';
-      tdLabel.textContent = label;
-
-      const tdValue = document.createElement('td');
-      tdValue.style.cssText = 'padding:5px 0;text-align:right;font-weight:600;';
-      tdValue.textContent = value ?? 0;
-
-      tr.appendChild(tdLabel);
-      tr.appendChild(tdValue);
-      table.appendChild(tr);
+      const dt = document.createElement('dt');
+      dt.textContent = label;
+      const dd = document.createElement('dd');
+      dd.textContent = value ?? 0;
+      dl.appendChild(dt);
+      dl.appendChild(dd);
     });
 
-    container.appendChild(table);
+    container.appendChild(dl);
   });
 }
 
