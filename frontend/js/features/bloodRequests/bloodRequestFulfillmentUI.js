@@ -1,5 +1,6 @@
 import { showToast }             from '../../components/toast.js';
 import { getFulfillmentOptions, getWaitEstimate } from './bloodRequestApi.js';
+import { getBranches }           from '../bloodDrives/bloodDrivesApi.js';
 
 const SKELETON_ID      = 'fulfillment-skeleton';
 const ERROR_ID         = 'fulfillment-error';
@@ -9,6 +10,8 @@ const BRANCH_LIST_ID   = 'branch-options-list';
 const CONTINUE_ID      = 'btn-fulfillment-continue';
 const BACK_ID          = 'btn-fulfillment-back';
 const ESTIMATE_ID      = 'fulfillment-wait-estimate';
+const MAP_ID           = 'fulfillment-map';
+const MAP_DEFAULT_CENTER = [13.7565, 121.0583]; // Batangas City — same default as bloodDriveCreate.js's map
 
 let _selectedBranchId = null;
 let _items            = null;
@@ -18,6 +21,29 @@ let _listenersBound    = false; // guard — prevents duplicate listeners if the
                                  // requestor goes back and continues again
 let _estimateRequestToken = 0;  // guards against a stale estimate fetch
                                  // overwriting a newer branch selection's result
+
+// Minimum time the "searching" state stays visible, regardless of how fast
+// the actual fetch resolves — psychological-effect request: a near-instant
+// response feels less trustworthy than a moment of visible "work". Messages
+// rotate on an interval to reinforce the impression rather than sitting
+// frozen on one line for the full 3s.
+const MIN_SEARCH_DISPLAY_MS = 3000;
+const MESSAGE_ROTATE_MS     = 1000;
+const SEARCH_MESSAGES = [
+  'Searching for the nearest blood bank…',
+  'Checking branch availability…',
+  'Finding your best match…',
+];
+let _messageRotationTimer = null;
+
+// Map state — mirrors bloodDriveCreate.js's Leaflet pattern. One map
+// instance persists for the lifetime of the page (re-created maps on the
+// same container id throw), markers just move when the selection changes.
+let _map             = null;
+let _requestorMarker = null;
+let _branchMarker    = null;
+let _requestorCoords = null;              // { lat, lon } | null — from geolocation
+let _branchCoordsById = new Map();        // branch_id -> { lat, lon }, loaded once
 
 // ---------------------------------------------------------------------------
 // Public entry — called from the entry file each time this step is entered
@@ -40,18 +66,58 @@ export async function initFulfillmentStep(items, onContinue, onBack) {
 
 async function loadOptions(items) {
   showSkeleton();
+  const searchStartedAt = Date.now();
 
   const { latitude, longitude, usedLocation } = await getRequestorLocation();
   setLocationNote(usedLocation);
+  _requestorCoords = usedLocation ? { lat: latitude, lon: longitude } : null;
 
   try {
-    const result = await getFulfillmentOptions(items, latitude, longitude);
+    const [result] = await Promise.all([
+      getFulfillmentOptions(items, latitude, longitude),
+      loadBranchCoords(),
+    ]);
+    await waitForMinimumSearchDisplay(searchStartedAt);
     hideSkeleton();
     renderResult(result);
   } catch (err) {
+    await waitForMinimumSearchDisplay(searchStartedAt);
     hideSkeleton();
     showLoadError(err.message);
   }
+}
+
+// Loads every branch's coordinates once per page load (branches list is
+// small and effectively static within a session) via the existing
+// bloodDrivesApi.getBranches() — reused per the project's feature-to-feature
+// API reuse convention rather than duplicating a fetch here. Failure is
+// non-blocking: the map simply won't have a branch pin to place if this
+// doesn't resolve, but the fulfillment-options flow itself still works.
+async function loadBranchCoords() {
+  if (_branchCoordsById.size > 0) return;
+  try {
+    const branches = await getBranches();
+    branches.forEach((b) => {
+      if (b.latitude != null && b.longitude != null) {
+        _branchCoordsById.set(b.branch_id, {
+          lat: parseFloat(b.latitude),
+          lon: parseFloat(b.longitude),
+        });
+      }
+    });
+  } catch {
+    // Silent — map degrades to "no branch pin" rather than blocking the step
+  }
+}
+
+// Pads out the remaining time (if any) so the "searching" state is visible
+// for at least MIN_SEARCH_DISPLAY_MS from when it first appeared, whether
+// the request succeeds or fails.
+function waitForMinimumSearchDisplay(startedAt) {
+  const elapsed   = Date.now() - startedAt;
+  const remaining = MIN_SEARCH_DISPLAY_MS - elapsed;
+  if (remaining <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +240,7 @@ function renderResult(result) {
   // Auto-select the top recommendation (most items fully covered, then nearest)
   _selectedBranchId = branches[0].branch_id;
   fetchAndRenderEstimate(_selectedBranchId);
+  updateMap(_selectedBranchId);
 }
 
 function buildBranchOption(branch, plans, isDefault) {
@@ -188,6 +255,7 @@ function buildBranchOption(branch, plans, isDefault) {
   radio.addEventListener('change', () => {
     _selectedBranchId = branch.branch_id;
     fetchAndRenderEstimate(branch.branch_id);
+    updateMap(branch.branch_id);
   });
 
   const info = document.createElement('div');
@@ -269,6 +337,85 @@ function getOrCreateEstimateEl() {
 }
 
 // ---------------------------------------------------------------------------
+// Map — requestor + selected branch pins, Leaflet + OpenStreetMap.
+// Same tile source / attribution as bloodDriveCreate.js's venue map.
+// One map instance persists for this page's lifetime (Leaflet throws if you
+// re-init on the same container id) — subsequent calls just move markers
+// and refit the view rather than recreating anything.
+// ---------------------------------------------------------------------------
+
+function ensureMapInitialized() {
+  if (_map) return;
+  if (typeof window.L === 'undefined') return; // CDN failed to load — map silently unavailable
+
+  const mapEl = document.getElementById(MAP_ID);
+  if (!mapEl) return;
+
+  const initialCenter = _requestorCoords
+    ? [_requestorCoords.lat, _requestorCoords.lon]
+    : MAP_DEFAULT_CENTER;
+
+  _map = window.L.map(MAP_ID).setView(initialCenter, 12);
+
+  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(_map);
+
+  // Leaflet mis-sizes if the container was hidden (display:none) at init —
+  // the fulfillment step should already be visible by the time this runs,
+  // but a short invalidateSize() covers any timing edge case, same
+  // precedent as bloodDriveCreate.js's modal map.
+  setTimeout(() => _map && _map.invalidateSize(), 50);
+}
+
+function updateRequestorMarker() {
+  if (!_map || !_requestorCoords) return;
+  const { lat, lon } = _requestorCoords;
+  if (_requestorMarker) {
+    _requestorMarker.setLatLng([lat, lon]);
+  } else {
+    _requestorMarker = window.L.marker([lat, lon]).addTo(_map).bindPopup('Your location');
+  }
+}
+
+function updateMap(branchId) {
+  const mapEl = document.getElementById(MAP_ID);
+  if (!mapEl) return;
+
+  if (typeof window.L === 'undefined') {
+    mapEl.textContent = 'Map preview is unavailable right now.';
+    return;
+  }
+
+  ensureMapInitialized();
+  if (!_map) return;
+
+  updateRequestorMarker();
+
+  const branchCoords = _branchCoordsById.get(branchId);
+  if (!branchCoords) return; // no coordinates on file for this branch — leave map as-is
+
+  if (_branchMarker) {
+    _branchMarker.setLatLng([branchCoords.lat, branchCoords.lon]);
+  } else {
+    _branchMarker = window.L.marker([branchCoords.lat, branchCoords.lon])
+      .addTo(_map)
+      .bindPopup('Selected branch');
+  }
+
+  if (_requestorCoords) {
+    const bounds = window.L.latLngBounds([
+      [_requestorCoords.lat, _requestorCoords.lon],
+      [branchCoords.lat, branchCoords.lon],
+    ]);
+    _map.fitBounds(bounds, { padding: [40, 40] });
+  } else {
+    _map.setView([branchCoords.lat, branchCoords.lon], 13);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Skeleton / error helpers
 //
 // #fulfillment-skeleton is an empty <div> in submitRequest.html — nothing
@@ -282,8 +429,9 @@ function showSkeleton() {
   const skeletonEl = document.getElementById(SKELETON_ID);
   skeletonEl.textContent = '';
   const msg = document.createElement('p');
+  msg.id          = 'fulfillment-loading-message';
   msg.className   = 'fulfillment-loading-message';
-  msg.textContent = 'Searching for the nearest branch…';
+  msg.textContent = SEARCH_MESSAGES[0];
   skeletonEl.appendChild(msg);
   skeletonEl.style.display = '';
 
@@ -293,9 +441,32 @@ function showSkeleton() {
 
   const estimateEl = document.getElementById(ESTIMATE_ID);
   if (estimateEl) estimateEl.textContent = '';
+
+  startMessageRotation();
+}
+
+// Cycles through SEARCH_MESSAGES while the skeleton is visible. Guarded by
+// _messageRotationTimer so a rapid back-and-forth through this step never
+// stacks multiple intervals against the same message element.
+function startMessageRotation() {
+  stopMessageRotation();
+  let index = 0;
+  _messageRotationTimer = setInterval(() => {
+    index = (index + 1) % SEARCH_MESSAGES.length;
+    const msgEl = document.getElementById('fulfillment-loading-message');
+    if (msgEl) msgEl.textContent = SEARCH_MESSAGES[index];
+  }, MESSAGE_ROTATE_MS);
+}
+
+function stopMessageRotation() {
+  if (_messageRotationTimer) {
+    clearInterval(_messageRotationTimer);
+    _messageRotationTimer = null;
+  }
 }
 
 function hideSkeleton() {
+  stopMessageRotation();
   const skeletonEl = document.getElementById(SKELETON_ID);
   skeletonEl.style.display = 'none';
   skeletonEl.textContent   = '';
