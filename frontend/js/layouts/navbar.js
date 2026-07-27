@@ -54,6 +54,21 @@ export function renderNavbar(user, unreadCount = 0) {
   const container = document.getElementById('navbar');
   if (!container) return;
 
+  ensureSidebarBackdrop();
+
+  const hamburgerBtn = document.createElement('button');
+  hamburgerBtn.id = 'sidebar-toggle';
+  hamburgerBtn.type = 'button';
+  hamburgerBtn.className = 'navbar-hamburger';
+  hamburgerBtn.setAttribute('aria-label', 'Toggle navigation menu');
+  hamburgerBtn.setAttribute('aria-expanded', 'false');
+  hamburgerBtn.setAttribute('aria-controls', 'sidebar');
+  hamburgerBtn.textContent = '☰';
+  hamburgerBtn.addEventListener('click', () => {
+    const isOpen = document.body.classList.toggle('sidebar-open');
+    hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
+  });
+
   const brand     = document.createElement('div');
   brand.className = 'navbar-brand';
   const brandLink       = document.createElement('a');
@@ -109,8 +124,42 @@ export function renderNavbar(user, unreadCount = 0) {
   rightSection.appendChild(userSection);
 
   container.innerHTML = '';
+  container.appendChild(hamburgerBtn);
   container.appendChild(brand);
   container.appendChild(rightSection);
+}
+
+// ---------------------------------------------------------------------------
+// Mobile sidebar drawer — off-canvas below 768px (see main.css's Mobile
+// Shell section for the breakpoint, matching bloodRequests.css's existing
+// component-tabs/carousel precedent). Desktop never sees this: the
+// hamburger button is display:none above the breakpoint, so
+// document.body never gets the 'sidebar-open' class there. Self-contained
+// here rather than in appShell.js so navbar.js doesn't need a new
+// cross-file import for what's ultimately just a class toggle it owns
+// the trigger for.
+// ---------------------------------------------------------------------------
+
+let _backdropInitialized = false;
+
+function ensureSidebarBackdrop() {
+  if (_backdropInitialized) return;
+  _backdropInitialized = true;
+
+  const backdrop = document.createElement('div');
+  backdrop.id        = 'sidebar-backdrop';
+  backdrop.className = 'sidebar-backdrop';
+  backdrop.addEventListener('click', closeSidebarDrawer);
+  document.body.appendChild(backdrop);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSidebarDrawer();
+  });
+}
+
+function closeSidebarDrawer() {
+  document.body.classList.remove('sidebar-open');
+  document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'false');
 }
 
 // ---------------------------------------------------------------------------

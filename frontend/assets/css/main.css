@@ -547,6 +547,23 @@ a {
   cursor: pointer;
 }
 
+/* Hidden on desktop — shown only below the mobile breakpoint (see Mobile
+   Shell section near the bottom of this file). Toggles document.body's
+   'sidebar-open' class, which the mobile override block below reacts to. */
+.navbar-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-right: 4px;
+  color: #111;
+}
+
 /* ── Sidebar (sidebar.js) ────────────────────────────────────────── */
 #sidebar {
   position: fixed;
@@ -704,3 +721,62 @@ body.app-ready .page-content {
    .photo-preview-hidden) stay as-is for their own call sites — this is a
    feature-agnostic one for new reusable components going forward. */
 .hidden { display: none !important; }
+
+/* ── Sidebar backdrop (navbar.js) ────────────────────────────────── */
+/* Dims the page behind the sidebar drawer on mobile. Created once by
+   navbar.js's ensureSidebarBackdrop() and appended to body. Hidden on
+   desktop unconditionally — only the Mobile Shell block below turns it
+   on, and only when body.sidebar-open is set (which desktop never sets,
+   since the hamburger that sets it is display:none there). */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 150; /* above page content, below the drawer's own z-index (200, set in the mobile block below) */
+}
+
+/* ── Mobile shell ─────────────────────────────────────────────────── */
+/* Breakpoint matches the 768px convention already established in
+   bloodRequests.css's component-tabs/carousel split — the project's only
+   prior responsive precedent, reused here rather than inventing a second
+   one. Built first for Requestor pages (simplest sidebar — a flat list,
+   no collapsible groups) but applies globally since navbar.js/sidebar.js
+   are shared shell components rendered identically for every role — see
+   sidebar.js's own "pure renderer, knows nothing about roles" doc
+   comment. Sidebar becomes an off-canvas drawer, toggled by the
+   hamburger button; page-content reclaims full width since the sidebar
+   no longer sits permanently beside it. */
+@media (max-width: 767px) {
+  .navbar-hamburger {
+    display: inline-flex;
+  }
+
+  .navbar-username {
+    display: none; /* avatar + hamburger + logout is enough identity on narrow screens */
+  }
+
+  #sidebar {
+    width: 240px;
+    z-index: 200; /* raised from the base 100 so the open drawer sits above the backdrop (150) */
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  }
+
+  body.sidebar-open #sidebar {
+    transform: translateX(0);
+  }
+
+  body.sidebar-open .sidebar-backdrop {
+    display: block;
+  }
+
+  body.sidebar-open {
+    overflow: hidden; /* prevent background scroll while the drawer is open */
+  }
+
+  .page-content {
+    margin-left: 0;
+  }
+}
