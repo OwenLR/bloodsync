@@ -9,6 +9,7 @@ const LOCATION_NOTE_ID = 'fulfillment-location-note';
 const BRANCH_LIST_ID   = 'branch-options-list';
 const CONTINUE_ID      = 'btn-fulfillment-continue';
 const BACK_ID          = 'btn-fulfillment-back';
+const RETRY_ID         = 'btn-fulfillment-retry';
 const ESTIMATE_ID      = 'fulfillment-wait-estimate';
 const MAP_ID           = 'fulfillment-map';
 const MAP_DEFAULT_CENTER = [13.7565, 121.0583]; // Batangas City — same default as bloodDriveCreate.js's map
@@ -29,6 +30,7 @@ let _estimateRequestToken = 0;  // guards against a stale estimate fetch
 // frozen on one line for the full 3s.
 const MIN_SEARCH_DISPLAY_MS = 3000;
 const MESSAGE_ROTATE_MS     = 1000;
+const LOCATION_WAIT_MESSAGE = 'Requesting your location…';
 const SEARCH_MESSAGES = [
   'Searching for the nearest blood bank…',
   'Checking branch availability…',
@@ -58,6 +60,7 @@ export async function initFulfillmentStep(items, onContinue, onBack) {
   if (!_listenersBound) {
     document.getElementById(CONTINUE_ID).addEventListener('click', handleContinue);
     document.getElementById(BACK_ID).addEventListener('click', () => _onBack());
+    document.getElementById(RETRY_ID).addEventListener('click', () => loadOptions(_items));
     _listenersBound = true;
   }
 
@@ -66,11 +69,19 @@ export async function initFulfillmentStep(items, onContinue, onBack) {
 
 async function loadOptions(items) {
   showSkeleton();
-  const searchStartedAt = Date.now();
 
   const { latitude, longitude, usedLocation } = await getRequestorLocation();
   setLocationNote(usedLocation);
   _requestorCoords = usedLocation ? { lat: latitude, lon: longitude } : null;
+
+  // The "searching" feel (and its 3s minimum) starts HERE, not before —
+  // deliberately after the location prompt is fully resolved (granted,
+  // denied, or timed out). Starting the clock earlier meant a slow
+  // browser/OS permission dialog silently ate into the minimum display
+  // time, so the loading screen could vanish almost instantly the moment
+  // the requestor actually granted access — see the concern this fixes.
+  startMessageRotation();
+  const searchStartedAt = Date.now();
 
   try {
     const [result] = await Promise.all([
@@ -426,35 +437,41 @@ function updateMap(branchId) {
 // ---------------------------------------------------------------------------
 
 function showSkeleton() {
+  stopMessageRotation();
+
   const skeletonEl = document.getElementById(SKELETON_ID);
   skeletonEl.textContent = '';
   const msg = document.createElement('p');
   msg.id          = 'fulfillment-loading-message';
   msg.className   = 'fulfillment-loading-message';
-  msg.textContent = SEARCH_MESSAGES[0];
+  msg.textContent = LOCATION_WAIT_MESSAGE;
   skeletonEl.appendChild(msg);
   skeletonEl.style.display = '';
 
   document.getElementById(BRANCH_LIST_ID).style.display  = 'none';
   document.getElementById(ERROR_ID).textContent          = '';
   document.getElementById(INSUFFICIENT_ID).style.display = 'none';
+  document.getElementById(RETRY_ID).style.display        = 'none';
 
   const estimateEl = document.getElementById(ESTIMATE_ID);
   if (estimateEl) estimateEl.textContent = '';
-
-  startMessageRotation();
 }
 
-// Cycles through SEARCH_MESSAGES while the skeleton is visible. Guarded by
-// _messageRotationTimer so a rapid back-and-forth through this step never
-// stacks multiple intervals against the same message element.
+// Switches the skeleton's message from the static LOCATION_WAIT_MESSAGE to
+// the rotating SEARCH_MESSAGES set — called once geolocation has actually
+// resolved, marking the start of the real "searching" phase (and its
+// enforced minimum display time). Guarded by _messageRotationTimer so a
+// rapid back-and-forth through this step never stacks multiple intervals
+// against the same message element.
 function startMessageRotation() {
   stopMessageRotation();
   let index = 0;
+  const msgEl = document.getElementById('fulfillment-loading-message');
+  if (msgEl) msgEl.textContent = SEARCH_MESSAGES[0];
   _messageRotationTimer = setInterval(() => {
     index = (index + 1) % SEARCH_MESSAGES.length;
-    const msgEl = document.getElementById('fulfillment-loading-message');
-    if (msgEl) msgEl.textContent = SEARCH_MESSAGES[index];
+    const el = document.getElementById('fulfillment-loading-message');
+    if (el) el.textContent = SEARCH_MESSAGES[index];
   }, MESSAGE_ROTATE_MS);
 }
 
@@ -471,9 +488,11 @@ function hideSkeleton() {
   skeletonEl.style.display = 'none';
   skeletonEl.textContent   = '';
   document.getElementById(BRANCH_LIST_ID).style.display = '';
+  document.getElementById(RETRY_ID).style.display       = '';
 }
 
 function showLoadError(message) {
   document.getElementById(ERROR_ID).textContent =
     message || 'Could not load fulfillment options. Please try again.';
+  document.getElementById(RETRY_ID).style.display = '';
 }
