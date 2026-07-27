@@ -15,6 +15,12 @@ import {
   getDriveStats,
 } from './bloodDrivesApi.js';
 import { validateCancelForm, validateAutoAssignCount } from './bloodDrivesValidation.js';
+// Reused from the registration feature, same as bloodSeparationUI.js
+// reuses bloodUnitsApi.js — see sessionState.md's "Feature-to-feature API
+// reuse" Permanent Rule. psgcApi.js is a generic external lookup, not
+// registration-specific business logic, so this is the same class of
+// reuse as pulling in a shared components/ helper.
+import { getProvinces, getCitiesMunicipalities } from '../registration/psgcApi.js';
 
 // ─── Status badge ────────────────────────────────────────────────────────────
 
@@ -48,11 +54,9 @@ export async function renderDrivesTable(user) {
   const skeletonEl = document.getElementById('drives-skeleton');
   const errorEl    = document.getElementById('drives-error');
 
-  // Reset state
   tableWrap.style.display = 'none';
   errorEl.innerHTML = '';
 
-  // Show skeleton in its own div — never inside the table
   showSkeleton('drives-skeleton', 5, 'rows', 4);
 
   let drives;
@@ -78,38 +82,31 @@ export async function renderDrivesTable(user) {
     const tr = document.createElement('tr');
     tr.dataset.driveId = drive.drive_id;
 
-    // Name
     const tdName = document.createElement('td');
     tdName.textContent = drive.name;
     tr.appendChild(tdName);
 
-    // Branch
     const tdBranch = document.createElement('td');
     tdBranch.textContent = drive.branch_name || '-';
     tr.appendChild(tdBranch);
 
-    // Location (city / province)
     const tdLocation = document.createElement('td');
     const locationParts = [drive.city, drive.province].filter(Boolean);
     tdLocation.textContent = locationParts.length ? locationParts.join(', ') : '-';
     tr.appendChild(tdLocation);
 
-    // Date range
     const tdDates = document.createElement('td');
     tdDates.textContent = formatDateRange(drive.start_datetime, drive.end_datetime);
     tr.appendChild(tdDates);
 
-    // Slots
     const tdSlots = document.createElement('td');
     tdSlots.textContent = drive.slots_available ?? '-';
     tr.appendChild(tdSlots);
 
-    // Status
     const tdStatus = document.createElement('td');
     tdStatus.appendChild(createStatusBadge(drive.status));
     tr.appendChild(tdStatus);
 
-    // Actions
     const tdActions = document.createElement('td');
     tdActions.className = 'table-actions';
 
@@ -151,15 +148,11 @@ export async function renderDrivesTable(user) {
 }
 
 function getEditRoute(user, driveId) {
-  // Routes for edit — reuse create page with ?edit=driveId
-  // Admin and staff share the same pattern
   const base = user.role_id === 1
     ? ROUTES.ADMIN.BLOOD_DRIVE_CREATE
     : ROUTES.STAFF.BLOOD_DRIVE_CREATE;
   return `${base}?edit=${driveId}`;
 }
-
-// ─── Date formatting helper ───────────────────────────────────────────────────
 
 function formatDateRange(start, end) {
   if (!start || !end) return '-';
@@ -172,7 +165,6 @@ function formatDateRange(start, end) {
 // ─── Cancel modal ────────────────────────────────────────────────────────────
 
 function openCancelModal(drive, user) {
-  // Build modal body
   const body = document.createElement('div');
 
   const msg = document.createElement('p');
@@ -198,11 +190,7 @@ function openCancelModal(drive, user) {
   body.appendChild(errorEl);
 
   openModal('Cancel Blood Drive', body, [
-    {
-      label:     'Go Back',
-      className: 'btn-secondary',
-      onClick:   () => closeModal(),
-    },
+    { label: 'Go Back', className: 'btn-secondary', onClick: () => closeModal() },
     {
       label:     'Confirm Cancel',
       className: 'btn-danger',
@@ -234,7 +222,6 @@ function openCancelModal(drive, user) {
     },
   ]);
 
-  // Focus the textarea after modal opens
   setTimeout(() => textarea.focus(), 50);
 }
 
@@ -243,12 +230,19 @@ function openCancelModal(drive, user) {
 let _currentDrive = null;
 let _currentUser  = null;
 
-// Track currently assigned participant user_ids — updated on every renderCurrentParticipants()
-// Used to exclude already-assigned users from the available list
 const _assignedIds = new Set();
+const _checkedVolunteers = new Map();
 
-// Track manually checked volunteers for Scenario 1 (manual selection)
-const _checkedVolunteers = new Map(); // user_id → volunteer object
+// ─── Location filter state ────────────────────────────────────────────────────
+// PSGC-backed Province -> City/Municipality dropdowns, same source and same
+// { code, name } shape used by registration's address block
+// (fieldRegistrationUI.js). Registration already writes address_province /
+// address_municipality using these exact PSGC names, so filtering here by
+// exact name match (rather than the old free-text substring match) lines
+// up precisely with what's actually stored on the volunteer row.
+let _filterProvince  = null; // { code, name } | null
+let _filterCity      = null; // { code, name } | null
+let _provincesLoaded = false;
 
 export function initParticipantPanel() {
   document.getElementById('panel-close-btn').addEventListener('click', closeParticipantPanel);
@@ -261,11 +255,13 @@ export function initParticipantPanel() {
     updateAssignSelectedBtn();
     renderAvailableVolunteers();
   });
-  document.getElementById('panel-municipality-filter').addEventListener('input', debounce(() => {
-    _checkedVolunteers.clear();
-    updateAssignSelectedBtn();
-    renderAvailableVolunteers();
-  }, 400));
+
+  document.getElementById('panel-province-filter').addEventListener('change', onFilterProvinceChange);
+  document.getElementById('panel-city-filter').addEventListener('change', onFilterCityChange);
+
+  // Loaded once, reused across every panel open — provinces don't change
+  // between drives, no reason to refetch each time.
+  loadFilterProvinces();
 }
 
 function closeParticipantPanel() {
@@ -275,6 +271,7 @@ function closeParticipantPanel() {
   _currentUser  = null;
   _checkedVolunteers.clear();
   _assignedIds.clear();
+  resetLocationFilters();
 }
 
 async function openParticipantPanel(drive, user) {
@@ -283,12 +280,13 @@ async function openParticipantPanel(drive, user) {
   _checkedVolunteers.clear();
 
   document.getElementById('panel-drive-name').textContent = drive.name;
-  document.getElementById('panel-municipality-filter').value = drive.city || '';
   document.getElementById('panel-role-filter').value = '';
   document.getElementById('panel-assign-count').value = 1;
   updateAssignSelectedBtn();
 
-  // Hide the "Add Participants" section for terminal drives — cannot modify
+  resetLocationFilters();
+  await prefillLocationFiltersFromDrive(drive);
+
   const isTerminal = drive.status === 'Ended' || drive.status === 'Cancelled';
   const addSection = document.getElementById('panel-add-section');
   if (addSection) addSection.style.display = isTerminal ? 'none' : '';
@@ -299,6 +297,126 @@ async function openParticipantPanel(drive, user) {
   await renderCurrentParticipants();
   if (!isTerminal) await renderAvailableVolunteers();
 }
+
+// ─── Location filter dropdowns (Province -> City/Municipality) ────────────────
+
+async function loadFilterProvinces() {
+  if (_provincesLoaded) return;
+  const select = document.getElementById('panel-province-filter');
+  try {
+    const provinces = await getProvinces();
+    provinces.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.code;
+      opt.textContent = p.name;
+      select.appendChild(opt);
+    });
+    _provincesLoaded = true;
+  } catch {
+    showToast('Could not load provinces for filtering.', 'error');
+  }
+}
+
+function resetCityFilterSelect() {
+  const citySelect = document.getElementById('panel-city-filter');
+  citySelect.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'All cities/municipalities';
+  citySelect.appendChild(placeholder);
+  citySelect.value = '';
+  citySelect.disabled = true;
+}
+
+async function loadFilterCities(provinceCode) {
+  const citySelect = document.getElementById('panel-city-filter');
+  resetCityFilterSelect();
+  if (!provinceCode) return;
+
+  citySelect.disabled = true;
+  try {
+    const cities = await getCitiesMunicipalities(provinceCode);
+    cities.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.code;
+      opt.textContent = c.name;
+      citySelect.appendChild(opt);
+    });
+  } catch {
+    showToast('Could not load cities/municipalities for filtering.', 'error');
+  } finally {
+    citySelect.disabled = false;
+  }
+}
+
+function resetLocationFilters() {
+  _filterProvince = null;
+  _filterCity     = null;
+  const provinceSelect = document.getElementById('panel-province-filter');
+  if (provinceSelect) provinceSelect.value = '';
+  resetCityFilterSelect();
+}
+
+async function onFilterProvinceChange(e) {
+  const code = e.target.value;
+  _filterCity = null;
+
+  if (!code) {
+    _filterProvince = null;
+    resetCityFilterSelect();
+  } else {
+    _filterProvince = { code, name: e.target.selectedOptions[0]?.textContent || '' };
+    await loadFilterCities(code);
+  }
+
+  _checkedVolunteers.clear();
+  updateAssignSelectedBtn();
+  await renderAvailableVolunteers();
+}
+
+async function onFilterCityChange(e) {
+  const code = e.target.value;
+  _filterCity = code
+    ? { code, name: e.target.selectedOptions[0]?.textContent || '' }
+    : null;
+
+  _checkedVolunteers.clear();
+  updateAssignSelectedBtn();
+  await renderAvailableVolunteers();
+}
+
+// Best-effort default: preselect the filter dropdowns to match the drive's
+// own venue province/city. The drive's address is free-typed via the map
+// picker (bloodsync.md #14), NOT PSGC-backed, so this is a name match, not
+// a code match — silently does nothing if no exact match is found. Never
+// blocks panel open, same "degrade quietly" pattern as
+// fieldGeocodeApi.js's geocodeBarangay().
+async function prefillLocationFiltersFromDrive(drive) {
+  if (!drive.province) return;
+  await loadFilterProvinces();
+
+  const provinceSelect = document.getElementById('panel-province-filter');
+  const match = Array.from(provinceSelect.options).find(
+    o => o.value && o.textContent.trim().toLowerCase() === drive.province.trim().toLowerCase()
+  );
+  if (!match) return;
+
+  provinceSelect.value = match.value;
+  _filterProvince = { code: match.value, name: match.textContent };
+  await loadFilterCities(match.value);
+
+  if (!drive.city) return;
+  const citySelect = document.getElementById('panel-city-filter');
+  const cityMatch = Array.from(citySelect.options).find(
+    o => o.value && o.textContent.trim().toLowerCase() === drive.city.trim().toLowerCase()
+  );
+  if (!cityMatch) return;
+
+  citySelect.value = cityMatch.value;
+  _filterCity = { code: cityMatch.value, name: cityMatch.textContent };
+}
+
+// ─── Current participants ─────────────────────────────────────────────────────
 
 async function renderCurrentParticipants() {
   const container = document.getElementById('current-participants-list');
@@ -321,7 +439,6 @@ async function renderCurrentParticipants() {
   hideSkeleton('current-participants-list');
   container.innerHTML = '';
 
-  // Update the assigned IDs set so renderAvailableVolunteers can exclude them
   _assignedIds.clear();
   if (participants && participants.length > 0) {
     participants.forEach(p => _assignedIds.add(p.user_id));
@@ -381,50 +498,90 @@ async function renderCurrentParticipants() {
   });
 }
 
+// ─── Available volunteers ──────────────────────────────────────────────────────
+
+// Client-side exact-name filters — dropdown values come from the same PSGC
+// list registration used to populate address_province/address_municipality,
+// so an exact (case-insensitive) match is correct here, not a substring
+// match. Neither getSuggestedParticipants nor getAvailableVolunteers
+// accepts a province param, and suggestions accepts no location param at
+// all (contract.md) — this always runs client-side regardless of source.
+function applyLocationFilters(list) {
+  let result = list;
+  if (_filterProvince) {
+    result = result.filter(
+      v => (v.address_province || '').trim().toLowerCase() === _filterProvince.name.trim().toLowerCase()
+    );
+  }
+  if (_filterCity) {
+    result = result.filter(
+      v => (v.address_municipality || '').trim().toLowerCase() === _filterCity.name.trim().toLowerCase()
+    );
+  }
+  return result;
+}
+
+function sortByDistance(list) {
+  return [...list].sort((a, b) => {
+    const da = a.distance_km ?? Infinity;
+    const db = b.distance_km ?? Infinity;
+    return da - db;
+  });
+}
+
 async function renderAvailableVolunteers() {
   const container = document.getElementById('available-volunteers-list');
   container.innerHTML = '';
 
-  const roleId       = document.getElementById('panel-role-filter').value;
-  const municipality = document.getElementById('panel-municipality-filter').value.trim();
+  const roleId = document.getElementById('panel-role-filter').value;
 
   showSkeleton('available-volunteers-list', 4, 'rows', 1);
 
-  // Primary: always use getAvailableVolunteers — stable endpoint
-  let volunteers;
+  let volunteers = [];
+  let usedSuggestions = false;
+
+  // Primary source: participants/suggestions — the ONLY endpoint that
+  // returns distance_km (contract.md). Always attempted now, regardless
+  // of whether the drive has venue coordinates client-side — if the
+  // drive or a given volunteer lacks coordinates, the backend just
+  // returns distance_km: null for that row instead of us needing to gate
+  // the call ourselves. Previously this was skipped whenever
+  // _currentDrive.venue_latitude/longitude were falsy client-side, which
+  // is why distance never showed even for drives that did have
+  // coordinates recorded.
   try {
-    volunteers = await getAvailableVolunteers(roleId || null, municipality);
-  } catch (err) {
-    hideSkeleton('available-volunteers-list');
-    container.innerHTML = '';
-    const p = document.createElement('p');
-    p.className = 'panel-error';
-    p.textContent = 'Could not load volunteers. Try again.';
-    container.appendChild(p);
-    return;
+    const suggested = await getSuggestedParticipants(_currentDrive.drive_id, roleId || '', 50);
+    volunteers = Array.isArray(suggested) ? suggested : [];
+    usedSuggestions = true;
+  } catch {
+    // Suggestions endpoint failed — fall through to the plain list below.
   }
 
-  // Exclude already-assigned participants from the available list.
-  // _assignedIds is populated by renderCurrentParticipants() which always runs first.
+  if (!usedSuggestions) {
+    try {
+      volunteers = await getAvailableVolunteers(roleId || null, _filterCity ? _filterCity.name : '');
+    } catch (err) {
+      hideSkeleton('available-volunteers-list');
+      container.innerHTML = '';
+      const p = document.createElement('p');
+      p.className = 'panel-error';
+      p.textContent = 'Could not load volunteers. Try again.';
+      container.appendChild(p);
+      return;
+    }
+  }
+
+  // Exclude already-assigned participants. Suggestions already excludes
+  // them server-side (contract.md), but the fallback list does not, so
+  // this stays unconditional for both paths.
   if (_assignedIds.size > 0) {
     volunteers = volunteers.filter(v => !_assignedIds.has(v.user_id));
   }
 
-  // Enhancement: if the drive has venue coordinates, replace with the
-  // distance-sorted suggestions list (already excludes assigned users).
-  // If suggestions fails for any reason, we already have the fallback list.
-  if (_currentDrive.venue_latitude && _currentDrive.venue_longitude) {
-    try {
-      const suggested = await getSuggestedParticipants(_currentDrive.drive_id, roleId || '', 50);
-      if (Array.isArray(suggested) && suggested.length >= 0) {
-        // Apply municipality filter client-side on suggestions too
-        volunteers = municipality
-          ? suggested.filter(v => (v.address_municipality || '').toLowerCase().includes(municipality.toLowerCase()))
-          : suggested;
-      }
-    } catch {
-      // Suggestions failed — use the already-fetched fallback list, no action needed
-    }
+  volunteers = applyLocationFilters(volunteers);
+
+  if (usedSuggestions) {
+    volunteers = sortByDistance(volunteers);
   }
 
   hideSkeleton('available-volunteers-list');
@@ -438,69 +595,76 @@ async function renderAvailableVolunteers() {
     return;
   }
 
-  volunteers.forEach(v => {
-    const row = document.createElement('div');
-    row.className = 'volunteer-row';
+  volunteers.forEach(v => container.appendChild(buildVolunteerRow(v, usedSuggestions)));
+}
 
-    // Checkbox for manual multi-select (Scenario 1)
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'volunteer-checkbox';
-    checkbox.dataset.userId = v.user_id;
-    checkbox.checked = _checkedVolunteers.has(v.user_id);
-    checkbox.addEventListener('change', () => {
-      if (checkbox.checked) {
-        _checkedVolunteers.set(v.user_id, v);
-      } else {
-        _checkedVolunteers.delete(v.user_id);
-      }
-      updateAssignSelectedBtn();
-    });
+function buildVolunteerRow(v, usedSuggestions) {
+  const row = document.createElement('div');
+  row.className = 'volunteer-row';
 
-    const info = document.createElement('div');
-    info.className = 'volunteer-info';
-
-    const name = document.createElement('span');
-    name.className = 'volunteer-name';
-    name.textContent = `${v.first_name} ${v.last_name}`;
-
-    const metaParts = [v.role_name, v.address_municipality || null];
-    if (v.distance_km !== null && v.distance_km !== undefined) {
-      metaParts.push(`${Number(v.distance_km).toFixed(1)} km`);
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'volunteer-checkbox';
+  checkbox.dataset.userId = v.user_id;
+  checkbox.checked = _checkedVolunteers.has(v.user_id);
+  checkbox.addEventListener('change', () => {
+    if (checkbox.checked) {
+      _checkedVolunteers.set(v.user_id, v);
+    } else {
+      _checkedVolunteers.delete(v.user_id);
     }
-
-    const meta = document.createElement('span');
-    meta.className = 'volunteer-meta';
-    meta.textContent = metaParts.filter(Boolean).join(' · ');
-
-    info.appendChild(name);
-    info.appendChild(meta);
-
-    const btnAdd = document.createElement('button');
-    btnAdd.className = 'btn-secondary btn-xs';
-    btnAdd.textContent = 'Assign';
-    btnAdd.addEventListener('click', async () => {
-      btnAdd.disabled = true;
-      btnAdd.textContent = 'Assigning…';
-      try {
-        await addParticipant(_currentDrive.drive_id, v.user_id);
-        showToast(`${v.first_name} ${v.last_name} assigned.`, 'success');
-        _checkedVolunteers.delete(v.user_id);
-        updateAssignSelectedBtn();
-        await renderCurrentParticipants();
-        await renderAvailableVolunteers();
-      } catch (err) {
-        showToast(err.message, 'error');
-        btnAdd.disabled = false;
-        btnAdd.textContent = 'Assign';
-      }
-    });
-
-    row.appendChild(checkbox);
-    row.appendChild(info);
-    row.appendChild(btnAdd);
-    container.appendChild(row);
+    updateAssignSelectedBtn();
   });
+
+  const info = document.createElement('div');
+  info.className = 'volunteer-info';
+
+  const name = document.createElement('span');
+  name.className = 'volunteer-name';
+  name.textContent = `${v.first_name} ${v.last_name}`;
+
+  const metaParts = [v.role_name, v.address_municipality || null];
+  if (v.distance_km !== null && v.distance_km !== undefined) {
+    metaParts.push(`${Number(v.distance_km).toFixed(1)} km`);
+  } else if (usedSuggestions) {
+    // Distance genuinely unavailable (drive or volunteer missing
+    // coordinates) — shown explicitly instead of silently omitted, so
+    // it reads as "not available for this pair," not as a missing
+    // feature.
+    metaParts.push('Distance unavailable');
+  }
+
+  const meta = document.createElement('span');
+  meta.className = 'volunteer-meta';
+  meta.textContent = metaParts.filter(Boolean).join(' · ');
+
+  info.appendChild(name);
+  info.appendChild(meta);
+
+  const btnAdd = document.createElement('button');
+  btnAdd.className = 'btn-secondary btn-xs';
+  btnAdd.textContent = 'Assign';
+  btnAdd.addEventListener('click', async () => {
+    btnAdd.disabled = true;
+    btnAdd.textContent = 'Assigning…';
+    try {
+      await addParticipant(_currentDrive.drive_id, v.user_id);
+      showToast(`${v.first_name} ${v.last_name} assigned.`, 'success');
+      _checkedVolunteers.delete(v.user_id);
+      updateAssignSelectedBtn();
+      await renderCurrentParticipants();
+      await renderAvailableVolunteers();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btnAdd.disabled = false;
+      btnAdd.textContent = 'Assign';
+    }
+  });
+
+  row.appendChild(checkbox);
+  row.appendChild(info);
+  row.appendChild(btnAdd);
+  return row;
 }
 
 function updateAssignSelectedBtn() {
@@ -510,8 +674,6 @@ function updateAssignSelectedBtn() {
   btn.textContent = count === 0 ? 'Assign Selected' : `Assign Selected (${count})`;
 }
 
-// Scenario 1 — assign manually checked volunteers
-// Primary: bulk endpoint. Fallback: individual addParticipant calls.
 async function handleAssignSelected() {
   const userIds = Array.from(_checkedVolunteers.keys());
   if (userIds.length === 0) return;
@@ -520,7 +682,6 @@ async function handleAssignSelected() {
   btn.disabled = true;
   btn.textContent = 'Assigning…';
 
-  // Try bulk endpoint first
   try {
     const result = await bulkAssign(_currentDrive.drive_id, { user_ids: userIds });
     const assigned = result.assigned ?? userIds.length;
@@ -534,7 +695,6 @@ async function handleAssignSelected() {
     // Bulk endpoint unavailable — fall through to individual calls
   }
 
-  // Fallback: assign one by one
   const volunteers = Array.from(_checkedVolunteers.values());
   let successCount = 0;
   for (const v of volunteers) {
@@ -558,9 +718,6 @@ async function handleAssignSelected() {
   await renderAvailableVolunteers();
 }
 
-// Scenario 2 — auto-assign top N by nearest distance
-// Primary: uses backend bulk endpoint (picks nearest by distance server-side)
-// Fallback: fetches available list and assigns top N client-side one by one
 async function handleAutoAssign() {
   const countInput = document.getElementById('panel-assign-count');
   const roleId     = document.getElementById('panel-role-filter').value;
@@ -575,7 +732,6 @@ async function handleAutoAssign() {
   assignBtn.disabled = true;
   assignBtn.textContent = 'Assigning…';
 
-  // Try the bulk endpoint first (distance-sorted by backend)
   if (_currentDrive.venue_latitude && _currentDrive.venue_longitude) {
     try {
       const payload = { target_count: validation.count };
@@ -603,11 +759,10 @@ async function handleAutoAssign() {
     }
   }
 
-  // Fallback: fetch available list and assign top N one by one
-  const municipality = document.getElementById('panel-municipality-filter').value.trim();
   let volunteers;
   try {
-    volunteers = await getAvailableVolunteers(roleId || null, municipality);
+    volunteers = await getAvailableVolunteers(roleId || null, _filterCity ? _filterCity.name : '');
+    volunteers = applyLocationFilters(volunteers);
   } catch (err) {
     showToast('Could not fetch volunteers for auto-assign.', 'error');
     assignBtn.disabled = false;
@@ -653,7 +808,6 @@ async function openStatsModal(drive) {
   const body = document.createElement('div');
   body.className = 'drive-detail-body';
 
-  // Tab nav
   const tabsNav = document.createElement('div');
   tabsNav.className = 'drive-tabs-nav';
 
@@ -671,7 +825,6 @@ async function openStatsModal(drive) {
   tabsNav.appendChild(statsBtn);
   body.appendChild(tabsNav);
 
-  // Panes
   const aboutPane = document.createElement('div');
   aboutPane.className = 'drive-tab-pane';
 
@@ -697,12 +850,8 @@ async function openStatsModal(drive) {
     { label: 'Close', className: 'btn-secondary', onClick: () => closeModal() },
   ]);
 
-  // About tab — drive object from the list already has every field (contract.md
-  // GET /api/blood-drives response), no extra fetch needed.
   renderAboutPane(drive, aboutPane);
 
-  // Statistics tab — fetch in the background regardless of which tab is active,
-  // so switching to Statistics is instant rather than triggering a fresh fetch.
   renderStatsPaneSkeleton(statsPane);
   try {
     const stats = await getDriveStats(drive.drive_id);
@@ -738,7 +887,6 @@ function renderAboutPane(drive, container) {
     ['Created By',       createdBy || '-'],
   ];
 
-  // Only show cancellation details when actually cancelled
   if (drive.status === 'Cancelled') {
     const cancelledBy = [drive.cancelled_by_first, drive.cancelled_by_last].filter(Boolean).join(' ');
     fields.push(
@@ -834,14 +982,4 @@ function renderStatsPane(stats, container) {
 
     container.appendChild(dl);
   });
-}
-
-// ─── Utility ─────────────────────────────────────────────────────────────────
-
-function debounce(fn, delay) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), delay);
-  };
 }

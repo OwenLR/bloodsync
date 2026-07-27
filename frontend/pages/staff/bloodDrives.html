@@ -66,18 +66,18 @@
         <p class="panel-section-title">Add Participants</p>
 
         <div class="panel-filters">
-          <select id="panel-role-filter" aria-label="Filter by role">
-            <option value="">All roles</option>
-            <option value="5">Volunteer</option>
-            <option value="6">Phlebotomist</option>
-          </select>
-          <input
-            id="panel-municipality-filter"
-            type="text"
-            placeholder="Filter by municipality…"
-            aria-label="Filter by municipality"
-          />
-        </div>
+  <select id="panel-role-filter" aria-label="Filter by role">
+    <option value="">All roles</option>
+    <option value="5">Volunteer</option>
+    <option value="6">Phlebotomist</option>
+  </select>
+  <select id="panel-province-filter" aria-label="Filter by province">
+    <option value="">All provinces</option>
+  </select>
+  <select id="panel-city-filter" aria-label="Filter by city/municipality" disabled>
+    <option value="">All cities/municipalities</option>
+  </select>
+</div>
 
         <div id="available-volunteers-list"></div>
 
