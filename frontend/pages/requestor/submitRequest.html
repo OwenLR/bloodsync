@@ -6,7 +6,6 @@
     <title>Submit Blood Request | BloodSync</title>
     <link rel="stylesheet" href="/assets/css/main.css" />
     <link rel="stylesheet" href="/assets/css/features/bloodRequests.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body class="app-loading">
     <nav id="navbar"></nav>
@@ -86,15 +85,6 @@
 
           <p id="fulfillment-location-note" class="location-note"></p>
 
-          <button
-            type="button"
-            id="btn-fulfillment-retry"
-            class="btn-retry"
-            style="display: none"
-          >
-            Search Again
-          </button>
-
           <div id="fulfillment-skeleton"></div>
           <div
             id="fulfillment-error"
@@ -107,8 +97,6 @@
             class="branch-options-list"
             style="display: none"
           ></div>
-
-          <div id="fulfillment-map" class="fulfillment-map"></div>
 
           <div class="step-actions step-actions--split">
             <button
@@ -193,6 +181,20 @@
               <div id="error-file" class="field-error" aria-live="polite"></div>
             </div>
 
+            <div class="form-field document-terms-field">
+              <p id="document-terms-summary" class="document-terms-summary"></p>
+              <label class="document-terms-checkbox-label">
+                <input type="checkbox" id="document-terms-checkbox" />
+                <span>
+                  I confirm this document is genuine and unaltered.
+                  <button type="button" id="btn-document-terms-learn-more" class="link-button">
+                    Learn more
+                  </button>
+                </span>
+              </label>
+              <div id="error-documentTerms" class="field-error" aria-live="polite"></div>
+            </div>
+
             <div class="step-actions step-actions--split">
               <button type="button" id="btn-submit-back" class="btn-secondary">
                 Back
@@ -217,7 +219,6 @@
       </main>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="/js/entry/requestor/submitRequest.js"></script>
   </body>
 </html>

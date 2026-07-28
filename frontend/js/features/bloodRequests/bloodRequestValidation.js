@@ -38,9 +38,11 @@ export function computeAgeFromBirthdate(birthdateStr) {
  * @param {string}      fields.patientBirthdate — YYYY-MM-DD, from a <input type="date">
  * @param {string}      fields.urgencyLevel
  * @param {File|null}   fields.file
+ * @param {boolean}     fields.documentTermsAccepted — checkbox confirming
+ *   the uploaded document is genuine (see documentAuthenticityTerms.js)
  * @returns {object} errors keyed by field name — empty object means valid
  */
-export function validateSubmitForm({ hospital, patientName, patientBirthdate, urgencyLevel, file }) {
+export function validateSubmitForm({ hospital, patientName, patientBirthdate, urgencyLevel, file, documentTermsAccepted }) {
   const errors = {};
 
   if (!hospital) errors.hospital = 'Please select a hospital from the list.';
@@ -72,6 +74,10 @@ export function validateSubmitForm({ hospital, patientName, patientBirthdate, ur
     errors.file = 'Only JPEG, PNG, or PDF files are allowed.';
   } else if (file.size > MAX_FILE_SIZE_BYTES) {
     errors.file = 'File must be 5MB or smaller.';
+  }
+
+  if (!documentTermsAccepted) {
+    errors.documentTerms = 'Please confirm the uploaded document is genuine before submitting.';
   }
 
   return errors;
