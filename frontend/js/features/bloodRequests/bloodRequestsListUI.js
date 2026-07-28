@@ -1,4 +1,4 @@
-import { openModal, closeModal, confirmModal } from '../../components/modal.js';
+import { openModal, closeModal }                from '../../components/modal.js';
 import { showToast }                            from '../../components/toast.js';
 import { BLOOD_REQUEST_STATUS }                 from '../../constants/statusConstants.js';
 import { SOCKET_EVENTS }                        from '../../constants/socketEvents.js';
@@ -6,6 +6,7 @@ import { socket }                               from '../../core/socket.js';
 import { refreshBadge }                         from '../notifications/notificationsUI.js';
 import {
   getMyRequests,
+  getMyRequestDetail,
   cancelRequest,
   markReceived,
 } from './bloodRequestApi.js';
@@ -115,8 +116,17 @@ function buildCard(request) {
     card.appendChild(reason);
   }
 
-  const actions = buildActions(request);
-  if (actions) card.appendChild(actions);
+  const actions = document.createElement('div');
+  actions.className = 'request-card-actions';
+
+  const viewBtn = document.createElement('button');
+  viewBtn.type        = 'button';
+  viewBtn.className   = 'btn-secondary btn-sm';
+  viewBtn.textContent = 'View Details';
+  viewBtn.addEventListener('click', () => openRequestDetail(request.request_id));
+  actions.appendChild(viewBtn);
+
+  card.appendChild(actions);
 
   return card;
 }
@@ -137,85 +147,179 @@ function addMetaRow(dl, label, value) {
   dl.appendChild(dd);
 }
 
-// Cancel: Pending only. Received: Waiting only. No other status shows an action.
-function buildActions(request) {
-  if (request.status === BLOOD_REQUEST_STATUS.PENDING) {
-    const div = document.createElement('div');
-    div.className = 'request-card-actions';
+// ---------------------------------------------------------------------------
+// Detail modal — "View Details" opens this. Fetches the fuller detail
+// (blood type/unit breakdown, patient age, diagnosis, notes, uploaded
+// document) via getMyRequestDetail(), then renders status-appropriate
+// actions inline: Cancel (Pending) and a friendlier "Have you received
+// your blood units?" prompt (Waiting) instead of a small ambiguous button
+// living directly on the card.
+// ---------------------------------------------------------------------------
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className   = 'btn-danger btn-xs';
-    cancelBtn.textContent = 'Cancel Request';
-    cancelBtn.addEventListener('click', () => handleCancel(request, cancelBtn));
-    div.appendChild(cancelBtn);
-    return div;
+async function openRequestDetail(requestId) {
+  try {
+    const detail = await getMyRequestDetail(requestId);
+    renderDetailModal(detail);
+  } catch (err) {
+    showToast(err.message, 'error');
   }
-
-  if (request.status === BLOOD_REQUEST_STATUS.WAITING) {
-    const div = document.createElement('div');
-    div.className = 'request-card-actions';
-
-    const receivedBtn = document.createElement('button');
-    receivedBtn.className   = 'btn-primary btn-xs';
-    receivedBtn.textContent = 'Already Received';
-    receivedBtn.addEventListener('click', () => handleReceived(request, receivedBtn));
-    div.appendChild(receivedBtn);
-    return div;
-  }
-
-  return null;
 }
 
-// ---------------------------------------------------------------------------
-// Actions
-// ---------------------------------------------------------------------------
+function renderDetailModal(detail) {
+  openModal(detail.patient_name || 'Request Details', buildDetailBody(detail), buildDetailButtons(detail));
+}
 
-async function handleCancel(request, btnEl) {
-  const confirmed = await confirmModal(
-    `Cancel the blood request for ${request.patient_name}? This cannot be undone.`,
-    'Yes, Cancel',
-    'No, Keep It',
-    true
-  );
-  if (!confirmed) return;
+function buildDetailBody(detail) {
+  const wrap = document.createElement('div');
+  wrap.appendChild(statusBadge(detail.status));
 
-  btnEl.disabled    = true;
-  btnEl.textContent = 'Cancelling…';
+  const dl = document.createElement('dl');
+  dl.className = 'detail-list';
+  addMetaRow(dl, 'Hospital', detail.hospital_name);
+  addMetaRow(dl, 'Branch',   detail.branch_name);
+  if (detail.patient_age != null) addMetaRow(dl, 'Patient Age', detail.patient_age);
+  if (detail.diagnosis)           addMetaRow(dl, 'Diagnosis', detail.diagnosis);
+  addMetaRow(dl, 'Urgency',   detail.urgency_level);
+  addMetaRow(dl, 'Submitted', formatDate(detail.created_at));
+  if (detail.notes) addMetaRow(dl, 'Notes', detail.notes);
+  if (detail.status === BLOOD_REQUEST_STATUS.REJECTED && detail.denial_reason) {
+    addMetaRow(dl, 'Denial Reason', detail.denial_reason);
+  }
+  wrap.appendChild(dl);
 
+  if (detail.items && detail.items.length) {
+    const title = document.createElement('h3');
+    title.textContent = 'Requested Items';
+    title.style.marginTop = '16px';
+    wrap.appendChild(title);
+
+    const table = document.createElement('table');
+    table.className = 'data-table';
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Blood Type</th><th>Component</th><th>Requested</th><th>Fulfilled</th></tr>';
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    detail.items.forEach((item) => {
+      const tr = document.createElement('tr');
+      tr.appendChild(dataCell(item.blood_type));
+      tr.appendChild(dataCell(item.component));
+      tr.appendChild(dataCell(item.units_requested));
+      tr.appendChild(dataCell(item.units_fulfilled ?? '-'));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+  }
+
+  // Own uploaded document — new-tab link, not an inline embed. Same CSP
+  // reasoning as the Staff detail page: no frame-src directive is set
+  // (falls back to default-src 'self'), so an iframe to a Cloudinary URL
+  // would be silently blocked. A plain link navigation isn't subject to
+  // page CSP.
+  if (detail.request_form_path) {
+    const link = document.createElement('a');
+    link.href        = detail.request_form_path;
+    link.target      = '_blank';
+    link.rel         = 'noopener noreferrer';
+    link.className   = 'btn-secondary btn-sm';
+    link.textContent = 'View My Uploaded Form';
+    link.style.display    = 'inline-block';
+    link.style.marginTop  = '16px';
+    wrap.appendChild(link);
+  }
+
+  if (detail.status === BLOOD_REQUEST_STATUS.WAITING) {
+    const question = document.createElement('p');
+    question.className     = 'modal-field-label';
+    question.style.marginTop = '20px';
+    question.textContent   = 'Have you received your blood units?';
+    wrap.appendChild(question);
+  }
+
+  return wrap;
+}
+
+function buildDetailButtons(detail) {
+  const buttons = [
+    { label: 'Close', className: 'btn-secondary', onClick: closeModal },
+  ];
+
+  if (detail.status === BLOOD_REQUEST_STATUS.PENDING) {
+    buttons.push({
+      label:     'Cancel Request',
+      className: 'btn-danger',
+      onClick:   () => confirmCancelInModal(detail),
+    });
+  }
+
+  if (detail.status === BLOOD_REQUEST_STATUS.WAITING) {
+    buttons.push({
+      label:     "Yes, I've Received It",
+      className: 'btn-primary',
+      onClick:   () => submitReceivedFromModal(detail),
+    });
+  }
+
+  return buttons;
+}
+
+// Re-invokes openModal() with confirm-step content — same single reusable
+// dialog, just replacing what's shown, rather than stacking a second
+// modal instance on top of the first.
+function confirmCancelInModal(detail) {
+  const body = document.createElement('p');
+  body.textContent = `Cancel the blood request for ${detail.patient_name}? This cannot be undone.`;
+
+  openModal('Cancel Request', body, [
+    { label: 'No, Keep It', className: 'btn-secondary', onClick: closeModal },
+    {
+      label:     'Yes, Cancel',
+      className: 'btn-danger',
+      onClick:   () => submitCancel(detail),
+    },
+  ]);
+}
+
+async function submitCancel(detail) {
   try {
-    await cancelRequest(request.request_id);
-    request.status = BLOOD_REQUEST_STATUS.CANCELLED;
+    await cancelRequest(detail.request_id);
+    patchCachedStatus(detail.request_id, BLOOD_REQUEST_STATUS.CANCELLED);
+    closeModal();
     renderList();
     showToast('Request cancelled.', 'success');
   } catch (err) {
-    btnEl.disabled    = false;
-    btnEl.textContent = 'Cancel Request';
+    closeModal();
     showToast(err.message, 'error');
   }
 }
 
-async function handleReceived(request, btnEl) {
-  const confirmed = await confirmModal(
-    `Confirm you've received the blood units for ${request.patient_name}?`,
-    'Confirm Received',
-    'Not Yet',
-    false
-  );
-  if (!confirmed) return;
-
-  btnEl.disabled    = true;
-  btnEl.textContent = 'Saving…';
-
+async function submitReceivedFromModal(detail) {
   try {
-    await markReceived(request.request_id);
-    request.status = BLOOD_REQUEST_STATUS.RELEASED;
+    await markReceived(detail.request_id);
+    patchCachedStatus(detail.request_id, BLOOD_REQUEST_STATUS.RELEASED);
+    closeModal();
     renderList();
     showToast('Receipt confirmed. Thank you.', 'success');
   } catch (err) {
-    btnEl.disabled    = false;
-    btnEl.textContent = 'Already Received';
+    closeModal();
     showToast(err.message, 'error');
   }
+}
+
+// Both cancelRequest/markReceived return raw DB rows with no joins (see
+// bloodRequestApi.js) — patch only the status field into the cached list
+// item rather than trusting the response to replace it.
+function patchCachedStatus(requestId, newStatus) {
+  const cached = _requests.find((r) => r.request_id === requestId);
+  if (cached) cached.status = newStatus;
+}
+
+function dataCell(text) {
+  const td = document.createElement('td');
+  td.textContent = text ?? '-';
+  return td;
 }
 
 // ---------------------------------------------------------------------------

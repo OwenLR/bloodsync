@@ -157,6 +157,26 @@ function requestSubmittedEmail({ name, patient_name, request_id }) {
   `;
 }
 
+// Sent on every blood request status transition (Approved, Waiting,
+// Released, Rejected) — added this session. Reuses the exact title/message
+// copy already computed in notificationService.js's notifyRequestStatusChange
+// for the in-app DB notification, so the wording only lives in one place
+// rather than being duplicated between the notification row and this email.
+function bloodRequestStatusEmail({ name, patient_name, request_id, title, message }) {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #c0392b;">${title}</h2>
+      <p>Hi ${name},</p>
+      <p>${message}</p>
+      <p style="color: #888; font-size: 13px;">
+        Request #${request_id}${patient_name ? ` — Patient: ${patient_name}` : ''}.
+        You can check full details anytime from the "My Requests" page in the app.
+      </p>
+      <p>— Philippine Red Cross Batangas</p>
+    </div>
+  `;
+}
+
 module.exports = {
   bloodDriveAssignmentEmail,
   donorPostExtractionEmail,
@@ -164,4 +184,5 @@ module.exports = {
   inventoryExpiringEmail,
   adminWelcomeEmail,
   requestSubmittedEmail, 
+  bloodRequestStatusEmail,
 };

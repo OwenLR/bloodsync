@@ -145,7 +145,6 @@ const SIDEBAR_DEFINITIONS = {
       { label: 'Dashboard',          href: ROUTES.REQUESTOR.DASHBOARD       },
       { label: 'Submit Request',     href: ROUTES.REQUESTOR.SUBMIT_REQUEST  },
       { label: 'My Requests',        href: ROUTES.REQUESTOR.REQUESTS        },
-      { label: 'Blood Availability', href: ROUTES.REQUESTOR.AVAILABILITY    },
     ],
   },
 

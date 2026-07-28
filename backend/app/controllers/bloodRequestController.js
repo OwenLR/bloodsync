@@ -90,6 +90,34 @@ const getMyRequests = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/blood-requests/my-requests/:id
+ * Requestor's own detail view — the blood type/unit breakdown ("all the
+ * details") for the My Requests detail modal. Ownership is enforced by
+ * getRequestByIdForUser's own WHERE clause (request_id AND user_id), so a
+ * request belonging to someone else 404s the same way a nonexistent id
+ * would — no separate 403 branch needed here, unlike the Staff routes
+ * below which check branch_id after the fact.
+ * Deliberately narrower than the Staff detail route: no reservations[] or
+ * logs[] (internal staff/inventory detail not needed for "did I get my
+ * blood units" — see bloodRequestModel.js's getRequestByIdForUser comment).
+ */
+const getMyRequestDetail = async (req, res) => {
+    try {
+        const request = await bloodRequestModel.getRequestByIdForUser(
+            req.params.id,
+            req.user.user_id
+        );
+        if (!request) return response.notFound(res, 'Blood request not found');
+
+        const items = await bloodRequestModel.getItemsByRequest(req.params.id);
+
+        return response.success(res, { ...request, items });
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 const createRequest = async (req, res) => {
     try {
         const { items, ...requestData } = req.body;
@@ -221,6 +249,7 @@ module.exports = {
     getAllRequests,
     getRequestById,
     getMyRequests,
+    getMyRequestDetail,
     createRequest,
     updateRequestStatus,
     getFulfillmentOptions,

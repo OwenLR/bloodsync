@@ -9,6 +9,7 @@ const {
     inventoryLowEmail,
     inventoryExpiringEmail,
     requestSubmittedEmail,
+    bloodRequestStatusEmail,
 } = require('../email/emailTemplates');
 const { emitToRoom }        = require('../socket/socketHandler');
 const staffModel            = require('../repositories/staffModel');
@@ -70,8 +71,12 @@ async function notifyRequestorSubmission({ request_id, user_id, patient_name }) 
 
 /**
  * Notify a requestor when their blood request status changes.
- * Writes a DB notification + emits to their private socket room.
- * Called on: Approved, Rejected, Released.
+ * Writes a DB notification + emits to their private socket room, AND
+ * sends an email (added this session — every other notify* function in
+ * this file already pairs its DB notification with an email; this one
+ * previously stopped short, so requestors got no email at all past the
+ * initial submission confirmation for Approved/Waiting/Released/Rejected).
+ * Called on: Approved, Waiting, Released, Rejected.
  */
 async function notifyRequestStatusChange({ request_id, user_id, new_status, patient_name, reason }) {
     const messages = {
@@ -88,11 +93,14 @@ async function notifyRequestStatusChange({ request_id, user_id, new_status, pati
         Rejected: 'Blood Request Rejected',
     };
 
+    const title   = titles[new_status] || 'Blood Request Update';
+    const message = messages[new_status] || `Your blood request status has changed to ${new_status}.`;
+
     await notificationModel.createNotification({
         user_id,
         type:           NOTIFICATION_TYPES.BLOOD_REQUEST_STATUS,
-        title:          titles[new_status] || 'Blood Request Update',
-        message:        messages[new_status] || `Your blood request status has changed to ${new_status}.`,
+        title,
+        message,
         reference_id:   request_id,
         reference_type: 'blood_request',
     });
@@ -102,6 +110,26 @@ async function notifyRequestStatusChange({ request_id, user_id, new_status, pati
         new_status,
         patient_name,
         reason: reason || null,
+    });
+
+    // Requestor's email/name isn't in the caller's payload —
+    // bloodRequestService.js's approveRequest/markReadyForPickup/
+    // releaseRequest/rejectRequest only have user_id at hand, per
+    // contract.md's PATCH /:id/status request shape. Looked up here,
+    // same pattern as notifyRequestorSubmission above.
+    const user = await userModel.getUserById(user_id);
+    if (!user || !user.email) return; // defensive — should always exist
+
+    await sendEmail({
+        to:      user.email,
+        subject: `${title} — Request #${request_id}`,
+        html:    bloodRequestStatusEmail({
+            name: user.first_name,
+            patient_name,
+            request_id,
+            title,
+            message,
+        }),
     });
 }
 

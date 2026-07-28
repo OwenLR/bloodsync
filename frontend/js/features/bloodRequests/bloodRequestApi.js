@@ -45,6 +45,19 @@ export async function getMyRequests() {
   return body.data;
 }
 
+// GET /api/blood-requests/my-requests/:id
+// Requestor's own detail view — broader than getMyRequests() above: adds
+// patient_age, diagnosis, notes, request_form_path, updated_at, and
+// items[] (blood_type, component, units_requested, units_fulfilled).
+// Ownership enforced server-side (request_id + user_id in the same WHERE
+// clause) — a request that isn't this user's 404s the same as a bad id.
+export async function getMyRequestDetail(requestId) {
+  const res  = await apiFetch(`${BASE}/my-requests/${requestId}`);
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Failed to load request details.');
+  return body.data;
+}
+
 // PATCH /api/blood-requests/:id/cancel — no body
 // Own Pending requests only. Returns the raw blood_requests row (no joins —
 // no hospital_name/branch_name). Caller must merge status into the existing

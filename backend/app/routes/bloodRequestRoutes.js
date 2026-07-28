@@ -23,6 +23,17 @@ router.get('/my-requests',
     bloodRequestController.getMyRequests
 );
 
+// View full detail of one's own request — added for the My Requests
+// detail modal (blood type/unit breakdown). Two path segments
+// ('my-requests' + id), so this can never collide with Staff's
+// single-segment GET /:id below regardless of registration order —
+// kept next to the other my-requests routes here for readability anyway.
+router.get('/my-requests/:id',
+    verifyToken,
+    checkRole([ROLES.REQUESTOR]),
+    bloodRequestController.getMyRequestDetail
+);
+
 // Get fulfillment options before submitting
 // (which branches have stock, split vs single branch recommendation)
 router.post('/fulfillment-options',

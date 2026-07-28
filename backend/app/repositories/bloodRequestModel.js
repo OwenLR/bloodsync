@@ -91,6 +91,42 @@ const getRequestsByUser = async (userId) => {
     return result.rows;
 };
 
+/**
+ * Get a single request's full detail, scoped to the requesting user.
+ * Ownership is checked in the WHERE clause itself (not just in the
+ * controller) — same defense-in-depth pattern as getRequestsByBranch's
+ * branch scoping for PRC Staff. Returns undefined if the request doesn't
+ * exist OR belongs to someone else — a requestor probing another user's
+ * request_id can't distinguish "wrong id" from "not yours," same
+ * not-found-vs-forbidden shape as cancelRequest/markReceived below.
+ *
+ * Broader field set than getRequestsByUser above (that one is the list
+ * view — kept narrow on purpose) since this is the detail view: includes
+ * patient_age, diagnosis, notes, request_form_path (their own uploaded
+ * document), and updated_at. Excludes reviewed_by/reviewed_at
+ * (internal — which staff member reviewed) and preferred_branch_id
+ * (superseded, never populated — see gochas.md #46).
+ */
+const getRequestByIdForUser = async (id, userId) => {
+    const result = await pool.query(
+        `SELECT br.request_id,
+                br.hospital_id, h.hospital_name,
+                br.branch_id, b.branch_name,
+                br.patient_name, br.patient_age, br.diagnosis,
+                br.urgency_level, br.request_form_path,
+                br.fulfillment_type, br.delivery_address,
+                br.status, br.denial_reason,
+                br.notes, br.created_at, br.updated_at
+         FROM blood_requests br
+         LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
+         LEFT JOIN branches b ON br.branch_id = b.branch_id
+         WHERE br.request_id = $1
+         AND br.user_id = $2`,
+        [id, userId]
+    );
+    return result.rows[0];
+};
+
 const createRequest = async (data) => {
     const {
         user_id, hospital_id, branch_id,
@@ -296,6 +332,7 @@ module.exports = {
     getRequestsByBranch,
     getRequestById,
     getRequestsByUser,
+    getRequestByIdForUser,
     createRequest,
     updateRequestStatus,
     cancelRequest,
