@@ -143,16 +143,43 @@ function getRequestorLocation() {
       resolve({ latitude: undefined, longitude: undefined, usedLocation: false });
       return;
     }
+
+    // Independent safety-net timeout — does NOT rely on getCurrentPosition
+    // honoring its own `timeout` option below. On some mobile browsers/
+    // WebViews, if the site's permission is already granted (so no prompt
+    // shows on repeat visits) but the device's OS-level location toggle is
+    // off, getCurrentPosition can fail to invoke either callback at all —
+    // it just hangs indefinitely, freezing the whole fulfillment step with
+    // no error and no branch search ever running. This guarantees the
+    // promise resolves no matter what the browser does internally.
+    let settled = false;
+    const settleOnce = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    const fallbackTimer = setTimeout(() => {
+      settleOnce({ latitude: undefined, longitude: undefined, usedLocation: false });
+    }, 9000); // slightly longer than getCurrentPosition's own 8000ms below,
+              // so that one wins in the normal case — this is purely a
+              // backstop for when it doesn't fire at all
     // Loading text is already shown by showSkeleton() before this runs, so
     // the requestor sees feedback during both the location prompt and the
     // fulfillment-options fetch that follows, not just a blank gap.
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({
-        latitude:     pos.coords.latitude,
-        longitude:    pos.coords.longitude,
-        usedLocation: true,
-      }),
-      () => resolve({ latitude: undefined, longitude: undefined, usedLocation: false }),
+      (pos) => {
+        clearTimeout(fallbackTimer);
+        settleOnce({
+          latitude:     pos.coords.latitude,
+          longitude:    pos.coords.longitude,
+          usedLocation: true,
+        });
+      },
+      () => {
+        clearTimeout(fallbackTimer);
+        settleOnce({ latitude: undefined, longitude: undefined, usedLocation: false });
+      },
       { timeout: 8000 }
     );
   });
