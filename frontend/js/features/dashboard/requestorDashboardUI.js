@@ -255,7 +255,7 @@ function renderQuickLinks() {
   const actions = [
     { label: 'Submit Request',     href: ROUTES.REQUESTOR.SUBMIT_REQUEST },
     { label: 'My Requests',        href: ROUTES.REQUESTOR.REQUESTS },
-    { label: 'Blood Availability', href: ROUTES.REQUESTOR.AVAILABILITY },
+    { label: 'Blood Availability', href: ROUTES.REQUESTOR.REQUESTS },
   ];
 
   actions.forEach(a => {
