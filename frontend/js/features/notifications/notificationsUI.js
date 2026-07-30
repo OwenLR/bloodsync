@@ -1,4 +1,5 @@
 import { showToast }          from '../../components/toast.js';
+import { getNotificationTarget } from './notificationRouteMap.js';
 import { NOTIFICATION_TYPES } from '../../constants/notificationTypes.js';
 import {
   getMyNotifications,
@@ -37,13 +38,13 @@ function getTypeLabel(type) {
 // Public entry — called from js/entry/shared/notifications.js
 // ---------------------------------------------------------------------------
 
-export async function renderNotificationsList() {
+export async function renderNotificationsList(roleId) {
   showSkeleton();
 
   try {
     const notifications = await getMyNotifications();
     hideSkeleton();
-    renderList(notifications);
+    renderList(notifications, roleId);
   } catch (err) {
     hideSkeleton();
     showLoadError(err.message);
@@ -83,7 +84,7 @@ export async function refreshBadge() {
 // Render
 // ---------------------------------------------------------------------------
 
-function renderList(notifications) {
+function renderList(notifications, roleId) {
   const list = document.getElementById(LIST_ID);
   list.textContent = '';
 
@@ -95,14 +96,29 @@ function renderList(notifications) {
 
   hideEmptyState();
   list.style.display = '';
-  notifications.forEach(n => list.appendChild(buildItem(n)));
+  notifications.forEach(n => list.appendChild(buildItem(n, roleId)));
 }
 
-function buildItem(notification) {
+function buildItem(notification, roleId) {
   const item = document.createElement('div');
   item.className = 'notification-item' +
     (notification.is_read ? '' : ' notification-item--unread');
   item.dataset.notificationId = notification.notification_id;
+
+  const targetUrl = getNotificationTarget(notification, roleId);
+  if (targetUrl) {
+    item.classList.add('notification-item--clickable');
+    item.style.cursor = 'pointer'; // placeholder until notifications.css has the modifier class
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.addEventListener('click', () => handleNotificationClick(notification, targetUrl));
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleNotificationClick(notification, targetUrl);
+      }
+    });
+  }
 
   const header = document.createElement('div');
   header.className = 'notification-item-header';
@@ -130,15 +146,14 @@ function buildItem(notification) {
   item.appendChild(title);
   item.appendChild(message);
 
-  // No click-to-navigate — reference_id/reference_type exist on the
-  // record but their target pages (Blood Requests, My Drive) aren't
-  // built yet. Display-only for this pass.
   if (!notification.is_read) {
     const markBtn = document.createElement('button');
     markBtn.className   = 'btn-secondary btn-xs notification-mark-read-btn';
     markBtn.textContent = 'Mark read';
-    markBtn.addEventListener('click', () =>
-      handleMarkOneRead(notification.notification_id, item, markBtn));
+    markBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // don't trigger the item's own click-to-navigate
+      handleMarkOneRead(notification.notification_id, item, markBtn);
+    });
     item.appendChild(markBtn);
   }
 
@@ -163,6 +178,16 @@ async function handleMarkOneRead(notificationId, itemEl, btnEl) {
     btnEl.textContent = 'Mark read';
     showToast(err.message, 'error');
   }
+}
+
+// Click-to-navigate. Marks as read (fire-and-forget — don't block
+// navigation on the network call) then leaves the page immediately.
+// The destination page's own entry file will refresh the badge on load.
+function handleNotificationClick(notification, targetUrl) {
+  if (!notification.is_read) {
+    markAsRead(notification.notification_id).catch(() => {});
+  }
+  window.location.href = targetUrl;
 }
 
 async function handleMarkAllRead() {

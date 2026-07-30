@@ -63,8 +63,8 @@ async function init() {
   revealAppShell();
 
   initMarkAllRead();
-  await renderNotificationsList();
-  refreshBadge(); // non-blocking, updates navbar badge to the real unread count
+  await renderNotificationsList(user.role_id);
+  refreshBadge();
 }
 
 init();
