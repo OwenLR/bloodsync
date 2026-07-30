@@ -12,11 +12,17 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendEmail({ to, subject, html }) {
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to,
     subject,
     html,
+  });
+  console.log('[emailService] SMTP response:', {
+    accepted: info.accepted,
+    rejected: info.rejected,
+    response: info.response,
+    messageId: info.messageId,
   });
 }
 
