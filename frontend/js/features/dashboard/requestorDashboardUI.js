@@ -230,7 +230,7 @@ function renderAvailabilityTeaser() {
 
   const link = document.createElement('a');
   link.className = 'btn-secondary';
-  link.href = ROUTES.REQUESTOR.AVAILABILITY;
+  link.href = ROUTES.REQUESTOR.SUBMIT_REQUEST;
   link.textContent = 'Check Availability';
 
   container.appendChild(heading);
@@ -255,7 +255,7 @@ function renderQuickLinks() {
   const actions = [
     { label: 'Submit Request',     href: ROUTES.REQUESTOR.SUBMIT_REQUEST },
     { label: 'My Requests',        href: ROUTES.REQUESTOR.REQUESTS },
-    { label: 'Blood Availability', href: ROUTES.REQUESTOR.REQUESTS },
+    { label: 'Blood Availability', href: ROUTES.REQUESTOR.SUBMIT_REQUEST },
   ];
 
   actions.forEach(a => {
