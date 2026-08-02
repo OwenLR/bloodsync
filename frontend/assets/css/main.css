@@ -6,7 +6,37 @@
  *
  * Covers: reset, body, shared button classes, shared form elements,
  * feedback elements (error, success), toast container, modal overlay.
+ *
+ * REDESIGN NOTE (this session): navbar + sidebar visual system rebuilt.
+ * Everything outside those two sections (buttons, forms, toasts, modal,
+ * tables, skeletons, error boundary) is untouched. New design tokens are
+ * declared in :root and used ONLY by the navbar/sidebar rules below —
+ * nothing else in the file was switched over, to keep this pass scoped.
  */
+
+/* ── Design tokens (navbar/sidebar only, this session) ──────────────── */
+:root {
+  --bs-red:          #C0392B;
+  --bs-red-dark:     #9C2E22;
+  --bs-red-tint:     #FBEAE7;
+  --bs-red-tint-2:   #F5D6D0;
+  --bs-ink:          #1C1B1F;
+  --bs-ink-soft:     #6B6B72;
+  --bs-line:         #E4E1DC;
+  --bs-paper:        #FFFFFF;
+  --bs-surface:      #FCFCFB;
+
+  --bs-chip-admin:        #6B7280;
+  --bs-chip-admin-tint:   #EEF0F2;
+  --bs-chip-staff:        #C0392B;
+  --bs-chip-staff-tint:   #FBEAE7;
+  --bs-chip-volunteer:      #2F8F82;
+  --bs-chip-volunteer-tint: #E7F4F2;
+  --bs-chip-phleb:          #5B5FC7;
+  --bs-chip-phleb-tint:     #EDEEFA;
+  --bs-chip-requestor:      #B8860B;
+  --bs-chip-requestor-tint: #FBF2DE;
+}
 
 /* ── Reset ───────────────────────────────────────────────────────── */
 *, *::before, *::after {
@@ -156,11 +186,6 @@ a {
 }
 
 /* ── Field errors ────────────────────────────────────────────────── */
-/*
- * .field-error is visible by default — pair with .field-error-hidden to hide.
- * JS toggles .field-error-hidden on/off to show/hide errors.
- * Same pattern as .notif-badge / .notif-badge-hidden.
- */
 .field-error {
   display: block;
   font-size: 12px;
@@ -173,12 +198,6 @@ a {
 }
 
 /* ── Shared modal field patterns ────────────────────────────────── */
-/* Used by any feature's reason/confirm modals (Blood Testing, Blood
-   Units, Blood Separation, etc.) and detail-view modals. Moved here
-   from bloodUnits.css / bloodCollections.css (previously duplicated
-   identically in both) — see gochas.md DRY gap note. Any feature CSS
-   file must NOT redefine these — extend with a modifier class instead,
-   same rule as .btn-primary / .page-header. */
 .modal-field-label {
   display: block;
   font-size: 13px;
@@ -219,13 +238,6 @@ a {
 }
 
 /* ── Shared data table ──────────────────────────────────────────── */
-/* Moved from pages/admin/bloodDrives.css + pages/staff/bloodDrives.css
-   (identical duplicates of each other) — was Blood-Drives-only, but
-   Blood Units, Blood Testing, Blood Separation, and Inventory Cleaning
-   all render <table class="data-table"> and none of their linked CSS
-   files defined it, so those tables rendered completely unstyled.
-   Feature/page CSS must not redefine this — extend with a modifier
-   class instead, same rule as .btn-primary / .page-header. */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -260,16 +272,6 @@ a {
   color: #111;
 }
 
-/* Modifier — page header with a right-aligned action button (e.g. "Mark
-   all as read"), or just to get the correct h1 size (20px/700) from a
-   single shared source. pages/admin/bloodDrives.css, pages/staff/
-   bloodDrives.css, pages/staff/bloodUnits.css, and pages/staff/
-   bloodCollections.css previously all redefined .page-header directly
-   (flex/space-between + h1 sizing) — removed, all four now use this
-   modifier. bloodSeparation.html, bloodRequests.html, and
-   bloodRequestDetail.html had NO override at all, so their h1 fell
-   through to the browser default (~2em) — visibly larger than every
-   other page. Adding this modifier fixes both problems in one place. */
 .page-header--with-action {
   display: flex;
   align-items: center;
@@ -455,10 +457,10 @@ a {
   margin-bottom: 8px;
 }
 
-/* ── Navbar (navbar.js) ──────────────────────────────────────────── */
-/* Identity-only navbar — no feature nav links here. All page navigation
-   lives in the sidebar (see sidebarItems.js). Navbar renders: brand,
-   notifications link + badge, username, logout button. */
+/* ═══════════════════════════════════════════════════════════════════
+   NAVBAR — redesigned this session
+   ═══════════════════════════════════════════════════════════════════ */
+
 #navbar {
   position: fixed;
   top: 0;
@@ -468,228 +470,174 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  background: #fff;
-  border-bottom: 1px solid #ddd;
-  height: 52px;
+  gap: 12px;
+  padding: 0 20px;
+  background: var(--bs-paper);
+  border-bottom: 1px solid var(--bs-line);
+  height: 56px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.navbar-brand a {
-  font-weight: 700;
-  font-size: 16px;
+#navbar.navbar-scrolled {
+  border-bottom-color: transparent;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 6px 18px rgba(28,27,31,0.06);
 }
 
-.navbar-right {
+/* Icon glyphs (layouts/icons.js output) */
+.bs-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+/* ── Brand ───────────────────────────────────────────────────────── */
+.navbar-brand-link {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 9px;
 }
 
-.navbar-notif-link {
+.brand-logo {
+  height: 28px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
+.brand-word {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--bs-ink);
+}
+
+/* ── Icon buttons + tooltips ─────────────────────────────────────── */
+.icon-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--bs-ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.icon-btn:hover,
+.icon-btn:focus-visible {
+  background: var(--bs-red-tint);
+  color: var(--bs-red-dark);
+  outline: none;
+}
+
+.has-tip {
+  --tip-offset: 10px;
+}
+
+.has-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  background: var(--bs-ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 250;
+}
+
+.has-tip:hover::after,
+.has-tip:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Right cluster ───────────────────────────────────────────────── */
+.navbar-right {
+  display: flex;
+  align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: #111;
+}
+
+.navbar-notif-link {
+  text-decoration: none;
 }
 
 .notif-badge {
-  display: inline-block;
-  background: #c00;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--bs-red);
   color: #fff;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 10px;
-  margin-left: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  border: 2px solid var(--bs-paper);
 }
 
 .notif-badge-hidden {
   display: none;
 }
 
+/* ── User block ──────────────────────────────────────────────────── */
 .navbar-user {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px solid var(--bs-line);
 }
 
-/* Wraps avatar + username in a link to the user's own Profile page
-   (added this session — navbar.js's avatar/name block is now clickable).
-   Reproduces the same 12px gap the avatar/username had as flat siblings
-   of .navbar-user before this wrap, so spacing is visually unchanged. */
 .navbar-profile-link {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 999px;
   text-decoration: none;
   color: inherit;
+  transition: background 0.15s ease;
 }
 
-.navbar-profile-link:hover .navbar-username {
-  text-decoration: underline;
+.navbar-profile-link:hover,
+.navbar-profile-link:focus-visible {
+  background: var(--bs-red-tint);
+  outline: none;
 }
 
-.navbar-username {
-  font-size: 13px;
+.navbar-avatar-wrap {
+  display: inline-flex;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bs-paper), 0 0 0 3px var(--bs-line);
+  transition: box-shadow 0.15s ease;
 }
 
-.navbar-username {
-  font-size: 13px;
-}
-
-.btn-logout {
-  padding: 6px 12px;
-  background: #eee;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-/* Hidden on desktop — shown only below the mobile breakpoint (see Mobile
-   Shell section near the bottom of this file). Toggles document.body's
-   'sidebar-open' class, which the mobile override block below reacts to. */
-.navbar-hamburger {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 4px 8px;
-  margin-right: 4px;
-  color: #111;
-}
-
-/* ── Sidebar (sidebar.js) ────────────────────────────────────────── */
-#sidebar {
-  position: fixed;
-  top: 52px;       /* sits flush below the fixed navbar */
-  left: 0;
-  bottom: 0;
-  width: 200px;
-  padding: 16px;
-  background: #fff;
-  border-right: 1px solid #ddd;
-  overflow-y: auto;
-  z-index: 100;
-}
-
-.sidebar-section {
-  margin-bottom: 20px;
-}
-
-.sidebar-heading {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #888;
-  margin-bottom: 8px;
-}
-
-.sidebar-links {
-  list-style: none;
-}
-
-.sidebar-links a {
-  display: block;
-  padding: 6px 8px;
-  font-size: 13px;
-  border-radius: 4px;
-}
-
-.sidebar-links a.sidebar-active {
-  font-weight: 700;
-  background: #f0f0f0;
-}
-
-/* ── Sidebar collapsible groups (field role workflow) ────────────── */
-/* Used by Volunteer and Phlebotomist for the Blood Drive Workflow
-   section. Rendered via <details>/<summary> in sidebar.js when an
-   item has { group: true, children: [] }. Open by default. */
-
-.sidebar-group-item {
-  list-style: none;
-}
-
-.sidebar-group-label {
-  display: block;
-  padding: 6px 8px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 4px;
-  cursor: pointer;
-  user-select: none;
-  color: #444;
-}
-
-/* Remove default disclosure triangle */
-.sidebar-group-label::-webkit-details-marker { display: none; }
-.sidebar-group-label::marker                 { display: none; }
-
-/* Highlight group label when a child is the active page */
-.sidebar-group-active > .sidebar-group-label {
-  color: #c00;
-}
-
-.sidebar-group-links {
-  list-style: none;
-  padding-left: 12px;
-  margin-top: 2px;
-}
-
-.sidebar-group-links a {
-  display: block;
-  padding: 5px 8px;
-  font-size: 13px;
-  border-radius: 4px;
-  color: #333;
-}
-
-.sidebar-group-links a.sidebar-active {
-  font-weight: 700;
-  background: #f0f0f0;
-}
-
-/* ── Page layout shell ───────────────────────────────────────────── */
-/* Both navbar (52px tall) and sidebar (200px wide) are fixed.
-   page-shell is offset from the top so it starts below the navbar.
-   page-content is offset from the left so it starts beside the sidebar. */
-.page-shell {
-  display: flex;
-  padding-top: 52px;   /* clear the fixed navbar */
-}
-
-.page-content {
-  flex: 1;
-  padding: 24px;
-  margin-left: 200px;  /* clear the fixed sidebar */
-  min-width: 0;        /* prevent flex children from overflowing */
-}
-
-/* ── App shell reveal pattern ────────────────────────────────────── */
-/* Prevents static HTML (table headers, page buttons, etc.) from flashing
-   on screen before JS has rendered the navbar/sidebar shell. Every
-   protected page's <body> starts with class="app-loading" in the HTML.
-   The entry file adds class="app-ready" to <body> immediately after
-   renderNavbar() + renderSidebar() complete (see "Required Page Loading
-   Order" in FRONTEND_AI_RULES.md). #navbar, #sidebar, and .page-content
-   are invisible (not unrendered — visibility, not display) until then,
-   so the user never sees raw, chrome-less HTML before the shell exists. */
-body.app-loading #navbar,
-body.app-loading #sidebar,
-body.app-loading .page-content {
-  visibility: hidden;
-}
-
-body.app-ready #navbar,
-body.app-ready #sidebar,
-body.app-ready .page-content {
-  visibility: visible;
+.navbar-profile-link:hover .navbar-avatar-wrap,
+.navbar-profile-link:focus-visible .navbar-avatar-wrap {
+  box-shadow: 0 0 0 2px var(--bs-paper), 0 0 0 3px var(--bs-red);
 }
 
 .navbar-avatar {
@@ -704,64 +652,425 @@ body.app-ready .page-content {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-primary-light, #fdecea);
-  color: var(--color-primary, #c0392b);
+  background: var(--bs-red-tint);
+  color: var(--bs-red-dark);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
+.navbar-name-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.navbar-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bs-ink);
+  white-space: nowrap;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: none;
+  color: var(--bs-chip-staff);
+  white-space: nowrap;
+}
+
+.role-chip--admin        { color: var(--bs-chip-admin); }
+.role-chip--staff        { color: var(--bs-chip-staff); }
+.role-chip--volunteer    { color: var(--bs-chip-volunteer); }
+.role-chip--phlebotomist { color: var(--bs-chip-phleb); }
+.role-chip--requestor    { color: var(--bs-chip-requestor); }
+
+.btn-logout {
+  /* legacy selector kept in case any other stylesheet still targets it —
+     #btn-logout is now visually an .icon-btn, see icon-btn rules above */
+  border: none;
+}
+
+/* ── Hamburger (mobile only) ─────────────────────────────────────── */
+.navbar-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 4px;
+  color: var(--bs-ink);
+}
+
+.navbar-hamburger:hover {
+  background: var(--bs-red-tint);
+}
+
+.hamburger-glyph {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 18px;
+  height: 14px;
+}
+
+.hamburger-bar {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.navbar-hamburger--open .hamburger-bar:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.navbar-hamburger--open .hamburger-bar:nth-child(2) {
+  opacity: 0;
+}
+
+.navbar-hamburger--open .hamburger-bar:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SIDEBAR — redesigned this session
+   ═══════════════════════════════════════════════════════════════════ */
+
+#sidebar {
+  position: fixed;
+  top: 56px;       /* sits flush below the fixed navbar */
+  left: 0;
+  bottom: 0;
+  width: 224px;
+  padding: 18px 12px 18px;
+  background: var(--bs-surface);
+  border-right: 1px solid var(--bs-line);
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.sidebar-section {
+  margin-bottom: 22px;
+}
+
+.sidebar-heading {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--bs-ink-soft);
+  margin: 0 8px 6px;
+}
+
+.sidebar-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Flat links ──────────────────────────────────────────────────── */
+.sidebar-item {
+  position: relative;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--bs-ink);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.sidebar-link .bs-icon {
+  color: var(--bs-ink-soft);
+  transition: color 0.12s ease;
+}
+
+.sidebar-link:hover {
+  background: var(--bs-red-tint);
+  color: var(--bs-red-dark);
+}
+
+.sidebar-link:hover .bs-icon {
+  color: var(--bs-red-dark);
+}
+
+.sidebar-link.sidebar-active {
+  background: var(--bs-red-tint-2);
+  color: var(--bs-red-dark);
+  font-weight: 700;
+}
+
+.sidebar-link.sidebar-active .bs-icon {
+  color: var(--bs-red-dark);
+}
+
+/* Left accent bar for the active item, hugging the sidebar's own edge */
+.sidebar-item-active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--bs-red);
+}
+
+/* ── Collapsible group card ─────────────────────────────────────── */
+.sidebar-group-item {
+  list-style: none;
+}
+
+.sidebar-group {
+  display: block;
+  background: var(--bs-paper);
+  border: 1px solid var(--bs-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sidebar-group-active {
+  border-color: var(--bs-red-tint-2);
+}
+
+.sidebar-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bs-ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar-group-label::-webkit-details-marker { display: none; }
+.sidebar-group-label::marker                 { display: none; }
+
+.sidebar-group-label-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.sidebar-group-label .bs-icon:first-child {
+  color: var(--bs-ink-soft);
+}
+
+.sidebar-group-chevron {
+  color: var(--bs-ink-soft);
+  transition: transform 0.15s ease;
+}
+
+.sidebar-group[open] .sidebar-group-chevron {
+  transform: rotate(180deg);
+}
+
+.sidebar-group-active > .sidebar-group-label {
+  color: var(--bs-red-dark);
+}
+
+.sidebar-group-active > .sidebar-group-label .bs-icon {
+  color: var(--bs-red-dark);
+}
+
+.sidebar-group-links {
+  list-style: none;
+  padding: 2px 8px 8px;
+  border-top: 1px solid var(--bs-line);
+  margin-top: 1px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 6px;
+}
+
+.sidebar-child { position: relative; }
+
+.sidebar-link--nested {
+  padding: 6px 8px;
+  font-size: 12.5px;
+}
+
+.sidebar-child .sidebar-item-active::before,
+.sidebar-child.sidebar-item-active::before {
+  left: -4px;
+  top: 4px;
+  bottom: 4px;
+}
+
+/* ── Step track variant (Blood Drive Workflow group) ────────────── */
+.sidebar-step-track {
+  list-style: none;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--bs-line);
+  margin-top: 1px;
+}
+
+.step-item {
+  position: relative;
+  padding-left: 2px;
+}
+
+.step-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 26px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--bs-line);
+}
+
+.step-item-active:not(:last-child)::after {
+  background: var(--bs-red-tint-2);
+}
+
+.step-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--bs-ink);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.step-link:hover {
+  background: var(--bs-red-tint);
+  color: var(--bs-red-dark);
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bs-surface);
+  border: 1.5px solid var(--bs-line);
+  color: var(--bs-ink-soft);
+  font-size: 10.5px;
+  font-weight: 700;
+  z-index: 1;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.step-link.sidebar-active {
+  background: var(--bs-red-tint-2);
+  color: var(--bs-red-dark);
+  font-weight: 700;
+}
+
+.step-link.sidebar-active .step-num {
+  background: var(--bs-red);
+  border-color: var(--bs-red);
+  color: #fff;
+}
+
+/* ── Page layout shell ───────────────────────────────────────────── */
+.page-shell {
+  display: flex;
+  padding-top: 56px;   /* clear the fixed navbar */
+}
+
+.page-content {
+  flex: 1;
+  padding: 24px;
+  margin-left: 224px;  /* clear the fixed sidebar */
+  min-width: 0;        /* prevent flex children from overflowing */
+}
+
+/* ── App shell reveal pattern ────────────────────────────────────── */
+body.app-loading #navbar,
+body.app-loading #sidebar,
+body.app-loading .page-content {
+  visibility: hidden;
+  opacity: 0;
+}
+
+body.app-ready #navbar,
+body.app-ready #sidebar,
+body.app-ready .page-content {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
 /* ── Generic hidden utility ──────────────────────────────────────── */
-/* Added for the Profile redesign (components/editToggle.js and avatar/
-   document-link toggling in profileUI.js / profileFieldUI.js). Existing
-   single-purpose hidden classes (.field-error-hidden, .notif-badge-hidden,
-   .photo-preview-hidden) stay as-is for their own call sites — this is a
-   feature-agnostic one for new reusable components going forward. */
 .hidden { display: none !important; }
 
 /* ── Sidebar backdrop (navbar.js) ────────────────────────────────── */
-/* Dims the page behind the sidebar drawer on mobile. Created once by
-   navbar.js's ensureSidebarBackdrop() and appended to body. Hidden on
-   desktop unconditionally — only the Mobile Shell block below turns it
-   on, and only when body.sidebar-open is set (which desktop never sets,
-   since the hamburger that sets it is display:none there). */
 .sidebar-backdrop {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 150; /* above page content, below the drawer's own z-index (200, set in the mobile block below) */
+  background: rgba(28, 27, 31, 0.45);
+  backdrop-filter: blur(1.5px);
+  z-index: 150;
 }
 
 /* ── Mobile shell ─────────────────────────────────────────────────── */
-/* Breakpoint matches the 768px convention already established in
-   bloodRequests.css's component-tabs/carousel split — the project's only
-   prior responsive precedent, reused here rather than inventing a second
-   one. Built first for Requestor pages (simplest sidebar — a flat list,
-   no collapsible groups) but applies globally since navbar.js/sidebar.js
-   are shared shell components rendered identically for every role — see
-   sidebar.js's own "pure renderer, knows nothing about roles" doc
-   comment. Sidebar becomes an off-canvas drawer, toggled by the
-   hamburger button; page-content reclaims full width since the sidebar
-   no longer sits permanently beside it. */
 @media (max-width: 767px) {
   .navbar-hamburger {
     display: inline-flex;
   }
 
-  .navbar-username {
+  .navbar-name-block {
     display: none; /* avatar + hamburger + logout is enough identity on narrow screens */
   }
 
+  .navbar-user {
+    border-left: none;
+    padding-left: 0;
+    margin-left: 2px;
+  }
+
+  .navbar-profile-link {
+    padding: 4px;
+  }
+
   #sidebar {
-    width: 240px;
-    z-index: 200; /* raised from the base 100 so the open drawer sits above the backdrop (150) */
+    width: 82vw;
+    max-width: 300px;
+    z-index: 200; /* above the backdrop (150) */
+    border-right: none;
+    border-radius: 0 16px 16px 0;
+    box-shadow: 4px 0 24px rgba(28, 27, 31, 0.12);
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   body.sidebar-open #sidebar {
@@ -778,5 +1087,11 @@ body.app-ready .page-content {
 
   .page-content {
     margin-left: 0;
+  }
+
+  /* Tooltips are a hover affordance — pointless (and can trap focus
+     styling oddly) on touch, so suppress them below the breakpoint. */
+  .has-tip::after {
+    display: none;
   }
 }

@@ -1,6 +1,29 @@
 /**
  * sidebar.js — Sidebar navigation renderer for BloodSync web app.
  *
+ * DESIGN NOTE (this session): visual redesign only. Same exports
+ * (renderSidebar, clearSidebar), same item shapes consumed from
+ * sidebarItems.js, same isActivePage logic, same "group with children"
+ * data contract. No navigation item was added, removed, or renamed.
+ *
+ * What changed visually:
+ * - Every link now carries a small icon (see layouts/icons.js), looked up
+ *   by label — a group's own label maps to an icon too (e.g. "Donors").
+ * - Group items ("Donors" for Staff, "Blood Drive Workflow" for
+ *   Vol/Phleb) now render inside a bordered card, so everything under
+ *   the group reads as visually contained — this was a direct ask, not
+ *   just a style pass.
+ * - A new opt-in `variant: 'steps'` flag on a group item (set in
+ *   sidebarItems.js — additive metadata only, no href/label touched)
+ *   renders its children as a connected numbered track instead of plain
+ *   rows. Only "Blood Drive Workflow" uses this: it's the one group that
+ *   is a literal ordered process (Register → Interview → Screening →
+ *   Donation, same order as the app's own field-workflow step
+ *   indicator) — "Donors" mixes a non-sequential "Donor List" entry with
+ *   the same four steps, so it deliberately keeps the plain bordered
+ *   style rather than being numbered too.
+ * - Active link gets a left accent bar instead of a flat full-row tint.
+ *
  * Responsibilities:
  * - Render a sidebar section into <aside id="sidebar">
  * - Highlight the active page link
@@ -14,14 +37,7 @@
  *
  * Item shapes accepted:
  *   Flat:  { label: string, href: string }
- *   Group: { label: string, group: true, children: [{ label, href }] }
- *
- * Group items render as a <details>/<summary> collapsible block.
- * Open/closed on load is controlled by the item's openByDefault flag
- * (set in constants/sidebarItems.js) — defaults to true if omitted.
- * A group containing the current page is always forced open regardless
- * of openByDefault, so the active page is never hidden behind a
- * collapsed summary.
+ *   Group: { label: string, group: true, children: [{ label, href }], variant?: 'steps' }
  *
  * Usage:
  *   renderSidebar(getSidebarItems(user.role_id, 'general'), 'General');
@@ -31,6 +47,8 @@
  * JS targets IDs — CSS targets classes.
  * Call renderSidebar() multiple times to append multiple sections.
  */
+
+import { icon, labelIcon } from './icons.js';
 
 // ---------------------------------------------------------------------------
 // renderSidebar(items, heading)
@@ -86,16 +104,21 @@ export function clearSidebar() {
 // ---------------------------------------------------------------------------
 
 /**
- * Render a plain link item.
+ * Render a plain link item — icon + label, left accent bar when active.
  */
 function renderFlatItem(item) {
   const li      = document.createElement('li');
+  li.className  = 'sidebar-item';
+
   const a       = document.createElement('a');
+  a.className   = 'sidebar-link';
   a.href        = item.href;
-  a.textContent = item.label;
+  a.appendChild(icon(labelIcon(item.label), 17));
+  a.appendChild(textSpan(item.label));
 
   if (isActivePage(item.href)) {
     a.classList.add('sidebar-active');
+    li.classList.add('sidebar-item-active');
   }
 
   li.appendChild(a);
@@ -103,17 +126,18 @@ function renderFlatItem(item) {
 }
 
 /**
- * Render a collapsible group using <details>/<summary>.
- * Open by default. If any child is the active page, the group is also
- * marked active so users can see which step they're on.
+ * Render a collapsible group as a bordered card using <details>/<summary>.
+ * variant: 'steps' renders children as a connected numbered track instead
+ * of plain icon rows — see file header for when that's appropriate.
  */
 function renderGroup(item) {
   const li      = document.createElement('li');
   li.className  = 'sidebar-group-item';
 
-  const details = document.createElement('details');
+  const details      = document.createElement('details');
+  details.className  = 'sidebar-group';
+  if (item.variant === 'steps') details.classList.add('sidebar-group--steps');
 
-  // Check if any child is the current page — keep group open and styled
   const hasActiveChild = item.children.some(child => isActivePage(child.href));
 
   // openByDefault defaults to true if not specified (existing behavior).
@@ -126,31 +150,85 @@ function renderGroup(item) {
     details.classList.add('sidebar-group-active');
   }
 
-  const summary     = document.createElement('summary');
-  summary.className = 'sidebar-group-label';
-  summary.textContent = item.label;
+  const summary       = document.createElement('summary');
+  summary.className   = 'sidebar-group-label';
+
+  const summaryLeft     = document.createElement('span');
+  summaryLeft.className = 'sidebar-group-label-left';
+  summaryLeft.appendChild(icon(labelIcon(item.label), 17));
+  summaryLeft.appendChild(textSpan(item.label));
+
+  const chevron = icon('chevron', 14);
+  chevron.classList.add('sidebar-group-chevron');
+
+  summary.appendChild(summaryLeft);
+  summary.appendChild(chevron);
   details.appendChild(summary);
 
   const childUl     = document.createElement('ul');
-  childUl.className = 'sidebar-group-links';
+  childUl.className = item.variant === 'steps' ? 'sidebar-step-track' : 'sidebar-group-links';
 
-  item.children.forEach(child => {
-    const childLi = document.createElement('li');
-    const a       = document.createElement('a');
-    a.href        = child.href;
-    a.textContent = child.label;
-
-    if (isActivePage(child.href)) {
-      a.classList.add('sidebar-active');
-    }
-
-    childLi.appendChild(a);
-    childUl.appendChild(childLi);
+  item.children.forEach((child, index) => {
+    childUl.appendChild(
+      item.variant === 'steps'
+        ? renderStepChild(child, index + 1)
+        : renderGroupChild(child)
+    );
   });
 
   details.appendChild(childUl);
   li.appendChild(details);
   return li;
+}
+
+function renderGroupChild(child) {
+  const childLi = document.createElement('li');
+  childLi.className = 'sidebar-child';
+
+  const a       = document.createElement('a');
+  a.className   = 'sidebar-link sidebar-link--nested';
+  a.href        = child.href;
+  a.appendChild(icon(labelIcon(child.label), 15));
+  a.appendChild(textSpan(child.label));
+
+  if (isActivePage(child.href)) {
+    a.classList.add('sidebar-active');
+    childLi.classList.add('sidebar-item-active');
+  }
+
+  childLi.appendChild(a);
+  return childLi;
+}
+
+function renderStepChild(child, stepNumber) {
+  const childLi = document.createElement('li');
+  childLi.className = 'step-item';
+
+  const a       = document.createElement('a');
+  a.className   = 'step-link';
+  a.href        = child.href;
+
+  const num       = document.createElement('span');
+  num.className   = 'step-num';
+  num.textContent = String(stepNumber);
+
+  a.appendChild(num);
+  a.appendChild(textSpan(child.label));
+
+  if (isActivePage(child.href)) {
+    a.classList.add('sidebar-active');
+    childLi.classList.add('step-item-active');
+  }
+
+  childLi.appendChild(a);
+  return childLi;
+}
+
+function textSpan(label) {
+  const span = document.createElement('span');
+  span.className = 'sidebar-link-text';
+  span.textContent = label;
+  return span;
 }
 
 function isActivePage(href) {

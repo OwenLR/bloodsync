@@ -31,7 +31,7 @@ function bloodDriveAssignmentEmail({ name, drive_name, drive_date, venue, role, 
         Each button can only be used once. If you need to change your response,
         please contact your branch coordinator directly.
       </p>
-      <p>— Philippine Red Cross Batangas</p>
+      <p>- BloodSync Developers</p>
     </div>
   `;
 }
@@ -47,7 +47,7 @@ function donorPostExtractionEmail({ name, donation_date, component, next_eligibl
       <li><strong>Next Eligible Donation Date:</strong> ${next_eligible_date}</li>
     </ul>
     <p>Your contribution saves lives. Thank you.</p>
-    <p>— Philippine Red Cross Batangas</p>
+    <p>- BloodSync Developers</p>
   `;
 }
 
@@ -74,7 +74,7 @@ function inventoryLowEmail({ branch_name, items }) {
       <tbody>${rows}</tbody>
     </table>
     <p>Please take necessary action.</p>
-    <p>— BloodSync System</p>
+    <p>- BloodSync Developers</p>
   `;
 }
 
@@ -103,7 +103,7 @@ function inventoryExpiringEmail({ branch_name, items }) {
       <tbody>${rows}</tbody>
     </table>
     <p>Please prioritize these units or take appropriate action.</p>
-    <p>— BloodSync System</p>
+    <p>- BloodSync Developers</p>
   `;
 }
 
@@ -133,7 +133,7 @@ function adminWelcomeEmail({ name, email, password, role_name }) {
       <p style="color: #888; font-size: 13px;">
         If you did not expect this email, please contact your branch administrator immediately.
       </p>
-      <p>— Philippine Red Cross Batangas</p>
+      <p>- BloodSync Developers</p>
     </div>
   `;
 }
@@ -152,7 +152,7 @@ function requestSubmittedEmail({ name, patient_name, request_id }) {
       <p style="color: #888; font-size: 13px;">
         You can check the current status of this request anytime from the "My Requests" page in the app.
       </p>
-      <p>— Philippine Red Cross Batangas</p>
+      <p>- BloodSync Developers</p>
     </div>
   `;
 }
@@ -172,7 +172,7 @@ function bloodRequestStatusEmail({ name, patient_name, request_id, title, messag
         Request #${request_id}${patient_name ? ` — Patient: ${patient_name}` : ''}.
         You can check full details anytime from the "My Requests" page in the app.
       </p>
-      <p>— Philippine Red Cross Batangas</p>
+      <p>- BloodSync Developers</p>
     </div>
   `;
 }

@@ -10,7 +10,7 @@
  *
  * Item shape:
  *   Flat item:   { label: string, href: string }
- *   Group item:  { label: string, group: true, children: [{ label, href }], openByDefault?: boolean }
+ *   Group item:  { label: string, group: true, children: [{ label, href }], openByDefault?: boolean, variant?: 'steps' }
  *
  * Group items render as a collapsible <details>/<summary> block in sidebar.js.
  * openByDefault defaults to true if omitted (existing behavior, unchanged for
@@ -20,6 +20,16 @@
  * below. A group with an active child page is always rendered open regardless
  * of openByDefault, so the current page is never hidden behind a collapsed
  * summary.
+ *
+ * `variant: 'steps'` (added this session, presentational metadata only |
+ * no label/href changed on any item) tells sidebar.js to render that
+ * group's children as a connected numbered track instead of plain rows.
+ * Only set on "Blood Drive Workflow" | it's a literal ordered process
+ * (Register → Interview → Screening → Donation, the same order as the
+ * app's own field-workflow step indicator). "Donors" (Staff) mixes a
+ * non-sequential "Donor List" entry in front of the same four steps, so
+ * it intentionally does NOT get this flag | numbering it would imply an
+ * order that isn't accurate for that first item.
  *
  * Sections per role:
  *   Admin        | general, management
@@ -106,6 +116,7 @@ const SIDEBAR_DEFINITIONS = {
       {
         label:    'Blood Drive Workflow',
         group:    true,
+        variant:  'steps',
         children: [
           { label: 'Register Donor',    href: ROUTES.FIELD.REGISTER   },
           { label: 'Conduct Interview', href: ROUTES.FIELD.INTERVIEW  },
@@ -127,6 +138,7 @@ const SIDEBAR_DEFINITIONS = {
       {
         label:    'Blood Drive Workflow',
         group:    true,
+        variant:  'steps',
         children: [
           { label: 'Register Donor',    href: ROUTES.FIELD.REGISTER   },
           { label: 'Conduct Interview', href: ROUTES.FIELD.INTERVIEW  },

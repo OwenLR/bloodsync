@@ -4,39 +4,35 @@
  * Identity and global actions ONLY — no feature navigation links.
  * All page navigation lives in the sidebar (see constants/sidebarItems.js).
  *
- * DESIGN NOTE (this session): visual redesign only. Every functional hook
- * other files rely on is unchanged — same export name, same IDs
- * (#navbar, #notif-badge, #btn-logout, #sidebar-toggle), same
- * notif-badge / notif-badge-hidden class toggle contract used by
- * notificationsUI.js's refreshBadge()/updateBadge(). No navigation link
- * was added, removed, or renamed.
- *
- * What changed visually:
- * - Brand mark: a small droplet glyph in a red disc, ahead of the wordmark.
- * - Notifications: bell icon button (was a text link) with a hover/focus
- *   tooltip reading "Notifications" — the count badge now sits on the
- *   icon itself instead of inline text.
- * - User block: name + a small role chip (color-coded per role) stacked
- *   under the avatar, avatar gets a focus/hover ring, whole block still
- *   links to the profile page.
- * - Logout: icon button (power glyph) with a "Log out" tooltip, replacing
- *   the plain text button.
- * - Hamburger: animated 3-bar → X on open, instead of a static ☰ glyph.
- * - Subtle shadow appears on #navbar once the page scrolls, so content
- *   sliding under a flat white bar doesn't look like a rendering glitch.
- *
  * Responsibilities:
  * - Render brand/logo (links to user's own dashboard — no redirect hop)
  * - Render current user's avatar (photo or initials fallback) + display name,
- *   wrapped in a link to that role's Profile page
+ *   wrapped in a link to that role's Profile page (added this session)
  * - Render the notification badge placeholder (count passed in by caller)
  * - Handle logout button click
  *
  * Does NOT:
- * - Render feature navigation links — those belong in the sidebar only
+ * - Render feature navigation links (Dashboard, Blood Drives, Donors, etc.)
+ *   — those belong in the sidebar only, to avoid duplicate navigation surfaces
  * - Fetch notifications or unread counts
  * - Open or listen to sockets
  * - Call any feature APIs
+ *
+ * Avatar: user.profile_img comes from GET /api/auth/me (authController.js's
+ * me() — role-aware lookup across staff_profiles / volunteer_profiles).
+ * Requestor has no photo support anywhere in the system, so that role
+ * always falls back to initials. isImageUrl()/initials() are duplicated
+ * here rather than imported from features/ — layouts/ cannot import from
+ * features/ per the Import Pyramid in rules.md.
+ *
+ * Profile link (added this session): the avatar + display-name block is
+ * now a link to /pages/{role}/profile.html — same per-role href pattern
+ * already used by getNotificationsHref(). Logout remains its own button,
+ * outside the link, so it isn't accidentally triggered by a profile click.
+ *
+ * Role label ("{Name} | {Role Label}") unchanged from prior version —
+ * PRC Staff shows "PRC {branch_name}", falls back to "PRC Staff" if
+ * branch_name is unavailable.
  *
  * Usage:
  *   import { renderNavbar } from '../layouts/navbar.js';
@@ -51,26 +47,15 @@
 import { logout, getDashboardHref } from '../core/auth.js';
 import { ROLES }                    from '../constants/roles.js';
 import { ROUTES }                   from '../constants/routes.js';
-import { icon }                     from './icons.js';
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
-
-const ROLE_CHIP_CLASS = {
-  [ROLES.ADMIN]:        'role-chip--admin',
-  [ROLES.PRC_STAFF]:    'role-chip--staff',
-  [ROLES.VOLUNTEER]:    'role-chip--volunteer',
-  [ROLES.PHLEBOTOMIST]: 'role-chip--phlebotomist',
-  [ROLES.REQUESTOR]:    'role-chip--requestor',
-};
 
 export function renderNavbar(user, unreadCount = 0) {
   const container = document.getElementById('navbar');
   if (!container) return;
 
   ensureSidebarBackdrop();
-  ensureScrollShadow();
 
-  // ── Hamburger (mobile only — CSS hides it ≥768px) ────────────────
   const hamburgerBtn = document.createElement('button');
   hamburgerBtn.id = 'sidebar-toggle';
   hamburgerBtn.type = 'button';
@@ -78,45 +63,27 @@ export function renderNavbar(user, unreadCount = 0) {
   hamburgerBtn.setAttribute('aria-label', 'Toggle navigation menu');
   hamburgerBtn.setAttribute('aria-expanded', 'false');
   hamburgerBtn.setAttribute('aria-controls', 'sidebar');
-  hamburgerBtn.appendChild(buildHamburgerGlyph());
+  hamburgerBtn.textContent = '☰';
   hamburgerBtn.addEventListener('click', () => {
     const isOpen = document.body.classList.toggle('sidebar-open');
     hamburgerBtn.setAttribute('aria-expanded', String(isOpen));
-    hamburgerBtn.classList.toggle('navbar-hamburger--open', isOpen);
   });
 
-  // ── Brand ──────────────────────────────────────────────────────
   const brand     = document.createElement('div');
   brand.className = 'navbar-brand';
-
-  const brandLink = document.createElement('a');
-  brandLink.href  = getDashboardHref(user.role_id);
-  brandLink.className = 'navbar-brand-link';
-
-  // Logo image — replace /assets/img/mainLogo.png with your file at that path.
-  const brandLogo = document.createElement('img');
-  brandLogo.src = '/assets/img/mainLogo.png';
-  brandLogo.alt = 'BloodSync';
-  brandLogo.className = 'brand-logo';
-
-  const brandWord = document.createElement('span');
-  brandWord.className = 'brand-word';
-  brandWord.textContent = 'BloodSync';
-
-  brandLink.appendChild(brandLogo);
-  brandLink.appendChild(brandWord);
+  const brandLink       = document.createElement('a');
+  brandLink.href        = getDashboardHref(user.role_id);
+  brandLink.textContent = 'BloodSync';
   brand.appendChild(brandLink);
 
-  // ── Right cluster ──────────────────────────────────────────────
   const rightSection     = document.createElement('div');
   rightSection.className = 'navbar-right';
 
+  const notifHref = getNotificationsHref(user.role_id);
   const notifLink = document.createElement('a');
-  notifLink.href  = getNotificationsHref(user.role_id);
-  notifLink.className = 'icon-btn navbar-notif-link has-tip';
-  notifLink.setAttribute('data-tip', 'Notifications');
-  notifLink.setAttribute('aria-label', 'Notifications');
-  notifLink.appendChild(icon('bell', 19));
+  notifLink.href  = notifHref;
+  notifLink.className = 'navbar-notif-link';
+  notifLink.textContent = 'Notifications';
 
   const badge     = document.createElement('span');
   badge.id        = 'notif-badge';
@@ -127,39 +94,24 @@ export function renderNavbar(user, unreadCount = 0) {
   const userSection     = document.createElement('div');
   userSection.className = 'navbar-user';
 
-  const avatarWrap = document.createElement('span');
-  avatarWrap.className = 'navbar-avatar-wrap';
-  avatarWrap.appendChild(buildAvatar(user));
+  const avatarEl = buildAvatar(user);
 
-  const nameBlock     = document.createElement('span');
-  nameBlock.className = 'navbar-name-block';
-
-  const nameLine       = document.createElement('span');
-  nameLine.className   = 'navbar-name';
-  nameLine.textContent = buildDisplayName(user);
-
-  const roleChip       = document.createElement('span');
-  roleChip.className   = 'role-chip ' + (ROLE_CHIP_CLASS[user.role_id] || '');
-  roleChip.textContent = buildRoleLabel(user);
-
-  nameBlock.appendChild(nameLine);
-  nameBlock.appendChild(roleChip);
+  const usernameSpan       = document.createElement('span');
+  usernameSpan.className   = 'navbar-username';
+  usernameSpan.textContent = `${buildDisplayName(user)} | ${buildRoleLabel(user)}`;
 
   // Avatar + name wrapped in a link to this role's Profile page.
   const profileLink       = document.createElement('a');
   profileLink.href        = getProfileHref(user.role_id);
   profileLink.className   = 'navbar-profile-link';
   profileLink.setAttribute('aria-label', 'View profile');
-  profileLink.appendChild(avatarWrap);
-  profileLink.appendChild(nameBlock);
+  profileLink.appendChild(avatarEl);
+  profileLink.appendChild(usernameSpan);
 
   const logoutBtn       = document.createElement('button');
   logoutBtn.id          = 'btn-logout';
-  logoutBtn.type        = 'button';
-  logoutBtn.className   = 'icon-btn icon-btn--logout has-tip';
-  logoutBtn.setAttribute('data-tip', 'Log out');
-  logoutBtn.setAttribute('aria-label', 'Log out');
-  logoutBtn.appendChild(icon('power', 18));
+  logoutBtn.className   = 'btn-logout';
+  logoutBtn.textContent = 'Logout';
   logoutBtn.addEventListener('click', async () => {
     await logout();
     window.location.href = ROUTES.LOGIN;
@@ -179,9 +131,13 @@ export function renderNavbar(user, unreadCount = 0) {
 
 // ---------------------------------------------------------------------------
 // Mobile sidebar drawer — off-canvas below 768px (see main.css's Mobile
-// Shell section). Desktop never sees this: the hamburger button is
-// display:none above the breakpoint, so document.body never gets the
-// 'sidebar-open' class there.
+// Shell section for the breakpoint, matching bloodRequests.css's existing
+// component-tabs/carousel precedent). Desktop never sees this: the
+// hamburger button is display:none above the breakpoint, so
+// document.body never gets the 'sidebar-open' class there. Self-contained
+// here rather than in appShell.js so navbar.js doesn't need a new
+// cross-file import for what's ultimately just a class toggle it owns
+// the trigger for.
 // ---------------------------------------------------------------------------
 
 let _backdropInitialized = false;
@@ -203,47 +159,12 @@ function ensureSidebarBackdrop() {
 
 function closeSidebarDrawer() {
   document.body.classList.remove('sidebar-open');
-  const btn = document.getElementById('sidebar-toggle');
-  btn?.setAttribute('aria-expanded', 'false');
-  btn?.classList.remove('navbar-hamburger--open');
-}
-
-// ---------------------------------------------------------------------------
-// Scroll shadow — purely cosmetic, gives the fixed navbar a hairline of
-// depth once page content is scrolled beneath it. One listener for the
-// life of the tab; harmless to call ensureScrollShadow() again on
-// navigation since the guard flag lives at module scope.
-// ---------------------------------------------------------------------------
-
-let _scrollShadowInitialized = false;
-
-function ensureScrollShadow() {
-  if (_scrollShadowInitialized) return;
-  _scrollShadowInitialized = true;
-
-  const update = () => {
-    const nav = document.getElementById('navbar');
-    if (!nav) return;
-    nav.classList.toggle('navbar-scrolled', window.scrollY > 2);
-  };
-  window.addEventListener('scroll', update, { passive: true });
-  update();
+  document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'false');
 }
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function buildHamburgerGlyph() {
-  const wrap = document.createElement('span');
-  wrap.className = 'hamburger-glyph';
-  for (let i = 0; i < 3; i++) {
-    const bar = document.createElement('span');
-    bar.className = 'hamburger-bar';
-    wrap.appendChild(bar);
-  }
-  return wrap;
-}
 
 function buildAvatar(user) {
   if (user.profile_img && isImageUrl(user.profile_img)) {
