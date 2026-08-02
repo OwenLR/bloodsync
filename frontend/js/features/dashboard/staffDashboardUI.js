@@ -47,11 +47,17 @@ export async function initStaffDashboard(user) {
       getAllDrives(),
     ]);
     hideSkeleton();
+    showContent();
+    // showContent() must run before renderCharts() — #dashboard-content
+    // starts as display:none in dashboard.html, and Chart.js measures its
+    // canvas's parent size at construction time. Building the charts while
+    // still hidden makes Chart.js fall back to the canvas's native default
+    // size (150px tall) instead of filling .chart-canvas-wrap's 220px,
+    // which is what caused the "chart sits high, gap below" rendering bug.
     renderKpis(inventory, requests, donors);
     renderCharts(inventory, requests);
     renderUpcomingDrives(drives);
     renderQuickActions();
-    showContent();
   } catch (err) {
     hideSkeleton();
     showError();
@@ -99,11 +105,24 @@ function renderKpis(inventory, requests, donors) {
   const container = document.getElementById('kpi-row');
   container.textContent = '';
 
-  const lowStockCount = inventory.stock_by_type.filter(s => s.low_stock).length;
+  // Total Available units, branch-scoped same as everything else on this
+  // dashboard. inventory.status_breakdown already comes back from the report
+  // (getInventoryStatusBreakdown) but wasn't being read anywhere on this page —
+  // its 'Available' row is exactly this count (already excludes expired units,
+  // since that query relabels status='Available' + past-expiration rows as
+  // 'Expired' server-side).
+  const availableUnits = inventory.status_breakdown
+    .find(s => s.status === 'Available')?.count || 0;
+
   const statPending = requests.urgency_breakdown_active
     .find(u => u.urgency_level === 'STAT')?.count || 0;
 
   const kpis = [
+    {
+      label: 'Available Units',
+      value: availableUnits,
+      href: ROUTES.STAFF.BLOOD_UNITS,
+    },
     {
       label: 'Units Expiring Soon',
       value: inventory.expiry.near_expiry_count,
@@ -111,10 +130,14 @@ function renderKpis(inventory, requests, donors) {
       alert: inventory.expiry.near_expiry_count > 0,
     },
     {
-      label: 'Low-Stock Blood Types',
-      value: lowStockCount,
+      // Replaces the old "Low-Stock Blood Types" KPI (a bare count of
+      // distinct types below threshold wasn't actionable enough as a
+      // standalone number — see chat discussion). inventory.inbound
+      // already comes back from the report (getInventoryInboundTotals)
+      // but wasn't being read anywhere on this page.
+      label: 'New Units Added This Week',
+      value: inventory.inbound.this_week,
       href: ROUTES.STAFF.BLOOD_UNITS,
-      alert: lowStockCount > 0,
     },
     {
       label: 'STAT Requests Pending',
@@ -152,32 +175,80 @@ function renderKpiCard({ label, value, href, alert }) {
 
 // ── Charts ────────────────────────────────────────────────────────────
 
+// Fixed order for the urgency doughnut — matches contract.md's Urgency enum
+// (Routine | STAT), STAT first since it's the more actionable category.
+const URGENCY_ORDER = ['STAT', 'Routine'];
+
 function renderCharts(inventory, requests) {
   // Stock by blood type — aggregated across components (a raw per-
   // blood-type-per-component breakdown can run to 20-30+ bars, too
   // cramped for a dashboard glance; the full breakdown already lives on
   // the Reports page). A type is flagged red if ANY of its components
-  // are low stock.
+  // are low stock, OR if it has zero available units at all (see
+  // aggregateStockByType's comment below).
+  //
+  // Always renders all 8 blood types, even ones with 0 units — a type
+  // silently missing from the chart reads as "no data for this type yet"
+  // rather than "zero in stock," which is the opposite of what staff need
+  // to notice. Same reasoning applies to the urgency chart below — an
+  // empty state hides the fact that today happens to have 0 STAT/Routine
+  // requests, which is itself useful information, not an error state.
   const aggregated = aggregateStockByType(inventory.stock_by_type);
-  toggleChartEmpty('chart-stock-by-type', aggregated.length === 0);
-  if (aggregated.length > 0) {
-    renderBarChart('chart-stock-by-type', {
-      labels: aggregated.map(a => a.bloodType),
-      data: aggregated.map(a => a.total),
-      color: aggregated.map(a => a.lowStock ? STOCK_COLOR_LOW : STOCK_COLOR_NORMAL),
-    });
-  }
+  renderBarChart('chart-stock-by-type', {
+    labels: aggregated.map(a => a.bloodType),
+    data: aggregated.map(a => a.total),
+    color: aggregated.map(a => a.lowStock ? STOCK_COLOR_LOW : STOCK_COLOR_NORMAL),
+  });
 
-  // Active request urgency split
-  const urgency = requests.urgency_breakdown_active;
-  toggleChartEmpty('chart-request-urgency', urgency.length === 0);
-  if (urgency.length > 0) {
+  // Active request urgency split — always both categories, 0 if absent.
+  const urgency = buildUrgencyData(requests.urgency_breakdown_active);
+  const totalUrgency = urgency.reduce((sum, u) => sum + u.count, 0);
+
+  if (totalUrgency === 0) {
+    // Chart.js draws no arcs at all for all-zero doughnut data — the ring
+    // disappears entirely and only the legend labels are left floating,
+    // which reads as broken rather than "zero requests." Render a full
+    // neutral-grey ring as a placeholder instead (data: [1, 1] so it's a
+    // real, visible ring, not real counts — showTooltip: false so hovering
+    // it doesn't show a misleading "STAT: 1"), plus a caption underneath
+    // making the zero reading explicit in words.
+    renderDoughnutChart('chart-request-urgency', {
+      labels: urgency.map(u => u.urgency_level),
+      data: [1, 1],
+      colors: ['#e0e0e0', '#e0e0e0'],
+      showTooltip: false,
+    });
+  } else {
     renderDoughnutChart('chart-request-urgency', {
       labels: urgency.map(u => u.urgency_level),
       data: urgency.map(u => u.count),
       colors: urgency.map(u => u.urgency_level === 'STAT' ? '#c00' : '#607d8b'),
     });
   }
+  toggleUrgencyEmptyCaption(totalUrgency === 0);
+}
+
+function toggleUrgencyEmptyCaption(show) {
+  const canvas = document.getElementById('chart-request-urgency');
+  if (!canvas) return;
+  const wrapper = canvas.closest('.chart-card');
+  let caption = wrapper.querySelector('.chart-empty-caption');
+
+  if (show) {
+    if (!caption) {
+      caption = document.createElement('p');
+      caption.className = 'chart-empty-caption';
+      caption.textContent = 'No active requests today.';
+      wrapper.appendChild(caption);
+    }
+  } else if (caption) {
+    caption.remove();
+  }
+}
+
+function buildUrgencyData(urgencyBreakdownActive) {
+  const map = new Map(urgencyBreakdownActive.map(u => [u.urgency_level, u.count]));
+  return URGENCY_ORDER.map(level => ({ urgency_level: level, count: map.get(level) || 0 }));
 }
 
 function aggregateStockByType(stockByType) {
@@ -189,29 +260,15 @@ function aggregateStockByType(stockByType) {
     map.set(row.blood_type, existing);
   });
 
-  return BLOOD_TYPE_ORDER
-    .filter(bt => map.has(bt))
-    .map(bt => ({ bloodType: bt, ...map.get(bt) }));
-}
-
-function toggleChartEmpty(canvasId, isEmpty) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const wrapper = canvas.closest('.chart-card');
-  let emptyEl = wrapper.querySelector('.chart-empty-state');
-
-  if (isEmpty) {
-    canvas.style.display = 'none';
-    if (!emptyEl) {
-      emptyEl = document.createElement('p');
-      emptyEl.className = 'chart-empty-state';
-      emptyEl.textContent = 'No data yet.';
-      wrapper.appendChild(emptyEl);
-    }
-  } else {
-    canvas.style.display = '';
-    if (emptyEl) emptyEl.remove();
-  }
+  return BLOOD_TYPE_ORDER.map(bt => {
+    const existing = map.get(bt);
+    if (existing) return { bloodType: bt, ...existing };
+    // No row at all for this blood type = zero available units across every
+    // component. That's the worst case, not a "no data" case — flag it as
+    // low stock too, not just types that have some stock but below
+    // LOW_STOCK_THRESHOLD.
+    return { bloodType: bt, total: 0, lowStock: true };
+  });
 }
 
 // ── Upcoming Drives at Your Branch ──────────────────────────────────────

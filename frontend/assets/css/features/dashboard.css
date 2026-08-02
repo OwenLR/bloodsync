@@ -105,6 +105,18 @@ a.kpi-card:hover {
   padding: 40px 0;
 }
 
+/* Caption shown BELOW a chart that's still rendered (e.g. a neutral
+   placeholder ring for all-zero doughnut data) — distinct from
+   .chart-empty-state above, which fully replaces a hidden canvas.
+   Smaller/tighter since it sits under a chart that's already taking up
+   the .chart-canvas-wrap's full height, not filling that space itself. */
+.chart-empty-caption {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  margin-top: 8px;
+}
+
 /* ── Generic card text (reused by Requestor and Field dashboards) ──── */
 .card-heading {
   font-size: 15px;

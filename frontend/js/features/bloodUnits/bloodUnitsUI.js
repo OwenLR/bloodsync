@@ -26,6 +26,22 @@ const TERMINAL_UNIT_STATUSES = [
   BLOOD_UNIT_STATUS.SEPARATED,
 ];
 
+// Display order for grouping rows by status (top -> bottom). Per product
+// direction: Available first, then Disposed, Expired, Released, Separated.
+// Reserved and Withdrawn weren't specified — placed next to their nearest
+// conceptual neighbor (Reserved beside Available as a "live" status,
+// Withdrawn beside Disposed as a removal-reason terminal status). Any
+// status not in this list falls to the very end rather than being dropped.
+const STATUS_DISPLAY_ORDER = [
+  BLOOD_UNIT_STATUS.AVAILABLE,
+  BLOOD_UNIT_STATUS.RESERVED,
+  BLOOD_UNIT_STATUS.DISPOSED,
+  BLOOD_UNIT_STATUS.WITHDRAWN,
+  BLOOD_UNIT_STATUS.EXPIRED,
+  BLOOD_UNIT_STATUS.RELEASED,
+  BLOOD_UNIT_STATUS.SEPARATED,
+];
+
 // Display labels for the component tabs / empty-state messaging. Component
 // enum values themselves (contract.md's Blood Components list) aren't in
 // statusConstants.js — mirrored here locally rather than introducing a new
@@ -111,7 +127,21 @@ function renderRows(rows) {
   hideEmptyState();
   wrap.style.display = '';
 
-  rows.forEach(row => tbody.appendChild(buildRow(row)));
+  const sorted = sortByStatusGroup(rows);
+  sorted.forEach(row => tbody.appendChild(buildRow(row)));
+}
+
+// Groups rows by STATUS_DISPLAY_ORDER; stable within each group (keeps the
+// order rows arrived in from the API). Unrecognized statuses sort last.
+function sortByStatusGroup(rows) {
+  const rank = status => {
+    const i = STATUS_DISPLAY_ORDER.indexOf(status);
+    return i === -1 ? STATUS_DISPLAY_ORDER.length : i;
+  };
+  return rows
+    .map((row, i) => ({ row, i }))
+    .sort((a, b) => rank(a.row.status) - rank(b.row.status) || a.i - b.i)
+    .map(({ row }) => row);
 }
 
 function buildRow(unit) {
@@ -120,7 +150,6 @@ function buildRow(unit) {
   tr.appendChild(cell(unit.blood_type));
   tr.appendChild(cell(unit.component));
   tr.appendChild(cell(`${unit.volume_ml} mL`));
-  tr.appendChild(cell(unit.barcode));
   tr.appendChild(cell(`${unit.first_name} ${unit.last_name}`));
   tr.appendChild(cell(formatDate(unit.expiration_date)));
   tr.appendChild(statusCell(unit));
@@ -145,32 +174,44 @@ function statusCell(unit) {
 }
 
 // Dispose/Withdraw only — Separate lives on a different page (Section 4).
-// Hidden entirely once a unit hits any terminal status, including the
-// server-computed 'Expired'.
+// For terminal statuses, the buttons are still rendered but hidden via
+// visibility:hidden (not omitted from the DOM) so every row reserves the
+// same button-slot space — otherwise rows with only "Details" render
+// shorter than rows with all three buttons, throwing off row height/
+// border alignment across status groups.
 function actionsCell(unit) {
-  const td = document.createElement('td');
-  td.className = 'table-actions';
+  const td  = document.createElement('td');
+  const box = document.createElement('div');
+  box.className = 'table-actions';
+
+  const isTerminal = TERMINAL_UNIT_STATUSES.includes(unit.status);
 
   const detailsBtn = document.createElement('button');
   detailsBtn.className   = 'btn-secondary btn-xs';
   detailsBtn.textContent = 'Details';
   detailsBtn.addEventListener('click', () => openDetailModal(unit.unit_id));
-  td.appendChild(detailsBtn);
+  box.appendChild(detailsBtn);
 
-  if (!TERMINAL_UNIT_STATUSES.includes(unit.status)) {
-    const disposeBtn = document.createElement('button');
-    disposeBtn.className   = 'btn-danger btn-xs';
-    disposeBtn.textContent = 'Dispose';
-    disposeBtn.addEventListener('click', () => openReasonModal(unit, BLOOD_UNIT_STATUS.DISPOSED));
-    td.appendChild(disposeBtn);
+  const disposeBtn = document.createElement('button');
+  disposeBtn.className   = 'btn-danger btn-xs';
+  disposeBtn.textContent = 'Dispose';
+  disposeBtn.addEventListener('click', () => openReasonModal(unit, BLOOD_UNIT_STATUS.DISPOSED));
+  box.appendChild(disposeBtn);
 
-    const withdrawBtn = document.createElement('button');
-    withdrawBtn.className   = 'btn-secondary btn-xs';
-    withdrawBtn.textContent = 'Withdraw';
-    withdrawBtn.addEventListener('click', () => openReasonModal(unit, BLOOD_UNIT_STATUS.WITHDRAWN));
-    td.appendChild(withdrawBtn);
+  const withdrawBtn = document.createElement('button');
+  withdrawBtn.className   = 'btn-secondary btn-xs';
+  withdrawBtn.textContent = 'Withdraw';
+  withdrawBtn.addEventListener('click', () => openReasonModal(unit, BLOOD_UNIT_STATUS.WITHDRAWN));
+  box.appendChild(withdrawBtn);
+
+  if (isTerminal) {
+    disposeBtn.style.visibility  = 'hidden';
+    withdrawBtn.style.visibility = 'hidden';
+    disposeBtn.tabIndex  = -1;
+    withdrawBtn.tabIndex = -1;
   }
 
+  td.appendChild(box);
   return td;
 }
 

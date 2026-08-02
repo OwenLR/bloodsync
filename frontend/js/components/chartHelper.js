@@ -89,8 +89,13 @@ export function renderBarChart(canvasId, { labels, data, horizontal = false, col
 /**
  * renderDoughnutChart(canvasId, { labels, data, colors })
  * Multi-series composition chart (e.g. user roles breakdown).
+ * showTooltip: false is for placeholder/neutral data that doesn't
+ * represent real counts (e.g. staffDashboardUI.js's all-zero-urgency
+ * placeholder ring) — same reasoning as renderGaugeChart's tooltip.enabled
+ * below, just made an explicit param here since this function's normal
+ * use case (real data) does want tooltips.
  */
-export function renderDoughnutChart(canvasId, { labels, data, colors = CHART_COLORS.palette }) {
+export function renderDoughnutChart(canvasId, { labels, data, colors = CHART_COLORS.palette, showTooltip = true }) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || !window.Chart) return null;
   destroyExisting(canvas);
@@ -112,7 +117,8 @@ export function renderDoughnutChart(canvasId, { labels, data, colors = CHART_COL
       animation: FIXED_GEOMETRY_ANIMATION,
       animations: COLOR_FADE_ANIMATIONS,
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+        legend:  { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: { enabled: showTooltip },
       },
     },
   });

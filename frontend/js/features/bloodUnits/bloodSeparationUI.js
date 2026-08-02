@@ -65,7 +65,6 @@ function buildRow(unit) {
 
   tr.appendChild(cell(unit.blood_type));
   tr.appendChild(cell(`${unit.volume_ml} mL`));
-  tr.appendChild(cell(unit.barcode));
   tr.appendChild(cell(`${unit.first_name} ${unit.last_name}`));
   tr.appendChild(cell(formatDate(unit.expiration_date)));
   tr.appendChild(actionsCell(unit));
@@ -80,15 +79,17 @@ function cell(text) {
 }
 
 function actionsCell(unit) {
-  const td = document.createElement('td');
-  td.className = 'table-actions';
+  const td  = document.createElement('td');
+  const box = document.createElement('div');
+  box.className = 'table-actions';
 
   const separateBtn = document.createElement('button');
   separateBtn.className   = 'btn-primary btn-xs';
   separateBtn.textContent = 'Separate';
   separateBtn.addEventListener('click', () => handleSeparate(unit));
-  td.appendChild(separateBtn);
+  box.appendChild(separateBtn);
 
+  td.appendChild(box);
   return td;
 }
 
