@@ -11,6 +11,15 @@ body {
   padding: 24px;
   position: relative;
   overflow-x: hidden;
+
+  /* "Inside a blood vessel" backdrop — warm red glow at center fading
+     to a near-black red at the edges, like looking down a lit vessel. */
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    #8a1f14 0%,
+    #5c130c 45%,
+    #2a0806 100%
+  );
 }
 
 /*
