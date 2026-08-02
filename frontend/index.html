@@ -9,6 +9,16 @@
 </head>
 <body>
 
+  <!--
+    Live background (added this session) — tsParticles, MIT license, loaded
+    pinned-version from unpkg (already whitelisted in Helmet's CSP
+    scriptSrc, so no server config change needed). Decorative only:
+    aria-hidden, pointer-events disabled via CSS (see login.css), and
+    authBackground.js no-ops if the CDN script fails to load or the user
+    has prefers-reduced-motion on — never blocks or delays the actual form.
+  -->
+  <div id="auth-bg" aria-hidden="true"></div>
+
   <div class="login-card">
 
     <div class="login-brand">
@@ -17,7 +27,7 @@
         <div class="brand-cross" aria-hidden="true"></div>
         <span class="brand-name">BloodSync</span>
       </div>
-      <p class="brand-org">Philippine Red Cross · Batangas Chapter</p>
+      <p class="brand-org">BloodSynx System · Capstone Project</p>
     </div>
 
     <div class="login-form-panel">
@@ -60,6 +70,9 @@
 
   </div>
 
+  <!-- tsParticles (MIT), pinned version via unpkg — see authBackground.js header comment -->
+  <script src="https://unpkg.com/@tsparticles/slim@4.3.2/tsparticles.slim.bundle.min.js"></script>
+  <script type="module" src="/js/entry/authBackground.js"></script>
   <script type="module" src="/js/entry/loginPage.js"></script>
 </body>
 </html>

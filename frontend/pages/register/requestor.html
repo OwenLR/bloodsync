@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BloodSync | Register — Requestor</title>
+  <title>BloodSync | Register Requestor</title>
   <link rel="stylesheet" href="/assets/css/main.css" />
   <link rel="stylesheet" href="/assets/css/pages/login.css" />
   <link rel="stylesheet" href="/assets/css/pages/register.css" />
 </head>
 <body>
+
+  <!-- Live background — see index.html's comment for details -->
+  <div id="auth-bg" aria-hidden="true"></div>
 
   <div class="login-card">
 
@@ -17,7 +20,7 @@
         <div class="brand-cross" aria-hidden="true"></div>
         <span class="brand-name">BloodSync</span>
       </div>
-      <p class="brand-org">Philippine Red Cross · Batangas Chapter</p>
+      <p class="brand-org">BloodSync System · Capstone Project/p>
     </div>
 
     <div class="login-form-panel">
@@ -66,6 +69,9 @@
 
   </div>
 
+  <!-- tsParticles (MIT), pinned version via unpkg — see authBackground.js header comment -->
+  <script src="https://unpkg.com/@tsparticles/slim@4.3.2/tsparticles.slim.bundle.min.js"></script>
+  <script type="module" src="/js/entry/authBackground.js"></script>
   <script type="module" src="/js/entry/register/requestorRegister.js"></script>
 </body>
 </html>

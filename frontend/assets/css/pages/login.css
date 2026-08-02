@@ -9,6 +9,21 @@ body {
   justify-content: center;
   min-height: 100vh;
   padding: 24px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/*
+ * Live background container (added this session) — see
+ * /js/entry/authBackground.js. Fixed full-viewport, sits behind the card
+ * (z-index 0 vs the card's 1), pointer-events disabled so it never
+ * intercepts clicks/taps meant for the form on top of it.
+ */
+#auth-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .login-card {
@@ -18,6 +33,8 @@ body {
   width: 100%;
   max-width: 480px;
   padding: 32px;
+  position: relative;
+  z-index: 1;
 }
 
 .login-brand {
