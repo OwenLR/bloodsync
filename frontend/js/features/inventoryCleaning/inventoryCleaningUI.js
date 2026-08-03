@@ -239,7 +239,7 @@ function openBulkRemoveModal() {
   list.className = 'detail-list';
   selectedUnits.forEach(u => {
     const li = document.createElement('li');
-    li.textContent = `${u.barcode} — ${u.blood_type} ${u.component} (expired ${formatDate(u.expiration_date)})`;
+    li.textContent = `${u.blood_type} ${u.component} (expired ${formatDate(u.expiration_date)})`;
     list.appendChild(li);
   });
   body.appendChild(list);
