@@ -26,7 +26,7 @@ const updateUnitStatus = async (unitId, status, reason, updatedBy) => {
 
     // Domain rules throw plain Error — wrap them as BusinessError here
     try {
-        assertNotTerminal(unit);
+        assertNotTerminal(unit, status);
         assertReasonProvided(status, reason);
     } catch (err) {
         throw new BusinessError(err.message, 400);

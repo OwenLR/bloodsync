@@ -17,6 +17,15 @@ const TERMINAL_STATUSES = ['Released', 'Disposed', 'Withdrawn', 'Separated'];
 const REASON_REQUIRED_STATUSES = ['Disposed', 'Withdrawn'];
 
 /**
+ * Statuses still allowed on an expired unit — expiry cleanup (Inventory
+ * Cleaning) needs to move an expired unit to Disposed/Withdrawn. Every
+ * other status change on an expired unit remains blocked (e.g. it cannot
+ * be flipped back to Available, and cannot be Separated — separation has
+ * its own assertSeparable check requiring status === 'Available' anyway).
+ */
+const EXPIRED_ALLOWED_STATUSES = ['Disposed', 'Withdrawn'];
+
+/**
  * Assert that a blood unit is not in a terminal state.
  *
  * Two terminal conditions:
@@ -28,16 +37,24 @@ const REASON_REQUIRED_STATUSES = ['Disposed', 'Withdrawn'];
  *    the unit's own expiration_date rather than relying on a stored status
  *    string that nothing sets.
  *
+ * Condition 2 has one exception: if the requested targetStatus is Disposed
+ * or Withdrawn, an expired unit is allowed through — expiry cleanup is the
+ * whole reason this status check exists in the first place, so it cannot
+ * block the very transition it's meant to allow.
+ *
  * @param {{ status: string, expiration_date: string|Date }} unit
- * @throws {Error} if unit status is terminal or unit has expired
+ * @param {string} [targetStatus] - the status being requested for this unit
+ * @throws {Error} if unit status is terminal, or unit has expired and
+ *   targetStatus is not Disposed/Withdrawn
  */
-const assertNotTerminal = (unit) => {
+const assertNotTerminal = (unit, targetStatus) => {
     if (TERMINAL_STATUSES.includes(unit.status)) {
         throw new Error(
             `Cannot update. Unit is already ${unit.status}`
         );
     }
-    if (unit.expiration_date && new Date(unit.expiration_date) <= new Date()) {
+    const isExpired = unit.expiration_date && new Date(unit.expiration_date) <= new Date();
+    if (isExpired && !EXPIRED_ALLOWED_STATUSES.includes(targetStatus)) {
         throw new Error(
             'Cannot update. Unit has expired'
         );
@@ -82,6 +99,7 @@ const assertSeparable = (unit) => {
 module.exports = {
     TERMINAL_STATUSES,
     REASON_REQUIRED_STATUSES,
+    EXPIRED_ALLOWED_STATUSES,
     assertNotTerminal,
     assertReasonProvided,
     assertSeparable,
