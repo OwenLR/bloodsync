@@ -269,14 +269,22 @@ const getSuggestedParticipants = async (req, res) => {
         const errors = validateSuggestions(req.query);
         if (errors.length > 0) return response.badRequest(res, errors[0]);
 
-        const results = await bloodDriveStaffingService.getSuggestedParticipants(
+        const suggestions = await bloodDriveStaffingService.getSuggestedParticipants(
             req.params.id,
             {
                 role_id: req.query.role_id || null,
                 limit:   req.query.limit   || null,
             }
         );
-        return response.success(res, results);
+        // Service returns { drive_has_coords, total_candidates, results } —
+        // the extra fields are useful internally for bulkAddParticipants'
+        // empty-check, but contract.md documents this endpoint's response
+        // as a flat array of volunteer objects, which is what
+        // bloodDrivesApi.js's getSuggestedParticipants() expects as
+        // body.data. Unwrap here at the HTTP boundary rather than changing
+        // the service's return shape, so bulkAddParticipants (which calls
+        // the service directly, not through this controller) is unaffected.
+        return response.success(res, suggestions.results);
     } catch (error) {
         return response.handleError(res, error);
     }
