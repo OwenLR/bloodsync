@@ -17,18 +17,47 @@
 
     <main id="content" class="page-content">
 
-      <!-- No .page-header here on purpose — the hero below serves as
-           this page's banner/title, matching the warmer public-facing
-           register for Requestor vs. Admin/Staff's plain page-header. -->
-      <section id="dashboard-hero" class="dashboard-hero"></section>
+      <!-- Full-bleed hero: breaks out of .page-content's own padding
+           (main.css) via negative margin on top/left/right, so this
+           reads as a real page masthead instead of a card floating in
+           a mostly-empty box. This is the first thing a stranger sees —
+           possibly in a stressful situation (needing blood for someone),
+           possibly deciding whether to trust a nonprofit with their
+           data — so it carries the single primary CTA and a short trust
+           note, nothing else competes with it. -->
+      <section class="db-hero">
+        <div id="dashboard-hero"></div>
+      </section>
 
-      <div class="dashboard-grid">
-        <section id="active-request-card" class="chart-card"></section>
-        <section id="mission-blurb" class="chart-card"></section>
-        <section id="availability-teaser" class="chart-card"></section>
+      <!-- Centered content column below the hero. -->
+      <div class="db-content">
+
+        <!-- Active request's status stepper, OR (no active request) a
+             "how it works" explainer — mutually exclusive states
+             rendered into this one slot by requestorDashboardUI.js.
+             Replaces the old empty-state card's own "Submit a Request"
+             button, which just duplicated the hero's CTA. -->
+        <section id="status-panel"></section>
+
+        <!-- Trust strip — replaces the old "Did You Know" card and the
+             "Check Blood Availability" card. The latter had nowhere
+             real to send people: there's no standalone availability-
+             browsing feature per contract.md (branch availability is
+             only surfaced mid-submission via POST /fulfillment-options),
+             so its button silently pointed at the same submit-request
+             route as the hero CTA. This section speaks to legitimacy/
+             confidentiality instead, which matters more on a first
+             visit than a 3rd link to the same form. -->
+        <section id="trust-strip"></section>
+
       </div>
-
-      <section id="quick-actions" class="quick-actions"></section>
+      <!-- No separate Quick Actions tile grid — ASSUMPTION FLAG: removed
+           on the assumption that the sidebar's "general" section (Requestor
+           role, per rules.md) already links to Submit Request / My
+           Requests, which would make a tile grid here a 3rd copy of the
+           same two links (hero + sidebar + tiles). sidebarItems.js
+           wasn't uploaded this session to confirm — if the sidebar does
+           NOT already have these, a slim link should be added back here. -->
 
     </main>
   </div>

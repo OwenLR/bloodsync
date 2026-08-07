@@ -1,61 +1,365 @@
 /*
  * pages/requestor/dashboard.css. Requestor Dashboard.
  *
- * Deliberately warmer/public-facing register than Admin/Staff. Hero
- * banner and stepper are Requestor-specific and live here, not in
- * features/dashboard.css, since Admin/Staff never use them. .chart-card,
- * .quick-actions, .quick-actions-list, .card-heading, .card-subtext,
- * .donation-fact, and skeleton classes ARE reused from features/
- * dashboard.css and main.css.
+ * Deliberately warmer/public-facing register than Admin/Staff — this is
+ * the first page a stranger sees, often either stressed (needing blood
+ * for someone) or sizing up whether to trust a nonprofit with their
+ * data. Design choices below are aimed at both: one clear action, no
+ * duplicate CTAs, and legitimacy/confidentiality signals up front.
+ *
+ * REDESIGN NOTE (v2): moved from a single large rounded gradient
+ * container (v1, "full-bleed panel") to a real full-page layout —
+ * .db-hero breaks out of .page-content's own padding via negative
+ * margin, so it's an edge-to-edge masthead, not a card sitting in a
+ * mostly-empty page. Everything below the hero sits on the normal page
+ * background in a centered content column (.db-content), each section
+ * styled as its own light card — not crammed into one colored box.
+ *
+ * .card-heading / .card-subtext / .donation-fact classes from
+ * features/dashboard.css are NOT reused here anymore (this page no
+ * longer shares that card shape) — this file is fully self-contained
+ * for its own class names, scoped under .db-hero/.db-content so nothing
+ * here can leak into Admin/Staff/Field dashboards.
+ *
+ * REDESIGN NOTE (v3 — scroll-reveal pass): the goal this pass was to
+ * make the page feel like a current long-scroll landing page rather
+ * than a flat form-adjacent dashboard: below-the-fold sections
+ * fade/rise into view as the visitor scrolls to them (see .reveal
+ * below, driven by IntersectionObserver in requestorDashboardUI.js),
+ * section eyebrows/headings give an editorial rhythm, the trust strip
+ * gets its own full-bleed tinted band (same technique as .db-hero) so
+ * it reads as a distinct section rather than more of the same column,
+ * and cards got soft elevation (shadow) instead of a flat border for a
+ * bit more depth. The hero's own entrance is unchanged — it's above
+ * the fold, so it still animates in immediately on load, not on scroll.
  */
 
-.dashboard-hero {
-  background: linear-gradient(135deg, #c0392b, #922b21);
+/* ── Icon utility (this page only) ──────────────────────────────────── */
+.dash-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.dash-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   HERO — full-bleed masthead
+   ═══════════════════════════════════════════════════════════════════ */
+
+.db-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  /* Cancels main.css's .page-content { padding: 24px } on 3 sides so
+     this reaches the real edges of the content area instead of sitting
+     inset like a card. Bottom margin stays positive — only this section
+     breaks out, everything below sits in the normal padded column. */
+  margin: -24px -24px 36px -24px;
+  padding: 60px 28px 68px;
+  background: linear-gradient(160deg, #d1493b 0%, #c0392b 45%, #922b21 100%);
   color: #fff;
-  padding: 40px 32px;
-  border-radius: 8px;
-  margin-bottom: 24px;
+  border-radius: 0 0 32px 32px;
+}
+
+/* Soft decorative blobs — purely visual, no meaning, hence not real
+   elements: kept as CSS-only pseudo-elements so no HTML/JS changes
+   were needed to add them. */
+.db-hero::before,
+.db-hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  z-index: 0;
+}
+
+.db-hero::before {
+  width: 300px;
+  height: 300px;
+  top: -140px;
+  right: -70px;
+  opacity: 0.13;
+}
+
+.db-hero::after {
+  width: 220px;
+  height: 220px;
+  bottom: -120px;
+  left: -60px;
+  opacity: 0.10;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
 
-.hero-motto {
-  font-size: 22px;
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 11.5px;
   font-weight: 700;
-  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+  margin-bottom: 16px;
+}
+
+/* Room for an optional real PRC Batangas Chapter seal/logo image to
+   replace the generic shield-check icon — drop a PNG/SVG under
+   assets/img/ and swap the <span class="hero-badge-icon"> for an <img>
+   of this same size. A real seal reads as more legitimate than any
+   icon can on a stranger's first visit. Not required — works fine
+   icon-only as shipped. */
+.hero-badge-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.hero-motto {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
 }
 
 .hero-subtext {
-  font-size: 14px;
-  opacity: 0.9;
-  margin-bottom: 20px;
+  font-size: 14.5px;
+  opacity: 0.92;
+  margin-bottom: 24px;
+  line-height: 1.5;
 }
 
 .hero-cta {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: #fff;
   color: #c0392b;
   font-weight: 700;
-  padding: 10px 24px;
-  border-radius: 4px;
+  padding: 12px 26px;
+  border-radius: 999px;
   text-decoration: none;
+  animation: heroPulse 2.6s ease-in-out infinite;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .hero-cta:hover {
-  background: #f5f5f5;
+  background: #fff5f4;
+  transform: translateY(-1px);
 }
 
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+.hero-cta-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.15s ease;
 }
 
-/* ── Request status stepper ─────────────────────────────────────── */
-.request-stepper {
+.hero-cta:hover .hero-cta-icon {
+  transform: translateX(3px);
+}
+
+@keyframes heroPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  50%      { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0); }
+}
+
+/* Small reassurance line under the CTA — speaks directly to the
+   "trusting a nonprofit with my data" concern right where the action is. */
+.hero-trust-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.hero-trust-note .dash-icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* ── Scroll cue ──────────────────────────────────────────────────────
+   Signals there's more below the fold and gives a one-click way down
+   (click handler in requestorDashboardUI.js scrolls to #status-panel).
+   Sits inside .db-hero (not .hero-content) so it's positioned relative
+   to the whole hero band, not the centered text column. Not a .reveal
+   element — the hero is already visible on load, no scroll needed to
+   see it. */
+.hero-scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  padding: 6px;
+  transition: color 0.15s ease;
+}
+
+.hero-scroll-cue:hover,
+.hero-scroll-cue:focus-visible {
+  color: #fff;
+  outline: none;
+}
+
+.hero-scroll-cue-icon {
+  width: 18px;
+  height: 18px;
+  animation: heroScrollBounce 1.8s ease-in-out infinite;
+}
+
+.hero-scroll-cue-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes heroScrollBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(5px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION INTROS — eyebrow + heading, used by the status panel and
+   the trust strip for an editorial "landing page" rhythm
+   ═══════════════════════════════════════════════════════════════════ */
+
+.section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-red, #c0392b);
+  margin-bottom: 10px;
+}
+
+.section-eyebrow::before {
+  content: '';
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--bs-red, #c0392b);
+}
+
+.section-heading {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--bs-ink, #111);
+  letter-spacing: -0.01em;
+}
+
+.section-intro-wrap {
+  margin-bottom: 22px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CONTENT COLUMN — sits on the normal page background
+   ═══════════════════════════════════════════════════════════════════ */
+
+.db-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+}
+
+/* ── Shared light-card shell (status panel + trust items) ──────────── */
+.status-card {
+  background: var(--bs-paper, #fff);
+  border: 1px solid var(--bs-line, #E4E1DC);
+  border-radius: 18px;
+  padding: 28px 30px;
+  box-shadow: 0 1px 2px rgba(28, 27, 31, 0.03), 0 10px 28px rgba(28, 27, 31, 0.05);
+}
+
+.status-card-heading-row {
   display: flex;
   align-items: center;
-  margin: 16px 0;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.status-card-icon {
+  color: var(--bs-red, #c0392b);
+  flex-shrink: 0;
+}
+
+.status-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bs-ink, #111);
+}
+
+.status-card-subtext {
+  font-size: 13.5px;
+  color: var(--bs-ink-soft, #666);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.status-icon-lg {
+  width: 32px;
+  height: 32px;
+  color: var(--bs-red, #c0392b);
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
+
+.status-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bs-red, #c0392b);
+}
+
+.status-card-link .dash-icon {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s ease;
+}
+
+.status-card-link:hover .dash-icon {
+  transform: translateX(3px);
+}
+
+/* ── Request status stepper (active-request state) ─────────────────── */
+.request-stepper {
+  display: flex;
+  align-items: flex-start;
+  margin: 6px 0 20px;
 }
 
 .request-stepper-step {
@@ -69,30 +373,41 @@
 .request-stepper-step:not(:last-child)::after {
   content: '';
   position: absolute;
-  top: 6px;
+  top: 13px;
   left: 50%;
   width: 100%;
   height: 2px;
-  background: #ddd;
+  background: #eee;
   z-index: 0;
 }
 
 .request-stepper-step--done:not(:last-child)::after {
-  background: #c0392b;
+  background: var(--bs-red-tint-2, #F5D6D0);
 }
 
 .request-stepper-dot {
-  width: 14px;
-  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: #ddd;
+  background: #f1f1f1;
+  color: #aaa;
   z-index: 1;
   margin-bottom: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.request-stepper-dot .dash-icon {
+  width: 13px;
+  height: 13px;
 }
 
 .request-stepper-step--done .request-stepper-dot,
 .request-stepper-step--active .request-stepper-dot {
-  background: #c0392b;
+  background: var(--bs-red, #c0392b);
+  color: #fff;
 }
 
 .request-stepper-label {
@@ -102,11 +417,217 @@
 }
 
 .request-stepper-step--active .request-stepper-label {
-  color: #c0392b;
+  color: var(--bs-red, #c0392b);
   font-weight: 700;
 }
 
+/* ── "How it works" explainer (no-active-request state) ─────────────
+   Replaces the old empty-state's redundant "Submit a Request" button.
+   Teaches a first-time visitor what happens after they click the hero
+   CTA — more useful than a second copy of the same button, and
+   directly useful for someone anxious about the process. */
+.howitworks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 4px;
+}
+
+@media (min-width: 640px) {
+  .howitworks-list {
+    flex-direction: row;
+  }
+}
+
+.howitworks-step {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.howitworks-num {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bs-red-tint, #FBEAE7);
+  color: var(--bs-red, #c0392b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.howitworks-text {
+  min-width: 0;
+}
+
+.howitworks-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--bs-ink, #111);
+  margin-bottom: 3px;
+}
+
+.howitworks-desc {
+  font-size: 12.5px;
+  color: var(--bs-ink-soft, #666);
+  line-height: 1.5;
+}
+
+/* Deliberately a plain text link, not a .btn — the hero already has
+   the one prominent CTA; this is only for someone who scrolled past it. */
+.howitworks-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bs-red, #c0392b);
+}
+
+.howitworks-cta .dash-icon {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s ease;
+}
+
+.howitworks-cta:hover .dash-icon {
+  transform: translateX(3px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TRUST STRIP — full-bleed tinted band, same breakout technique as
+   .db-hero, so this reads as its own section while scrolling
+   ═══════════════════════════════════════════════════════════════════ */
+
+.trust-band {
+  margin: 0 -24px;
+  padding: 44px 24px 56px;
+  background: linear-gradient(180deg, var(--bs-surface, #FCFCFB) 0%, #fdfaf9 100%);
+  border-top: 1px solid var(--bs-line, #E4E1DC);
+  border-bottom: 1px solid var(--bs-line, #E4E1DC);
+}
+
+.trust-band .section-intro-wrap,
+.trust-band .trust-strip {
+  max-width: 760px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.trust-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.trust-item {
+  background: var(--bs-paper, #fff);
+  border: 1px solid var(--bs-line, #E4E1DC);
+  border-radius: 14px;
+  padding: 18px 18px 20px;
+  box-shadow: 0 1px 2px rgba(28, 27, 31, 0.03), 0 8px 20px rgba(28, 27, 31, 0.04);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.trust-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(28, 27, 31, 0.05), 0 16px 32px rgba(28, 27, 31, 0.08);
+}
+
+.trust-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bs-red-tint, #FBEAE7);
+  color: var(--bs-red, #c0392b);
+  margin-bottom: 12px;
+  transition: transform 0.2s ease;
+}
+
+.trust-item:hover .trust-item-icon {
+  transform: scale(1.08);
+}
+
+.trust-item-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--bs-ink, #111);
+  margin-bottom: 6px;
+}
+
+.trust-item-text {
+  font-size: 12.5px;
+  color: var(--bs-ink-soft, #666);
+  line-height: 1.55;
+  min-height: 36px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.trust-item-text.trust-fact--fading {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLL REVEAL — below-the-fold sections fade/rise into view as the
+   visitor scrolls to them (IntersectionObserver in
+   requestorDashboardUI.js toggles .is-visible once, one-shot).
+   Deliberately excludes .db-hero/.hero-content, which keep their own
+   immediate on-load entrance further down this file — the hero is
+   above the fold, there's no "scrolling to" it.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0s);
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Entrance animation (hero only — see note above) ────────────────── */
+@keyframes dashRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.db-hero { animation: dashRise 0.5s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cta,
+  .hero-scroll-cue-icon,
+  .db-hero {
+    animation: none;
+  }
+}
+
 @media (max-width: 600px) {
-  .dashboard-hero { padding: 28px 20px; }
-  .hero-motto { font-size: 18px; }
+  .db-hero {
+    margin: -24px -24px 28px -24px;
+    padding: 44px 20px 56px;
+    border-radius: 0 0 24px 24px;
+  }
+  .hero-motto { font-size: 20px; }
+  .status-card { padding: 22px 20px; }
+  .trust-band { margin: 0 -24px; padding: 32px 20px 40px; }
+  .hero-scroll-cue { display: none; } /* not enough room above the fold on small screens for this to feel purposeful */
 }
