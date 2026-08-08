@@ -15,49 +15,41 @@
   <div class="page-shell">
     <aside id="sidebar"></aside>
 
-    <main id="content" class="page-content">
+    <main id="content" class="page-content db-page">
 
-      <!-- Full-bleed hero: breaks out of .page-content's own padding
-           (main.css) via negative margin on top/left/right, so this
-           reads as a real page masthead instead of a card floating in
-           a mostly-empty box. This is the first thing a stranger sees —
-           possibly in a stressful situation (needing blood for someone),
-           possibly deciding whether to trust a nonprofit with their
-           data — so it carries the single primary CTA and a short trust
-           note, nothing else competes with it. -->
-      <section class="db-hero">
+      <!-- Full-bleed magazine masthead. Breaks out of .page-content's own
+           padding (main.css), same technique as the previous pass, but
+           the interior is now a two-column editorial split instead of a
+           single centered block: headline and CTA on the left, a live
+           "in this issue" stat panel on the right. Full width is doing
+           work instead of framing empty margins. -->
+      <section class="db-masthead">
         <div id="dashboard-hero"></div>
       </section>
 
-      <!-- Centered content column below the hero. -->
-      <div class="db-content">
+      <!-- Only populated when the requestor has an active request. Renders
+           as its own full-width banner directly under the masthead. Left
+           empty (zero height, no padding) otherwise, so it never shows up
+           as a blank gap. -->
+      <section id="status-banner"></section>
 
-        <!-- Active request's status stepper, OR (no active request) a
-             "how it works" explainer — mutually exclusive states
-             rendered into this one slot by requestorDashboardUI.js.
-             Replaces the old empty-state card's own "Submit a Request"
-             button, which just duplicated the hero's CTA. -->
-        <section id="status-panel"></section>
+      <!-- Full-bleed rotating fact strip, edge to edge. -->
+      <section id="fact-ticker"></section>
 
-        <!-- Trust strip — replaces the old "Did You Know" card and the
-             "Check Blood Availability" card. The latter had nowhere
-             real to send people: there's no standalone availability-
-             browsing feature per contract.md (branch availability is
-             only surfaced mid-submission via POST /fulfillment-options),
-             so its button silently pointed at the same submit-request
-             route as the hero CTA. This section speaks to legitimacy/
-             confidentiality instead, which matters more on a first
-             visit than a 3rd link to the same form. -->
-        <section id="trust-strip"></section>
+      <!-- Bento-style content grid: one large "why BloodSync" feature
+           tile, a branch-count tile, and three compact "how it works"
+           tiles, all in one dense grid spanning the page width. Always
+           renders, regardless of whether there is an active request. -->
+      <section id="edit-grid"></section>
 
-      </div>
-      <!-- No separate Quick Actions tile grid — ASSUMPTION FLAG: removed
-           on the assumption that the sidebar's "general" section (Requestor
-           role, per rules.md) already links to Submit Request / My
-           Requests, which would make a tile grid here a 3rd copy of the
-           same two links (hero + sidebar + tiles). sidebarItems.js
-           wasn't uploaded this session to confirm — if the sidebar does
-           NOT already have these, a slim link should be added back here. -->
+      <!-- Full-bleed branch directory, closing out the page. -->
+      <section id="branch-directory"></section>
+
+      <!-- ASSUMPTION FLAG: no separate Quick Actions tile grid included.
+           Assuming the sidebar's "general" section (Requestor role, per
+           rules.md) already links to Submit Request and My Requests. If
+           it does not, a slim link should be added back somewhere on
+           this page. sidebarItems.js was not uploaded to confirm. -->
 
     </main>
   </div>

@@ -14,220 +14,287 @@
     <div class="page-shell">
       <aside id="sidebar"></aside>
 
-      <main id="content" class="page-content">
+      <main id="content" class="page-content requisition-shell">
         <div class="page-header">
           <h1>Submit Blood Request</h1>
+          <p class="page-subtitle">
+            Assemble your requisition, choose a branch, and add patient
+            details. PRC staff review every request before release.
+          </p>
         </div>
 
-        <section id="step-selection" class="request-step">
-          <div class="selection-summary">
-            <h2 class="selection-summary-title">Your Selection</h2>
-            <ul id="selection-summary-list" class="selection-summary-list"></ul>
-            <p id="selection-summary-empty" class="selection-summary-empty">
-              No items selected yet.
-            </p>
-            <p id="selection-total" class="selection-total"></p>
-          </div>
-
+        <div class="ticket-stepper" role="list" aria-label="Request progress">
           <div
-            id="selection-error"
-            class="field-error"
-            aria-live="polite"
-          ></div>
-
-          <!-- Desktop: tabs show every component at once (≥768px). -->
-          <div id="component-tabs" class="component-tabs"></div>
-
-          <!-- Mobile: carousel with prev/next arrows (<768px). Same
-               underlying state as the tabs above — see bloodRequests.css
-               for the breakpoint that swaps which one is visible. -->
-          <div class="component-carousel">
-            <button
-              type="button"
-              id="component-prev"
-              class="carousel-arrow"
-              aria-label="Previous component"
-            >
-              ‹
-            </button>
-            <h3 id="component-title" class="component-title"></h3>
-            <button
-              type="button"
-              id="component-next"
-              class="carousel-arrow"
-              aria-label="Next component"
-            >
-              ›
-            </button>
-          </div>
-
-          <div id="blood-type-grid" class="blood-type-grid"></div>
-
-          <div class="step-actions">
-            <button type="button" id="btn-continue" class="btn-primary">
-              Continue
-            </button>
-          </div>
-        </section>
-
-        <section
-          id="step-fulfillment"
-          class="request-step"
-          style="display: none"
-        >
-          <div
-            id="fulfillment-insufficient-banner"
-            class="banner banner-warning"
-            style="display: none"
+            class="ticket-step ticket-step--active"
+            data-step-target="step-selection"
+            role="listitem"
           >
-            Some items may not be fully available across all branches combined.
-            You can still submit — staff will review.
+            <span class="ticket-step-num">1</span>
+            <span class="ticket-step-label">Blood Products</span>
           </div>
-
-          <p id="fulfillment-location-note" class="location-note"></p>
-
-          <button
-            type="button"
-            id="btn-fulfillment-retry"
-            class="btn-retry"
-            style="display: none"
-          >
-            Search Again
-          </button>
-
-          <div id="fulfillment-skeleton"></div>
-          <div
-            id="fulfillment-error"
-            class="field-error"
-            aria-live="polite"
-          ></div>
-
-          <div
-            id="branch-options-list"
-            class="branch-options-list"
-            style="display: none"
-          ></div>
-
-          <div id="fulfillment-map" class="fulfillment-map"></div>
-
-          <div class="step-actions step-actions--split">
-            <button
-              type="button"
-              id="btn-fulfillment-back"
-              class="btn-secondary"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              id="btn-fulfillment-continue"
-              class="btn-primary"
-            >
-              Continue
-            </button>
+          <div class="ticket-step" data-step-target="step-fulfillment" role="listitem">
+            <span class="ticket-step-num">2</span>
+            <span class="ticket-step-label">Branch</span>
           </div>
-        </section>
+          <div class="ticket-step" data-step-target="step-submit" role="listitem">
+            <span class="ticket-step-num">3</span>
+            <span class="ticket-step-label">Details</span>
+          </div>
+        </div>
 
-        <section id="step-submit" class="request-step" style="display: none">
-          <div id="submit-skeleton"></div>
+        <div class="requisition-layout">
+          <div class="requisition-main">
 
-          <form id="submit-form" novalidate style="display: none">
-            <div class="form-field">
-              <label for="patient-name">Patient Name</label>
-              <input type="text" id="patient-name" required />
+            <section id="step-selection" class="request-step">
               <div
-                id="error-patientName"
+                id="selection-error"
                 class="field-error"
                 aria-live="polite"
               ></div>
-            </div>
 
-            <div class="form-field">
-              <label for="patient-birthdate">Patient Birthdate</label>
-              <input type="date" id="patient-birthdate" required />
+              <!-- Desktop: tabs show every component at once (≥768px). -->
+              <div id="component-tabs" class="component-tabs"></div>
+
+              <!-- Mobile: carousel with prev/next arrows (<768px). -->
+              <div class="component-carousel">
+                <button
+                  type="button"
+                  id="component-prev"
+                  class="carousel-arrow"
+                  aria-label="Previous component"
+                >
+                  ‹
+                </button>
+                <h3 id="component-title" class="component-title"></h3>
+                <button
+                  type="button"
+                  id="component-next"
+                  class="carousel-arrow"
+                  aria-label="Next component"
+                >
+                  ›
+                </button>
+              </div>
+
+              <div id="blood-type-grid" class="blood-type-grid"></div>
+
+              <div class="step-actions">
+                <button type="button" id="btn-continue" class="btn-primary">
+                  Continue
+                </button>
+              </div>
+            </section>
+
+            <section
+              id="step-fulfillment"
+              class="request-step"
+              style="display: none"
+            >
               <div
-                id="error-patientBirthdate"
+                id="fulfillment-insufficient-banner"
+                class="banner banner-warning"
+                style="display: none"
+              >
+                Some items may not be fully available across all branches
+                combined. You can still submit, staff will review.
+              </div>
+
+              <p id="fulfillment-location-note" class="location-note"></p>
+
+              <button
+                type="button"
+                id="btn-fulfillment-retry"
+                class="btn-retry"
+                style="display: none"
+              >
+                Search Again
+              </button>
+
+              <div id="fulfillment-skeleton"></div>
+              <div
+                id="fulfillment-error"
                 class="field-error"
                 aria-live="polite"
               ></div>
-            </div>
 
-            <div class="form-field">
-              <label for="diagnosis">Diagnosis (optional)</label>
-              <textarea id="diagnosis" rows="3"></textarea>
-            </div>
-
-            <div class="form-field">
-              <label for="urgency-level">Urgency Level</label>
-              <select id="urgency-level"></select>
               <div
-                id="error-urgencyLevel"
-                class="field-error"
-                aria-live="polite"
+                id="branch-options-list"
+                class="branch-options-list"
+                style="display: none"
               ></div>
-            </div>
 
-            <div class="form-field">
-              <label for="hospital-input">Hospital</label>
-              <input type="text" id="hospital-input" />
-              <ul id="hospital-list" class="sd-list"></ul>
-              <div
-                id="error-hospital"
-                class="field-error"
-                aria-live="polite"
-              ></div>
-            </div>
+              <div id="fulfillment-map" class="fulfillment-map"></div>
 
-            <div class="form-field">
-              <label for="notes">Notes (optional)</label>
-              <textarea id="notes" rows="2"></textarea>
-            </div>
+              <div class="step-actions step-actions--split">
+                <button
+                  type="button"
+                  id="btn-fulfillment-back"
+                  class="btn-secondary"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  id="btn-fulfillment-continue"
+                  class="btn-primary"
+                >
+                  Continue
+                </button>
+              </div>
+            </section>
 
-            <div class="form-field">
-              <label for="request-form-file">Request Form Document</label>
-              <input
-                type="file"
-                id="request-form-file"
-                accept=".jpg,.jpeg,.png,.pdf"
-              />
-              <div id="error-file" class="field-error" aria-live="polite"></div>
-            </div>
+            <section id="step-submit" class="request-step" style="display: none">
+              <div id="submit-skeleton"></div>
 
-            <div class="form-field document-terms-field">
-              <p id="document-terms-summary" class="document-terms-summary"></p>
-              <label class="document-terms-checkbox-label">
-                <input type="checkbox" id="document-terms-checkbox" />
-                <span>
-                  I confirm this document is genuine and unaltered.
-                  <button type="button" id="btn-document-terms-learn-more" class="link-button">
-                    Learn more
+              <form id="submit-form" novalidate style="display: none">
+                <div class="form-field">
+                  <label for="patient-name">Patient Name</label>
+                  <input type="text" id="patient-name" required />
+                  <div
+                    id="error-patientName"
+                    class="field-error"
+                    aria-live="polite"
+                  ></div>
+                </div>
+
+                <div class="form-field">
+                  <label for="patient-birthdate">Patient Birthdate</label>
+                  <input type="date" id="patient-birthdate" required />
+                  <div
+                    id="error-patientBirthdate"
+                    class="field-error"
+                    aria-live="polite"
+                  ></div>
+                </div>
+
+                <div class="form-field">
+                  <label for="diagnosis">Diagnosis (optional)</label>
+                  <textarea id="diagnosis" rows="3"></textarea>
+                </div>
+
+                <div class="form-field">
+                  <label class="form-field-label-static">Urgency Level</label>
+                  <div
+                    id="urgency-segmented"
+                    class="urgency-segmented"
+                    role="radiogroup"
+                    aria-label="Urgency level"
+                  ></div>
+                  <div
+                    id="error-urgencyLevel"
+                    class="field-error"
+                    aria-live="polite"
+                  ></div>
+                </div>
+
+                <div class="form-field">
+                  <label for="hospital-input">Hospital</label>
+                  <input type="text" id="hospital-input" />
+                  <ul id="hospital-list" class="sd-list"></ul>
+                  <div
+                    id="error-hospital"
+                    class="field-error"
+                    aria-live="polite"
+                  ></div>
+                </div>
+
+                <div class="form-field">
+                  <label for="notes">Notes (optional)</label>
+                  <textarea id="notes" rows="2"></textarea>
+                </div>
+
+                <div class="form-field">
+                  <label for="request-form-file">Request Form Document</label>
+                  <input
+                    type="file"
+                    id="request-form-file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                  />
+                  <div id="error-file" class="field-error" aria-live="polite"></div>
+                </div>
+
+                <div class="form-field document-terms-field">
+                  <p id="document-terms-summary" class="document-terms-summary"></p>
+                  <label class="document-terms-checkbox-label">
+                    <input type="checkbox" id="document-terms-checkbox" />
+                    <span>
+                      I confirm this document is genuine and unaltered.
+                      <button type="button" id="btn-document-terms-learn-more" class="link-button">
+                        Learn more
+                      </button>
+                    </span>
+                  </label>
+                  <div id="error-documentTerms" class="field-error" aria-live="polite"></div>
+                </div>
+
+                <div class="step-actions step-actions--split">
+                  <button type="button" id="btn-submit-back" class="btn-secondary">
+                    Back
                   </button>
-                </span>
-              </label>
-              <div id="error-documentTerms" class="field-error" aria-live="polite"></div>
-            </div>
+                  <button type="submit" id="btn-submit-final" class="btn-primary">
+                    Submit Request
+                  </button>
+                </div>
+              </form>
 
-            <div class="step-actions step-actions--split">
-              <button type="button" id="btn-submit-back" class="btn-secondary">
-                Back
-              </button>
-              <button type="submit" id="btn-submit-final" class="btn-primary">
-                Submit Request
-              </button>
-            </div>
-          </form>
+              <div id="submit-success" class="success-panel" style="display: none">
+                <h2>Request Submitted</h2>
+                <p>
+                  Your blood request has been sent to the branch for review.
+                  You'll be notified once it's processed.
+                </p>
+                <a href="/pages/requestor/dashboard.html" class="btn-primary"
+                  >Back to Dashboard</a
+                >
+              </div>
+            </section>
 
-          <div id="submit-success" class="success-panel" style="display: none">
-            <h2>Request Submitted</h2>
-            <p>
-              Your blood request has been sent to the branch for review. You'll
-              be notified once it's processed.
-            </p>
-            <a href="/pages/requestor/dashboard.html" class="btn-primary"
-              >Back to Dashboard</a
-            >
           </div>
-        </section>
+
+          <aside id="requisition-stub" class="requisition-stub" aria-label="Your requisition slip">
+            <button
+              type="button"
+              id="stub-peek-handle"
+              class="stub-peek-handle"
+              aria-expanded="false"
+            >
+              <span class="stub-peek-label">Requisition Slip</span>
+              <span class="stub-peek-chevron" aria-hidden="true">︿</span>
+            </button>
+
+            <div class="stub-body">
+              <div class="stub-header">
+                <span class="stub-kicker">BloodSync · Blood Requisition</span>
+                <span id="stub-status-tag" class="stub-status-tag">Draft</span>
+              </div>
+
+              <div class="stub-section">
+                <h3 class="stub-section-title">Blood Products</h3>
+                <ul id="selection-summary-list" class="selection-summary-list"></ul>
+                <p id="selection-summary-empty" class="selection-summary-empty">
+                  No items selected yet.
+                </p>
+                <p id="selection-total" class="selection-total"></p>
+              </div>
+
+              <div class="stub-divider" aria-hidden="true"></div>
+
+              <div class="stub-section">
+                <h3 class="stub-section-title">Branch</h3>
+                <p id="stub-branch-name" class="stub-value stub-value-empty">Not yet chosen</p>
+                <p id="stub-branch-distance" class="stub-subvalue"></p>
+              </div>
+
+              <div class="stub-divider" aria-hidden="true"></div>
+
+              <div class="stub-section">
+                <h3 class="stub-section-title">Patient</h3>
+                <p id="stub-patient-name" class="stub-value stub-value-empty">Not yet entered</p>
+                <p id="stub-urgency-badge" class="urgency-badge urgency-badge--routine">Routine</p>
+              </div>
+            </div>
+          </aside>
+        </div>
       </main>
     </div>
 

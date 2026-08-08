@@ -1,40 +1,24 @@
 /*
  * pages/requestor/dashboard.css. Requestor Dashboard.
  *
- * Deliberately warmer/public-facing register than Admin/Staff — this is
- * the first page a stranger sees, often either stressed (needing blood
- * for someone) or sizing up whether to trust a nonprofit with their
- * data. Design choices below are aimed at both: one clear action, no
- * duplicate CTAs, and legitimacy/confidentiality signals up front.
+ * Public-facing register. This is the first page a stranger sees, often
+ * either stressed (needing blood for someone) or sizing up whether to
+ * trust a nonprofit with their data.
  *
- * REDESIGN NOTE (v2): moved from a single large rounded gradient
- * container (v1, "full-bleed panel") to a real full-page layout —
- * .db-hero breaks out of .page-content's own padding via negative
- * margin, so it's an edge-to-edge masthead, not a card sitting in a
- * mostly-empty page. Everything below the hero sits on the normal page
- * background in a centered content column (.db-content), each section
- * styled as its own light card — not crammed into one colored box.
+ * REDESIGN NOTE (v4, editorial/magazine pass): previous versions used a
+ * centered content column (760px max-width) with cards floating in open
+ * space below a hero. This pass removes that column entirely. The page
+ * is now a sequence of full-width bands: a two-column masthead, an
+ * optional status banner, a rotating fact ticker, a bento-style content
+ * grid, and a branch directory. Every section spans the page; nothing
+ * sits inset in a narrow strip with large side margins.
  *
- * .card-heading / .card-subtext / .donation-fact classes from
- * features/dashboard.css are NOT reused here anymore (this page no
- * longer shares that card shape) — this file is fully self-contained
- * for its own class names, scoped under .db-hero/.db-content so nothing
- * here can leak into Admin/Staff/Field dashboards.
- *
- * REDESIGN NOTE (v3 — scroll-reveal pass): the goal this pass was to
- * make the page feel like a current long-scroll landing page rather
- * than a flat form-adjacent dashboard: below-the-fold sections
- * fade/rise into view as the visitor scrolls to them (see .reveal
- * below, driven by IntersectionObserver in requestorDashboardUI.js),
- * section eyebrows/headings give an editorial rhythm, the trust strip
- * gets its own full-bleed tinted band (same technique as .db-hero) so
- * it reads as a distinct section rather than more of the same column,
- * and cards got soft elevation (shadow) instead of a flat border for a
- * bit more depth. The hero's own entrance is unchanged — it's above
- * the fold, so it still animates in immediately on load, not on scroll.
+ * Also: every em dash in this file (and in dashboard.html and
+ * requestorDashboardUI.js) has been replaced with a period, comma, or
+ * parenthesis. None remain, in comments or in rendered copy.
  */
 
-/* ── Icon utility (this page only) ──────────────────────────────────── */
+/* ── Icon utility (this page only) ──────────────────────────────── */
 .dash-icon {
   display: inline-flex;
   width: 18px;
@@ -49,29 +33,22 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   HERO — full-bleed masthead
+   MASTHEAD, full-bleed, two-column editorial split
    ═══════════════════════════════════════════════════════════════════ */
 
-.db-hero {
+.db-masthead {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  /* Cancels main.css's .page-content { padding: 24px } on 3 sides so
-     this reaches the real edges of the content area instead of sitting
-     inset like a card. Bottom margin stays positive — only this section
-     breaks out, everything below sits in the normal padded column. */
-  margin: -24px -24px 36px -24px;
-  padding: 60px 28px 68px;
+  margin: -24px -24px 0 -24px;
+  padding: 56px 40px 52px;
   background: linear-gradient(160deg, #d1493b 0%, #c0392b 45%, #922b21 100%);
   color: #fff;
-  border-radius: 0 0 32px 32px;
+  animation: dashRise 0.5s ease both;
 }
 
-/* Soft decorative blobs — purely visual, no meaning, hence not real
-   elements: kept as CSS-only pseudo-elements so no HTML/JS changes
-   were needed to add them. */
-.db-hero::before,
-.db-hero::after {
+.db-masthead::before,
+.db-masthead::after {
   content: '';
   position: absolute;
   border-radius: 50%;
@@ -79,34 +56,34 @@
   z-index: 0;
 }
 
-.db-hero::before {
-  width: 300px;
-  height: 300px;
-  top: -140px;
-  right: -70px;
-  opacity: 0.13;
+.db-masthead::before {
+  width: 320px;
+  height: 320px;
+  top: -160px;
+  right: -80px;
+  opacity: 0.12;
 }
 
-.db-hero::after {
-  width: 220px;
-  height: 220px;
-  bottom: -120px;
-  left: -60px;
-  opacity: 0.10;
+.db-masthead::after {
+  width: 240px;
+  height: 240px;
+  bottom: -140px;
+  left: 12%;
+  opacity: 0.08;
 }
 
-.hero-content {
+.masthead-grid {
   position: relative;
   z-index: 1;
-  max-width: 520px;
+  max-width: 1360px;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 56px;
   align-items: center;
-  text-align: center;
 }
 
-.hero-badge {
+.masthead-kicker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -117,36 +94,32 @@
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
-/* Room for an optional real PRC Batangas Chapter seal/logo image to
-   replace the generic shield-check icon — drop a PNG/SVG under
-   assets/img/ and swap the <span class="hero-badge-icon"> for an <img>
-   of this same size. A real seal reads as more legitimate than any
-   icon can on a stranger's first visit. Not required — works fine
-   icon-only as shipped. */
-.hero-badge-icon {
+.masthead-kicker-icon {
   width: 13px;
   height: 13px;
 }
 
-.hero-motto {
-  font-size: 26px;
+.masthead-headline {
+  font-size: 36px;
   font-weight: 800;
-  line-height: 1.3;
-  margin-bottom: 10px;
+  line-height: 1.16;
   letter-spacing: -0.01em;
+  margin-bottom: 14px;
+  max-width: 18ch;
 }
 
-.hero-subtext {
-  font-size: 14.5px;
+.masthead-subtext {
+  font-size: 15px;
   opacity: 0.92;
-  margin-bottom: 24px;
-  line-height: 1.5;
+  line-height: 1.55;
+  max-width: 46ch;
+  margin-bottom: 26px;
 }
 
-.hero-cta {
+.masthead-cta {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -160,18 +133,18 @@
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.hero-cta:hover {
+.masthead-cta:hover {
   background: #fff5f4;
   transform: translateY(-1px);
 }
 
-.hero-cta-icon {
+.masthead-cta-icon {
   width: 16px;
   height: 16px;
   transition: transform 0.15s ease;
 }
 
-.hero-cta:hover .hero-cta-icon {
+.masthead-cta:hover .masthead-cta-icon {
   transform: translateX(3px);
 }
 
@@ -180,9 +153,7 @@
   50%      { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0); }
 }
 
-/* Small reassurance line under the CTA — speaks directly to the
-   "trusting a nonprofit with my data" concern right where the action is. */
-.hero-trust-note {
+.masthead-trust-note {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -191,64 +162,246 @@
   opacity: 0.85;
 }
 
-.hero-trust-note .dash-icon {
+.masthead-trust-note .dash-icon {
   width: 13px;
   height: 13px;
 }
 
-/* ── Scroll cue ──────────────────────────────────────────────────────
-   Signals there's more below the fold and gives a one-click way down
-   (click handler in requestorDashboardUI.js scrolls to #status-panel).
-   Sits inside .db-hero (not .hero-content) so it's positioned relative
-   to the whole hero band, not the centered text column. Not a .reveal
-   element — the hero is already visible on load, no scroll needed to
-   see it. */
-.hero-scroll-cue {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  z-index: 1;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.75);
-  cursor: pointer;
-  padding: 6px;
-  transition: color 0.15s ease;
+/* ── Masthead aside, "in this issue" stat panel ─────────────────── */
+
+.masthead-aside {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 24px 26px;
 }
 
-.hero-scroll-cue:hover,
-.hero-scroll-cue:focus-visible {
-  color: #fff;
-  outline: none;
-}
-
-.hero-scroll-cue-icon {
-  width: 18px;
-  height: 18px;
-  animation: heroScrollBounce 1.8s ease-in-out infinite;
-}
-
-.hero-scroll-cue-label {
-  font-size: 10px;
+.masthead-aside-title {
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+  margin-bottom: 18px;
 }
 
-@keyframes heroScrollBounce {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(5px); }
+.masthead-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.masthead-stat-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.masthead-stat-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.masthead-stat-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.masthead-stat-desc {
+  font-size: 12px;
+  opacity: 0.82;
+  line-height: 1.45;
+}
+
+@keyframes dashRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   SECTION INTROS — eyebrow + heading, used by the status panel and
-   the trust strip for an editorial "landing page" rhythm
+   STATUS BANNER, full-bleed, only present when there is an active
+   request. Rendered empty (no class, no padding) otherwise.
    ═══════════════════════════════════════════════════════════════════ */
+
+.db-status-banner {
+  margin: 0 -24px;
+  padding: 18px 40px;
+  background: var(--bs-red-tint, #FBEAE7);
+  border-bottom: 1px solid var(--bs-red-tint-2, #F5D6D0);
+}
+
+.status-banner-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.status-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.status-banner-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bs-paper, #fff);
+  color: var(--bs-red, #c0392b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.status-banner-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--bs-red-dark, #9C2E22);
+  margin-bottom: 2px;
+}
+
+.status-banner-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bs-ink, #111);
+}
+
+.status-banner-note {
+  font-size: 13px;
+  color: var(--bs-ink, #111);
+}
+
+/* Compact horizontal stepper variant, used inline in the banner */
+.status-stepper-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-stepper-compact-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-stepper-compact-step:not(:last-child)::after {
+  content: '';
+  width: 20px;
+  height: 2px;
+  background: var(--bs-red-tint-2, #F5D6D0);
+  margin: 0 2px;
+}
+
+.status-stepper-compact-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bs-paper, #fff);
+  color: #bbb;
+  border: 1.5px solid var(--bs-line, #E4E1DC);
+}
+
+.status-stepper-compact-dot .dash-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.status-stepper-compact-step--done .status-stepper-compact-dot,
+.status-stepper-compact-step--active .status-stepper-compact-dot {
+  background: var(--bs-red, #c0392b);
+  border-color: var(--bs-red, #c0392b);
+  color: #fff;
+}
+
+.status-banner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bs-red, #c0392b);
+  flex-shrink: 0;
+}
+
+.status-banner-link .dash-icon {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s ease;
+}
+
+.status-banner-link:hover .dash-icon {
+  transform: translateX(3px);
+}
+
+.status-banner-retry {
+  margin-top: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TICKER, full-bleed, thin, rotating donation facts
+   ═══════════════════════════════════════════════════════════════════ */
+
+.db-ticker {
+  margin: 0 -24px;
+  padding: 13px 40px;
+  background: var(--bs-ink, #1C1B1F);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ticker-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--bs-red-tint-2, #F5D6D0);
+  flex-shrink: 0;
+}
+
+.ticker-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.ticker-text.ticker-fading {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EDIT GRID, bento-style content grid
+   ═══════════════════════════════════════════════════════════════════ */
+
+.db-edit-grid {
+  padding: 48px 40px 4px;
+}
+
+.edit-grid-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+}
 
 .section-eyebrow {
   display: inline-flex;
@@ -271,320 +424,219 @@
 }
 
 .section-heading {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--bs-ink, #111);
   letter-spacing: -0.01em;
 }
 
-.section-intro-wrap {
+.edit-grid-intro {
   margin-bottom: 22px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   CONTENT COLUMN — sits on the normal page background
-   ═══════════════════════════════════════════════════════════════════ */
-
-.db-content {
-  max-width: 760px;
-  margin: 0 auto;
-  padding-bottom: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 44px;
-}
-
-/* ── Shared light-card shell (status panel + trust items) ──────────── */
-.status-card {
-  background: var(--bs-paper, #fff);
-  border: 1px solid var(--bs-line, #E4E1DC);
-  border-radius: 18px;
-  padding: 28px 30px;
-  box-shadow: 0 1px 2px rgba(28, 27, 31, 0.03), 0 10px 28px rgba(28, 27, 31, 0.05);
-}
-
-.status-card-heading-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.status-card-icon {
-  color: var(--bs-red, #c0392b);
-  flex-shrink: 0;
-}
-
-.status-card-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--bs-ink, #111);
-}
-
-.status-card-subtext {
-  font-size: 13.5px;
-  color: var(--bs-ink-soft, #666);
-  line-height: 1.55;
-  margin-bottom: 16px;
-}
-
-.status-icon-lg {
-  width: 32px;
-  height: 32px;
-  color: var(--bs-red, #c0392b);
-  opacity: 0.5;
-  margin-bottom: 10px;
-}
-
-.status-card-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--bs-red, #c0392b);
-}
-
-.status-card-link .dash-icon {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.15s ease;
-}
-
-.status-card-link:hover .dash-icon {
-  transform: translateX(3px);
-}
-
-/* ── Request status stepper (active-request state) ─────────────────── */
-.request-stepper {
-  display: flex;
-  align-items: flex-start;
-  margin: 6px 0 20px;
-}
-
-.request-stepper-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  position: relative;
-}
-
-.request-stepper-step:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 13px;
-  left: 50%;
-  width: 100%;
-  height: 2px;
-  background: #eee;
-  z-index: 0;
-}
-
-.request-stepper-step--done:not(:last-child)::after {
-  background: var(--bs-red-tint-2, #F5D6D0);
-}
-
-.request-stepper-dot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #f1f1f1;
-  color: #aaa;
-  z-index: 1;
-  margin-bottom: 6px;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.request-stepper-dot .dash-icon {
-  width: 13px;
-  height: 13px;
-}
-
-.request-stepper-step--done .request-stepper-dot,
-.request-stepper-step--active .request-stepper-dot {
-  background: var(--bs-red, #c0392b);
-  color: #fff;
-}
-
-.request-stepper-label {
-  font-size: 11px;
-  color: #888;
-  text-align: center;
-}
-
-.request-stepper-step--active .request-stepper-label {
-  color: var(--bs-red, #c0392b);
-  font-weight: 700;
-}
-
-/* ── "How it works" explainer (no-active-request state) ─────────────
-   Replaces the old empty-state's redundant "Submit a Request" button.
-   Teaches a first-time visitor what happens after they click the hero
-   CTA — more useful than a second copy of the same button, and
-   directly useful for someone anxious about the process. */
-.howitworks-list {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-bottom: 4px;
-}
-
-@media (min-width: 640px) {
-  .howitworks-list {
-    flex-direction: row;
-  }
-}
-
-.howitworks-step {
-  display: flex;
-  gap: 12px;
-  flex: 1;
-}
-
-.howitworks-num {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--bs-red-tint, #FBEAE7);
-  color: var(--bs-red, #c0392b);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.howitworks-text {
-  min-width: 0;
-}
-
-.howitworks-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--bs-ink, #111);
-  margin-bottom: 3px;
-}
-
-.howitworks-desc {
-  font-size: 12.5px;
-  color: var(--bs-ink-soft, #666);
-  line-height: 1.5;
-}
-
-/* Deliberately a plain text link, not a .btn — the hero already has
-   the one prominent CTA; this is only for someone who scrolled past it. */
-.howitworks-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 18px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--bs-red, #c0392b);
-}
-
-.howitworks-cta .dash-icon {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.15s ease;
-}
-
-.howitworks-cta:hover .dash-icon {
-  transform: translateX(3px);
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   TRUST STRIP — full-bleed tinted band, same breakout technique as
-   .db-hero, so this reads as its own section while scrolling
-   ═══════════════════════════════════════════════════════════════════ */
-
-.trust-band {
-  margin: 0 -24px;
-  padding: 44px 24px 56px;
-  background: linear-gradient(180deg, var(--bs-surface, #FCFCFB) 0%, #fdfaf9 100%);
-  border-top: 1px solid var(--bs-line, #E4E1DC);
-  border-bottom: 1px solid var(--bs-line, #E4E1DC);
-}
-
-.trust-band .section-intro-wrap,
-.trust-band .trust-strip {
-  max-width: 760px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.trust-strip {
+.edit-grid-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-areas:
+    'feature feature feature branches branches branches'
+    'feature feature feature step1 step2 step3';
   gap: 16px;
 }
 
-.trust-item {
+.tile {
   background: var(--bs-paper, #fff);
   border: 1px solid var(--bs-line, #E4E1DC);
-  border-radius: 14px;
-  padding: 18px 18px 20px;
+  border-radius: 16px;
   box-shadow: 0 1px 2px rgba(28, 27, 31, 0.03), 0 8px 20px rgba(28, 27, 31, 0.04);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.trust-item:hover {
+.tile:hover {
   transform: translateY(-3px);
   box-shadow: 0 4px 10px rgba(28, 27, 31, 0.05), 0 16px 32px rgba(28, 27, 31, 0.08);
 }
 
-.trust-item-icon {
+.tile-feature {
+  grid-area: feature;
+  padding: 28px 26px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+}
+
+.tile-icon-lg {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--bs-red-tint, #FBEAE7);
   color: var(--bs-red, #c0392b);
-  margin-bottom: 12px;
-  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
 }
 
-.trust-item:hover .trust-item-icon {
-  transform: scale(1.08);
+.tile-feature-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--bs-ink, #111);
+  margin-bottom: 10px;
 }
 
-.trust-item-title {
+.tile-feature-text {
   font-size: 13.5px;
+  color: var(--bs-ink-soft, #666);
+  line-height: 1.6;
+  max-width: 38ch;
+}
+
+.tile-branches {
+  grid-area: branches;
+  padding: 22px 24px;
+}
+
+.tile-branches-title {
+  font-size: 14px;
   font-weight: 700;
   color: var(--bs-ink, #111);
   margin-bottom: 6px;
 }
 
-.trust-item-text {
+.tile-branches-desc {
   font-size: 12.5px;
   color: var(--bs-ink-soft, #666);
-  line-height: 1.55;
-  min-height: 36px;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  margin-bottom: 14px;
 }
 
-.trust-item-text.trust-fact--fading {
-  opacity: 0;
-  transform: translateY(4px);
+.branch-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.branch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--bs-surface, #FCFCFB);
+  border: 1px solid var(--bs-line, #E4E1DC);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bs-ink, #111);
+}
+
+.branch-chip .dash-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--bs-red, #c0392b);
+}
+
+.tile-step {
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tile-step-1 { grid-area: step1; }
+.tile-step-2 { grid-area: step2; }
+.tile-step-3 { grid-area: step3; }
+
+.tile-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bs-red-tint, #FBEAE7);
+  color: var(--bs-red, #c0392b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.tile-step-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--bs-ink, #111);
+  line-height: 1.35;
+}
+
+.tile-step-desc {
+  font-size: 11.5px;
+  color: var(--bs-ink-soft, #666);
+  line-height: 1.45;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   SCROLL REVEAL — below-the-fold sections fade/rise into view as the
-   visitor scrolls to them (IntersectionObserver in
-   requestorDashboardUI.js toggles .is-visible once, one-shot).
-   Deliberately excludes .db-hero/.hero-content, which keep their own
-   immediate on-load entrance further down this file — the hero is
-   above the fold, there's no "scrolling to" it.
+   BRANCH DIRECTORY, full-bleed, closes out the page
+   ═══════════════════════════════════════════════════════════════════ */
+
+.db-directory {
+  margin: 40px -24px 0 -24px;
+  padding: 40px 40px 56px;
+  background: linear-gradient(180deg, var(--bs-surface, #FCFCFB) 0%, #fdfaf9 100%);
+  border-top: 1px solid var(--bs-line, #E4E1DC);
+}
+
+.directory-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.directory-title-row {
+  margin-bottom: 20px;
+}
+
+.directory-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.directory-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--bs-paper, #fff);
+  border: 1px solid var(--bs-line, #E4E1DC);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.directory-item-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--bs-red-tint, #FBEAE7);
+  color: var(--bs-red, #c0392b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.directory-item-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--bs-ink, #111);
+}
+
+.directory-item-sub {
+  font-size: 12px;
+  color: var(--bs-ink-soft, #666);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLL REVEAL, below-the-fold sections fade and rise into view
    ═══════════════════════════════════════════════════════════════════ */
 
 .reveal {
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateY(26px);
   transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   transition-delay: var(--reveal-delay, 0s);
@@ -597,37 +649,63 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal {
+  .reveal,
+  .db-masthead,
+  .masthead-cta {
     transition: none;
+    animation: none;
     opacity: 1;
     transform: none;
   }
 }
 
-/* ── Entrance animation (hero only — see note above) ────────────────── */
-@keyframes dashRise {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 960px) {
+  .edit-grid-tiles {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'feature'
+      'branches'
+      'step1'
+      'step2'
+      'step3';
+  }
 }
 
-.db-hero { animation: dashRise 0.5s ease both; }
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-cta,
-  .hero-scroll-cue-icon,
-  .db-hero {
-    animation: none;
+@media (max-width: 860px) {
+  .masthead-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .masthead-headline {
+    max-width: none;
   }
 }
 
 @media (max-width: 600px) {
-  .db-hero {
-    margin: -24px -24px 28px -24px;
-    padding: 44px 20px 56px;
-    border-radius: 0 0 24px 24px;
+  .db-masthead {
+    margin: -24px -24px 0 -24px;
+    padding: 40px 20px 40px;
   }
-  .hero-motto { font-size: 20px; }
-  .status-card { padding: 22px 20px; }
-  .trust-band { margin: 0 -24px; padding: 32px 20px 40px; }
-  .hero-scroll-cue { display: none; } /* not enough room above the fold on small screens for this to feel purposeful */
+  .masthead-headline { font-size: 26px; }
+  .masthead-subtext { font-size: 14px; }
+
+  .db-status-banner,
+  .db-ticker,
+  .db-edit-grid,
+  .db-directory {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .db-edit-grid { padding-top: 36px; }
+  .db-directory { margin-top: 32px; padding-bottom: 44px; }
+
+  .status-banner-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

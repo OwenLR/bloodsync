@@ -120,10 +120,21 @@ function renderBloodTypeGrid() {
   const component = COMPONENTS[activeComponentIndex];
 
   BLOOD_TYPES.forEach(bloodType => {
+    const units = selection[component][bloodType];
+    const fillPct = Math.min(100, (units / MAX_UNITS_PER_ITEM) * 100);
+
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'blood-type-box';
-    if (selection[component][bloodType] > 0) btn.classList.add('blood-type-box--selected');
+    btn.className = 'blood-type-chip';
+    if (units > 0) btn.classList.add('blood-type-chip--selected');
+    btn.style.setProperty('--fill', `${fillPct}%`);
+
+    const vial = document.createElement('span');
+    vial.className = 'vial';
+    vial.setAttribute('aria-hidden', 'true');
+    const vialFill = document.createElement('span');
+    vialFill.className = 'vial-fill';
+    vial.appendChild(vialFill);
 
     const label = document.createElement('span');
     label.className = 'blood-type-label';
@@ -131,10 +142,9 @@ function renderBloodTypeGrid() {
 
     const count = document.createElement('span');
     count.className = 'blood-type-count';
-    count.textContent = selection[component][bloodType] > 0
-      ? `× ${selection[component][bloodType]}`
-      : '';
+    count.textContent = units > 0 ? `× ${units}` : '';
 
+    btn.appendChild(vial);
     btn.appendChild(label);
     btn.appendChild(count);
     btn.addEventListener('click', () => handleIncrement(component, bloodType));

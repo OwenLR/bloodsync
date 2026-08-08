@@ -41,6 +41,17 @@ export async function initSubmitStep(items, branchId, onBack) {
     document.getElementById(FORM_ID).addEventListener('submit', handleSubmit);
     document.getElementById(TERMS_LEARN_MORE_ID).addEventListener('click', openDocumentTermsModal);
     document.getElementById(TERMS_CHECKBOX_ID).addEventListener('change', () => clearFieldError('documentTerms'));
+
+    // Live-syncs the requisition stub's Patient section as the requestor
+    // types — mirrors the pattern already used for branch/urgency selection.
+    document.getElementById('patient-name').addEventListener('input', (e) => {
+      const el = document.getElementById('stub-patient-name');
+      if (!el) return;
+      const value = e.target.value.trim();
+      el.textContent = value || 'Not yet entered';
+      el.classList.toggle('stub-value-empty', !value);
+    });
+
     populateUrgencyOptions();
     _listenersBound = true;
   }
@@ -54,7 +65,10 @@ export async function initSubmitStep(items, branchId, onBack) {
 
   clearAllErrors();
   document.getElementById(FORM_ID).reset();
-  document.getElementById('urgency-level').value = URGENCY_LEVEL.ROUTINE;
+
+  const routineInput = document.getElementById(`urgency-option-${URGENCY_LEVEL.ROUTINE.toLowerCase()}`);
+  if (routineInput) routineInput.checked = true;
+  resetStub();
 
   try {
     const hospitals = await getAllHospitals();
@@ -75,15 +89,62 @@ function todayDateString() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// ---------------------------------------------------------------------------
+// Urgency — segmented control (radio group styled as pill buttons), not a
+// native <select>. Reads via getSelectedUrgency() at submit time.
+// ---------------------------------------------------------------------------
+
 function populateUrgencyOptions() {
-  const select = document.getElementById('urgency-level');
-  select.textContent = '';
+  const container = document.getElementById('urgency-segmented');
+  container.textContent = '';
+
   Object.values(URGENCY_LEVEL).forEach((level) => {
-    const opt = document.createElement('option');
-    opt.value = level;
-    opt.textContent = level;
-    select.appendChild(opt);
+    const id = `urgency-option-${level.toLowerCase()}`;
+
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'urgency-level';
+    input.id = id;
+    input.value = level;
+    input.className = 'urgency-radio';
+    input.addEventListener('change', () => {
+      clearFieldError('urgencyLevel');
+      updateStubUrgency(level);
+    });
+
+    const label = document.createElement('label');
+    label.setAttribute('for', id);
+    label.className = 'urgency-option';
+    label.textContent = level;
+
+    container.appendChild(input);
+    container.appendChild(label);
   });
+}
+
+function getSelectedUrgency() {
+  const checked = document.querySelector('input[name="urgency-level"]:checked');
+  return checked ? checked.value : '';
+}
+
+function updateStubUrgency(level) {
+  const el = document.getElementById('stub-urgency-badge');
+  if (!el) return;
+  el.textContent = level;
+  el.classList.remove('urgency-badge--routine', 'urgency-badge--stat');
+  el.classList.add(level === URGENCY_LEVEL.STAT ? 'urgency-badge--stat' : 'urgency-badge--routine');
+}
+
+// Resets the requisition stub's Patient section back to its empty state —
+// called each time this step is (re)entered, so navigating Back and
+// Continuing again doesn't show stale data from a previous visit.
+function resetStub() {
+  const nameEl = document.getElementById('stub-patient-name');
+  if (nameEl) {
+    nameEl.textContent = 'Not yet entered';
+    nameEl.classList.add('stub-value-empty');
+  }
+  updateStubUrgency(URGENCY_LEVEL.ROUTINE);
 }
 
 function setupHospitalDropdown(hospitals) {
@@ -145,7 +206,7 @@ function handleSubmit(e) {
   const patientName      = document.getElementById('patient-name').value.trim();
   const patientBirthdate = document.getElementById(BIRTHDATE_ID).value;
   const diagnosis        = document.getElementById('diagnosis').value.trim();
-  const urgencyLevel     = document.getElementById('urgency-level').value;
+  const urgencyLevel     = getSelectedUrgency();
   const notes            = document.getElementById('notes').value.trim();
   const file             = document.getElementById('request-form-file').files[0] || null;
   const documentTermsAccepted = document.getElementById(TERMS_CHECKBOX_ID).checked;
@@ -190,6 +251,14 @@ async function submit({ patientName, patientBirthdate, diagnosis, urgencyLevel, 
     await submitBloodRequest(formData);
     document.getElementById(FORM_ID).style.display    = 'none';
     document.getElementById(SUCCESS_ID).style.display = '';
+
+    const tag = document.getElementById('stub-status-tag');
+    if (tag) {
+      tag.textContent = 'Submitted';
+      tag.classList.add('stub-status-tag--submitted');
+    }
+    const stub = document.getElementById('requisition-stub');
+    if (stub) stub.classList.add('stub-submitted');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {

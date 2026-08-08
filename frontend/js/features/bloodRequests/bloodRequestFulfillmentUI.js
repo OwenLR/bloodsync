@@ -275,8 +275,9 @@ function renderResult(result) {
 
   branches.forEach((branch, index) => list.appendChild(buildBranchOption(branch, plans, index === 0)));
 
-  // Auto-select the top recommendation (most items fully covered, then nearest)
+// Auto-select the top recommendation (most items fully covered, then nearest)
   _selectedBranchId = branches[0].branch_id;
+  updateStubBranch(branches[0]);          // ← added
   fetchAndRenderEstimate(_selectedBranchId);
   updateMap(_selectedBranchId);
 }
@@ -290,8 +291,9 @@ function buildBranchOption(branch, plans, isDefault) {
   radio.name      = 'branch-option';
   radio.value     = branch.branch_id;
   radio.checked   = isDefault;
-  radio.addEventListener('change', () => {
+radio.addEventListener('change', () => {
     _selectedBranchId = branch.branch_id;
+    updateStubBranch(branch);             // ← added
     fetchAndRenderEstimate(branch.branch_id);
     updateMap(branch.branch_id);
   });
@@ -413,7 +415,9 @@ function updateRequestorMarker() {
   if (_requestorMarker) {
     _requestorMarker.setLatLng([lat, lon]);
   } else {
-    _requestorMarker = window.L.marker([lat, lon]).addTo(_map).bindPopup('Your location');
+    _requestorMarker = window.L.marker([lat, lon], { icon: createPinIcon('user') })
+      .addTo(_map)
+      .bindPopup('Your location');
   }
 }
 
@@ -437,7 +441,7 @@ function updateMap(branchId) {
   if (_branchMarker) {
     _branchMarker.setLatLng([branchCoords.lat, branchCoords.lon]);
   } else {
-    _branchMarker = window.L.marker([branchCoords.lat, branchCoords.lon])
+    _branchMarker = window.L.marker([branchCoords.lat, branchCoords.lon], { icon: createPinIcon('branch') })
       .addTo(_map)
       .bindPopup('Selected branch');
   }
@@ -482,6 +486,27 @@ function showSkeleton() {
 
   const estimateEl = document.getElementById(ESTIMATE_ID);
   if (estimateEl) estimateEl.textContent = '';
+}
+
+// Add near the other helpers:
+function updateStubBranch(branch) {
+  const nameEl = document.getElementById('stub-branch-name');
+  const distEl = document.getElementById('stub-branch-distance');
+  if (!nameEl || !distEl) return;
+  nameEl.textContent = branch.branch_name;
+  nameEl.classList.remove('stub-value-empty');
+  distEl.textContent = Number.isFinite(branch.distance_km)
+    ? `${branch.distance_km.toFixed(1)} km away`
+    : '';
+}
+
+function createPinIcon(kind) {
+  return window.L.divIcon({
+    className: `map-pin map-pin--${kind}`,
+    html: '<span class="map-pin-dot"></span>',
+    iconSize: [18, 18],
+    iconAnchor: [9, 16],
+  });
 }
 
 // Switches the skeleton's message from the static LOCATION_WAIT_MESSAGE to

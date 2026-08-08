@@ -1,104 +1,297 @@
-.selection-summary {
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+/* ═══════════════════════════════════════════════════════════════════
+   SUBMIT REQUEST — "Requisition Slip" redesign
+   Scoped under .requisition-shell (applied to #content on
+   submitRequest.html only) so nothing here can bleed into requests.html,
+   bloodRequests.html (staff), or bloodRequestDetail.html.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Shared across all Blood Requests pages that link this file. */
+.page-subtitle {
+  color: var(--bs-ink-soft, #6b6b72);
+  font-size: 0.9rem;
+  margin-top: 4px;
+  max-width: 56ch;
 }
 
-.selection-summary-title {
-  margin: 0 0 0.5rem;
+.requisition-shell .page-subtitle {
+  color: var(--bs-ink-soft, #6b6b72);
+  font-size: 0.9rem;
+  margin-top: 4px;
+  max-width: 56ch;
 }
 
-.selection-summary-list {
+/* ── Ticket stepper ──────────────────────────────────────────────── */
+
+.requisition-shell .ticket-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 28px;
+  padding: 14px 18px;
+  background: var(--bs-paper, #fff);
+  border: 1px solid var(--bs-line, #e4e1dc);
+  border-radius: 12px;
+}
+
+.requisition-shell .ticket-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  opacity: 0.5;
+}
+
+.requisition-shell .ticket-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--bs-line, #e4e1dc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bs-ink-soft, #6b6b72);
+}
+
+.requisition-shell .ticket-step-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--bs-ink-soft, #6b6b72);
+  white-space: nowrap;
+}
+
+.requisition-shell .ticket-step:not(:last-child)::after {
+  content: '';
+  flex: 1;
+  height: 0;
+  border-top: 2px dashed var(--bs-line, #e4e1dc);
+  margin-left: 4px;
+}
+
+.requisition-shell .ticket-step--active,
+.requisition-shell .ticket-step--complete {
+  opacity: 1;
+}
+
+.requisition-shell .ticket-step--active .ticket-step-num {
+  border-style: solid;
+  background: var(--bs-red, #c0392b);
+  border-color: var(--bs-red, #c0392b);
+  color: #fff;
+}
+
+.requisition-shell .ticket-step--active .ticket-step-label {
+  color: var(--bs-ink, #1c1b1f);
+}
+
+.requisition-shell .ticket-step--complete .ticket-step-num {
+  border-style: solid;
+  background: var(--bs-red-tint-2, #f5d6d0);
+  border-color: var(--bs-red, #c0392b);
+  color: var(--bs-red-dark, #9c2e22);
+}
+
+/* ── Two-column layout ───────────────────────────────────────────── */
+
+.requisition-shell .requisition-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.requisition-shell .requisition-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Requisition stub (desktop: sticky rail) ─────────────────────── */
+
+.requisition-shell .requisition-stub {
+  width: 300px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+  background: var(--bs-paper, #fff);
+  border: 1px solid var(--bs-line, #e4e1dc);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.requisition-shell .stub-peek-handle {
+  display: none; /* mobile only, see media query */
+}
+
+.requisition-shell .stub-body {
+  padding: 18px 20px 22px;
+}
+
+.requisition-shell .stub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--bs-line, #e4e1dc);
+}
+
+.requisition-shell .stub-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bs-ink-soft, #6b6b72);
+}
+
+.requisition-shell .stub-status-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bs-surface, #fcfcfb);
+  border: 1px solid var(--bs-line, #e4e1dc);
+  color: var(--bs-ink-soft, #6b6b72);
+}
+
+.requisition-shell .stub-status-tag--submitted {
+  background: #e6f4ea;
+  border-color: #bfe3cb;
+  color: #1e7e34;
+}
+
+.requisition-shell .stub-section {
+  margin-bottom: 14px;
+}
+
+.requisition-shell .stub-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--bs-ink-soft, #6b6b72);
+  margin-bottom: 6px;
+}
+
+.requisition-shell .stub-divider {
+  border-top: 1px dashed var(--bs-line, #e4e1dc);
+  margin: 14px 0;
+}
+
+.requisition-shell .stub-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--bs-ink, #1c1b1f);
+}
+
+.requisition-shell .stub-value-empty {
+  font-weight: 400;
+  color: var(--bs-ink-soft, #6b6b72);
+  font-style: italic;
+}
+
+.requisition-shell .stub-subvalue {
+  font-size: 0.8rem;
+  color: var(--bs-ink-soft, #6b6b72);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.requisition-shell .stub-submitted {
+  box-shadow: 0 0 0 2px var(--bs-red-tint-2, #f5d6d0);
+}
+
+/* Stub reuses .selection-summary-list / .selection-summary-empty /
+   .selection-total (populated by bloodRequestSelectionUI.js — unchanged) */
+.requisition-shell .selection-summary-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.selection-summary-row {
+.requisition-shell .selection-summary-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border-color-light, #eee);
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 0.85rem;
 }
 
-.selection-summary-row:last-child {
-  border-bottom: none;
-}
-
-.selection-summary-empty {
-  color: var(--text-muted, #888);
+.requisition-shell .selection-summary-empty {
+  color: var(--bs-ink-soft, #6b6b72);
+  font-style: italic;
+  font-size: 0.85rem;
   margin: 0;
 }
 
-.selection-total {
-  font-weight: 600;
-  margin: 0.75rem 0 0;
+.requisition-shell .selection-total {
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  margin: 8px 0 0;
+  color: var(--bs-red-dark, #9c2e22);
 }
 
-/* ── Component switcher — tabs (desktop) vs carousel (mobile) ───────
-   No shared breakpoint convention exists yet anywhere in the app
-   (confirmed against main.css) — 768px is a new convention introduced
-   here. If a global breakpoint variable/pattern gets established later,
-   this should be updated to match it. */
+/* ── Step 1: component switcher ──────────────────────────────────── */
 
-.component-tabs {
-  display: flex;
+.requisition-shell .component-tabs {
+  display: none;
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
-.component-tab-button {
+.requisition-shell .component-tab-button {
   padding: 0.6rem 1.25rem;
-  border: 2px solid var(--border-color, #ddd);
-  border-radius: 8px;
+  border: 1.5px solid var(--bs-line, #e4e1dc);
+  border-radius: 999px;
   background: #fff;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #444;
+  color: var(--bs-ink-soft, #6b6b72);
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.component-tab-button--active {
-  border-color: var(--color-primary, #c0392b);
-  background: var(--color-primary-light, #fdecea);
-  color: var(--color-primary, #c0392b);
+.requisition-shell .component-tab-button--active {
+  border-color: var(--bs-red, #c0392b);
+  background: var(--bs-red-tint, #fbeae7);
+  color: var(--bs-red-dark, #9c2e22);
 }
 
-.component-carousel {
+.requisition-shell .component-carousel {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-/* Mobile-first: carousel is the default, tabs are hidden below 768px */
-.component-tabs {
-  display: none;
+  margin-bottom: 1.75rem;
 }
 
 @media (min-width: 768px) {
-  .component-carousel {
+  .requisition-shell .component-carousel {
     display: none;
   }
-  .component-tabs {
+  .requisition-shell .component-tabs {
     display: flex;
   }
 }
 
-.component-title {
+.requisition-shell .component-title {
   min-width: 220px;
   text-align: center;
   margin: 0;
+  font-weight: 700;
 }
 
-.carousel-arrow {
+.requisition-shell .carousel-arrow {
   background: none;
-  border: 1px solid var(--border-color, #ddd);
+  border: 1.5px solid var(--bs-line, #e4e1dc);
   border-radius: 50%;
   width: 2.5rem;
   height: 2.5rem;
@@ -106,176 +299,327 @@
   cursor: pointer;
 }
 
-.blood-type-grid {
+/* ── Blood type vials ─────────────────────────────────────────────── */
+
+.requisition-shell .blood-type-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
 }
 
-.blood-type-box {
+.requisition-shell .blood-type-chip {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  padding: 1rem;
-  border: 2px solid var(--border-color, #ddd);
-  border-radius: 8px;
-  background: #fff;
+  gap: 4px;
+  padding: 1rem 0.5rem 0.85rem;
+  border: 1.5px solid var(--bs-line, #e4e1dc);
+  border-radius: 12px;
+  background: var(--bs-paper, #fff);
   cursor: pointer;
-  font-size: 1.1rem;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
 
-.blood-type-box--selected {
-  border-color: var(--color-primary, #c0392b);
-  background: var(--color-primary-light, #fdecea);
+.requisition-shell .blood-type-chip:hover {
+  border-color: var(--bs-red, #c0392b);
 }
 
-.blood-type-count {
-  font-size: 0.85rem;
-  color: var(--color-primary, #c0392b);
+.requisition-shell .blood-type-chip:active {
+  transform: scale(0.97);
 }
 
-.step-actions {
+.requisition-shell .blood-type-chip--selected {
+  border-color: var(--bs-red, #c0392b);
+  background: var(--bs-red-tint, #fbeae7);
+}
+
+.requisition-shell .vial {
+  width: 26px;
+  height: 38px;
+  border: 2px solid var(--bs-line, #e4e1dc);
+  border-radius: 5px 5px 13px 13px;
+  background: var(--bs-surface, #fcfcfb);
+  position: relative;
+  overflow: hidden;
+}
+
+.requisition-shell .blood-type-chip--selected .vial {
+  border-color: var(--bs-red-dark, #9c2e22);
+}
+
+.requisition-shell .vial::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 2px;
+  right: 2px;
+  height: 2px;
+  background: var(--bs-line, #e4e1dc);
+  z-index: 1;
+}
+
+.requisition-shell .vial-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--fill, 0%);
+  background: linear-gradient(180deg, #e4574c, var(--bs-red, #c0392b));
+  transition: height 0.25s ease;
+}
+
+.requisition-shell .blood-type-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--bs-ink, #1c1b1f);
+}
+
+.requisition-shell .blood-type-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--bs-red-dark, #9c2e22);
+  min-height: 1em;
+}
+
+/* ── Shared step chrome ──────────────────────────────────────────── */
+
+.requisition-shell .step-actions {
   display: flex;
   justify-content: flex-end;
 }
 
-.banner {
+.requisition-shell .step-actions--split {
+  justify-content: space-between;
+}
+
+.requisition-shell .banner {
   padding: 0.75rem 1rem;
-  border-radius: 6px;
+  border-radius: 8px;
   margin-bottom: 1rem;
 }
 
-.banner-warning {
+.requisition-shell .banner-warning {
   background: #fff8e1;
   border: 1px solid #f0c14b;
   color: #7a5b00;
 }
 
-.location-note {
-  color: var(--text-muted, #888);
-  font-size: 0.9rem;
+.requisition-shell .location-note {
+  color: var(--bs-ink-soft, #6b6b72);
+  font-size: 0.85rem;
   margin: 0 0 1rem;
 }
 
-.fulfillment-loading-message {
-  color: var(--text-muted, #888);
+.requisition-shell .fulfillment-loading-message {
+  color: var(--bs-ink-soft, #6b6b72);
   font-size: 0.95rem;
   text-align: center;
   padding: 1.5rem 0;
   margin: 0;
 }
 
-.fulfillment-wait-estimate {
-  font-size: 0.9rem;
-  color: var(--color-primary, #c0392b);
-  font-weight: 600;
+.requisition-shell .fulfillment-wait-estimate {
+  font-size: 0.85rem;
+  color: var(--bs-red-dark, #9c2e22);
+  font-weight: 700;
   margin: 0 0 1rem;
 }
 
-.branch-options-list {
+/* Was missing from the previous stylesheet — Leaflet needs an explicit
+   height on its container or it renders at 0px. */
+.requisition-shell .fulfillment-map {
+  height: 260px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--bs-line, #e4e1dc);
+  margin-bottom: 1.5rem;
+}
+
+/* ── Branch options — "boarding pass" rows ───────────────────────── */
+
+.requisition-shell .branch-options-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
-.branch-option {
+.requisition-shell .branch-option {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 8px;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border: 1.5px solid var(--bs-line, #e4e1dc);
+  border-left: 4px solid var(--bs-line, #e4e1dc);
+  border-radius: 10px;
   cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.branch-option:has(input:checked) {
-  border-color: var(--color-primary, #c0392b);
-  background: var(--color-primary-light, #fdecea);
+.requisition-shell .branch-option:has(input:checked) {
+  border-color: var(--bs-red, #c0392b);
+  border-left-color: var(--bs-red, #c0392b);
+  background: var(--bs-red-tint, #fbeae7);
 }
 
-.branch-option input[type="radio"] {
+.requisition-shell .branch-option input[type='radio'] {
   margin-top: 0.25rem;
+  accent-color: var(--bs-red, #c0392b);
 }
 
-.branch-option-name {
-  font-weight: 600;
+.requisition-shell .branch-option-name {
+  font-weight: 700;
+  color: var(--bs-ink, #1c1b1f);
 }
 
-.branch-option-distance {
-  font-size: 0.85rem;
-  color: var(--text-muted, #888);
+.requisition-shell .branch-option-distance {
+  font-size: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--bs-ink-soft, #6b6b72);
 }
 
-.branch-option-coverage {
-  font-size: 0.9rem;
-  margin-top: 0.25rem;
+.requisition-shell .branch-option-coverage {
+  font-size: 0.87rem;
+  margin-top: 0.3rem;
+  color: var(--bs-ink, #1c1b1f);
 }
 
-.step-actions--split {
-  justify-content: space-between;
+/* ── Map pins ─────────────────────────────────────────────────────── */
+
+.map-pin {
+  background: transparent;
+  border: none;
 }
 
-.form-field {
-  margin-bottom: 1.25rem;
-}
-
-.form-field label {
+.map-pin-dot {
   display: block;
-  font-weight: 600;
-  margin-bottom: 0.35rem;
+  width: 16px;
+  height: 16px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
-.form-field input[type="text"],
-.form-field input[type="number"],
-.form-field input[type="date"],
-.form-field select,
-.form-field textarea {
+.map-pin--user .map-pin-dot {
+  background: var(--bs-ink, #1c1b1f);
+}
+
+.map-pin--branch .map-pin-dot {
+  background: var(--bs-red, #c0392b);
+}
+
+/* ── Step 3: form ─────────────────────────────────────────────────── */
+
+.requisition-shell .form-field {
+  margin-bottom: 1.35rem;
+}
+
+.requisition-shell .form-field label,
+.requisition-shell .form-field-label-static {
+  display: block;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+  color: var(--bs-ink, #1c1b1f);
+}
+
+.requisition-shell .form-field input[type='text'],
+.requisition-shell .form-field input[type='number'],
+.requisition-shell .form-field input[type='date'],
+.requisition-shell .form-field select,
+.requisition-shell .form-field textarea {
   width: 100%;
-  padding: 0.6rem;
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 6px;
-  font-size: 1rem;
+  padding: 0.65rem 0.75rem;
+  border: 1.5px solid var(--bs-line, #e4e1dc);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: var(--bs-paper, #fff);
+  transition: border-color 0.15s ease;
 }
 
-.sd-list {
+.requisition-shell .form-field input:focus,
+.requisition-shell .form-field select:focus,
+.requisition-shell .form-field textarea:focus {
+  outline: none;
+  border-color: var(--bs-red, #c0392b);
+}
+
+.requisition-shell .sd-list {
   list-style: none;
   margin: 0.25rem 0 0;
   padding: 0;
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 6px;
+  border: 1.5px solid var(--bs-line, #e4e1dc);
+  border-radius: 8px;
   max-height: 220px;
   overflow-y: auto;
 }
 
-.success-panel {
-  text-align: center;
-  padding: 2rem;
+/* ── Urgency segmented control ───────────────────────────────────── */
+
+.requisition-shell .urgency-segmented {
+  display: inline-flex;
+  border: 1.5px solid var(--bs-line, #e4e1dc);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 3px;
+  background: var(--bs-surface, #fcfcfb);
 }
 
-.success-panel h2 {
-  margin-bottom: 0.5rem;
+.requisition-shell .urgency-radio {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
 }
 
-/* ── Document authenticity notice (Submit Request) ───────────────── */
-
-.document-terms-field {
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  background: #fafafa;
+.requisition-shell .urgency-option {
+  padding: 7px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--bs-ink-soft, #6b6b72);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  margin: 0;
 }
 
-.document-terms-summary {
+.requisition-shell #urgency-option-routine:checked + .urgency-option {
+  background: var(--bs-ink, #1c1b1f);
+  color: #fff;
+}
+
+.requisition-shell #urgency-option-stat:checked + .urgency-option {
+  background: #b3261e;
+  color: #fff;
+}
+
+.requisition-shell .urgency-radio:focus-visible + .urgency-option {
+  outline: 2px solid var(--bs-red, #c0392b);
+  outline-offset: 2px;
+}
+
+/* ── Document authenticity notice ────────────────────────────────── */
+
+.requisition-shell .document-terms-field {
+  border: 1.5px solid var(--bs-line, #e4e1dc);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  background: var(--bs-surface, #fcfcfb);
+}
+
+.requisition-shell .document-terms-summary {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--bs-ink-soft, #6b6b72);
   margin: 0 0 0.5rem;
 }
 
-.document-terms-checkbox-label {
+.requisition-shell .document-terms-checkbox-label {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
@@ -283,85 +627,182 @@
   cursor: pointer;
 }
 
-.document-terms-checkbox-label input[type="checkbox"] {
+.requisition-shell .document-terms-checkbox-label input[type='checkbox'] {
   margin-top: 0.2rem;
   flex-shrink: 0;
+  accent-color: var(--bs-red, #c0392b);
 }
 
-/* Text-only button styled as an inline link — no border/background of its
-   own, so it reads as "part of the sentence" rather than a second button
-   competing with the checkbox for attention. */
-.link-button {
+.requisition-shell .link-button {
   background: none;
   border: none;
   padding: 0;
-  color: var(--color-primary, #c0392b);
+  color: var(--bs-red, #c0392b);
   font-size: 0.85rem;
   text-decoration: underline;
   cursor: pointer;
 }
 
-/* ── My Requests — request cards ─────────────────────────────────── */
+/* ── Success panel ────────────────────────────────────────────────── */
 
-.request-card {
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+.requisition-shell .success-panel {
+  text-align: center;
+  padding: 2.5rem 1rem;
 }
 
-.request-card-header {
+.requisition-shell .success-panel h2 {
+  margin-bottom: 0.5rem;
+}
+
+/* ── Mobile: stub becomes a bottom sheet ─────────────────────────── */
+
+@media (max-width: 767px) {
+  .requisition-shell .requisition-layout {
+    flex-direction: column;
+  }
+
+  .requisition-shell .requisition-stub {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 48px;
+    z-index: 130;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    transition: max-height 0.25s ease;
+  }
+
+  .requisition-shell .requisition-stub.stub-expanded {
+    max-height: 72vh;
+    overflow-y: auto;
+  }
+
+  .requisition-shell .stub-peek-handle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 18px;
+    background: none;
+    border: none;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--bs-ink, #1c1b1f);
+    cursor: pointer;
+  }
+
+  .requisition-shell .stub-peek-chevron {
+    transition: transform 0.2s ease;
+    color: var(--bs-ink-soft, #6b6b72);
+  }
+
+  .requisition-shell .requisition-stub.stub-expanded .stub-peek-chevron {
+    transform: rotate(180deg);
+  }
+
+  .requisition-shell .blood-type-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6rem;
+  }
+
+  /* Leave room at the bottom of the page so the collapsed sheet never
+     covers the Continue/Submit buttons. */
+  .requisition-shell .requisition-main {
+    padding-bottom: 56px;
+  }
+}
+
+/* ── My Requests — request cards ("carbon copy" ticket) ──────────── */
+
+.requests-shell .request-card {
+  position: relative;
+  border: 1px solid var(--bs-line, #e4e1dc);
+  border-left: 4px solid var(--bs-line, #e4e1dc);
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--bs-paper, #fff);
+  transition: border-color 0.15s ease;
+}
+
+.requests-shell .request-card--pending  { border-left-color: #b06000; }
+.requests-shell .request-card--approved,
+.requests-shell .request-card--waiting  { border-left-color: #1a56c4; }
+.requests-shell .request-card--released { border-left-color: #1e7e34; }
+.requests-shell .request-card--rejected { border-left-color: #c5221f; }
+
+.requests-shell .request-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--bs-line, #e4e1dc);
 }
 
-.request-card-patient {
+.requests-shell .request-card-patient {
   font-size: 1rem;
+  font-weight: 700;
+  color: var(--bs-ink, #1c1b1f);
   margin: 0;
 }
 
-.request-card-meta {
+.requests-shell .request-card-meta {
   display: grid;
-  grid-template-columns: 100px 1fr;
-  gap: 6px 12px;
-  margin-bottom: 0.5rem;
+  grid-template-columns: 110px 1fr;
+  gap: 7px 12px;
+  margin-bottom: 0.6rem;
 }
 
-.request-card-meta dt {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #666;
+.requests-shell .request-card-meta dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--bs-ink-soft, #6b6b72);
 }
 
-.request-card-meta dd {
+.requests-shell .request-card-meta dd {
   font-size: 0.88rem;
-  color: #111;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--bs-ink, #1c1b1f);
 }
 
-.request-card-denial {
+.requests-shell .request-card-denial {
   font-size: 0.85rem;
   color: #c5221f;
-  margin-bottom: 0.5rem;
+  background: #fce8e6;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.6rem;
 }
 
-.request-card-actions {
+.requests-shell .request-card-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
 
-/* Status badges specific to Blood Request lifecycle — .status-badge base
-   class comes from bloodDrives.css. --cancelled already exists there with
-   matching semantics and is reused as-is. Only the request-specific
-   statuses not already defined anywhere else are added here. */
-.status-badge--pending  { background: #fff4e0; color: #b06000; }
-.status-badge--approved { background: #e8f0fe; color: #1a56c4; }
-.status-badge--waiting  { background: #e8eefc; color: #1a56db; }
-.status-badge--released { background: #e6f4ea; color: #1e7e34; }
-.status-badge--rejected { background: #fce8e6; color: #c5221f; }
+/* Status badges — same semantics/colors as before, just reused here.
+   Base .status-badge class still comes from bloodDrives.css (unchanged). */
+.requests-shell .status-badge--pending  { background: #fff4e0; color: #b06000; }
+.requests-shell .status-badge--approved { background: #e8f0fe; color: #1a56c4; }
+.requests-shell .status-badge--waiting  { background: #e8eefc; color: #1a56db; }
+.requests-shell .status-badge--released { background: #e6f4ea; color: #1e7e34; }
+.requests-shell .status-badge--rejected { background: #fce8e6; color: #c5221f; }
+
+/* Page-scoped presentation for the shared .empty-state (bloodDrives.css) —
+   does not modify that file, only adds specificity within this page. */
+.requests-shell .empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  border: 1px dashed var(--bs-line, #e4e1dc);
+  border-radius: 10px;
+  color: var(--bs-ink-soft, #6b6b72);
+}
 
 /* ── Staff management — tabs ─────────────────────────────────────── */
 /* First tabbed control in the app — no prior tab-button precedent
