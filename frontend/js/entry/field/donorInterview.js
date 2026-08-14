@@ -8,6 +8,7 @@ import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 import { getSidebarItems }    from '../../constants/sidebarItems.js';
 import { ROLES }              from '../../constants/roles.js';
 import { showToast }          from '../../components/toast.js';
+import { saveForm, restoreForm, clearForm } from '../../core/formPersist.js';
 import {
   getAllDonors,
   getDonorById,
@@ -32,6 +33,15 @@ let _selectedDonor    = null;
 let _createdInterview = null;
 let _questions        = [];
 let _dropdown         = null;
+
+// ─── Draft Persistence Helper ──────────────────────────────────────────────────
+// Per-donor key — the operator can move between multiple donors in one
+// session, so a flat key would leak one donor's in-progress answers onto
+// the next donor's question set (same question_id values recur across
+// donors of the same sex). See donorDonation.js's header note for the
+// same reasoning applied there.
+
+function _interviewDraftKey(donorId) { return `draft:donor-interview-form:${donorId}`; }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -444,6 +454,11 @@ async function _initInterviewForm(donor) {
   _setPrefillButtonVisible(true);
 
   await _loadQuestions(donor.sex);
+
+  // Restore any in-progress answers for THIS donor now that the question
+  // radios exist in the DOM (they're generated dynamically, so this can't
+  // run any earlier — see file header for why the key is per-donor).
+  restoreForm('interview-form', _interviewDraftKey(donor.donor_id));
 }
 
 async function _loadQuestions(sex) {
@@ -605,12 +620,22 @@ function _prefillSafeAnswers() {
       : 'Pre-filled the safe answer for every question. Review and adjust any that don\u2019t apply.',
     skipped > 0 ? 'warning' : 'success'
   );
+
+  // Pre-filled answers count as in-progress input — persist them same as
+  // a manually-clicked answer would be.
+  if (_selectedDonor) saveForm('interview-form', _interviewDraftKey(_selectedDonor.donor_id));
 }
 
 function _setupInterviewForm() {
   const form = document.getElementById('interview-form');
   if (!form) return;
   form.addEventListener('submit', _handleInterviewSubmit);
+
+  // Draft persistence — save on every answer change. Delegated at the
+  // form level since the radios are added dynamically per question set.
+  form.addEventListener('input', () => {
+    if (_selectedDonor) saveForm('interview-form', _interviewDraftKey(_selectedDonor.donor_id));
+  });
 
   const prefillBtn = document.getElementById('btn-prefill-safe');
   if (prefillBtn) prefillBtn.addEventListener('click', _prefillSafeAnswers);
@@ -670,6 +695,10 @@ async function _handleInterviewSubmit(e) {
       donor_id:     _selectedDonor.donor_id,
       answers,
     });
+
+    // Interview answers accepted (regardless of pass/defer outcome below)
+    // — this donor's in-progress draft is done with.
+    clearForm(_interviewDraftKey(_selectedDonor.donor_id));
 
     // Step 4: FIX Issue 4 — check if submission resulted in deferral
     // Re-fetch the interview record to get the updated interview_result.

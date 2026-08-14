@@ -10,6 +10,7 @@ import { ROLES }              from '../../constants/roles.js';
 import { showToast }          from '../../components/toast.js';
 import { apiFetch }                from '../../core/api.js';
 import { initSearchableDropdown } from '../../components/searchableDropdown.js';
+import { saveForm, restoreForm, clearForm } from '../../core/formPersist.js';
 import {
   getDonorById,
   createDonor,
@@ -39,6 +40,14 @@ let _duplicateTimers  = {};    // per-field blur timers
  * Used to: (a) show badge in dropdown, (b) block selection.
  */
 let _deferredDonorMap = new Map();
+
+// ─── Draft Persistence ──────────────────────────────────────────────────────
+// Single flat key — unlike Interview/Screening/Donation, this page only
+// ever has ONE donor "in progress" at a time (a brand-new registration).
+// Selecting an EXISTING donor locks the form fields and swaps to the
+// contact-update form instead, so there's no multi-donor draft collision
+// risk to guard against here.
+const DRAFT_KEY = 'draft:donor-registration-form';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,6 +90,11 @@ async function init() {
   const bdInput = document.getElementById('reg-birthdate');
   if (bdInput) bdInput.max = new Date().toISOString().slice(0, 10);
 
+  // Restore any in-progress new-registration draft. Safe to do this early —
+  // _selectedDonor is always null on a fresh page load, so this can never
+  // collide with an existing-donor selection (which locks these same fields).
+  restoreForm('donor-registration-form', DRAFT_KEY);
+
   await _initSearchDropdown();
   _setupDuplicateDetection();
   _setupRegistrationForm();
@@ -88,6 +102,22 @@ async function init() {
   _setupClearSelection();
   _setupResetBtn();
   _setupRegisterAnotherBtn();
+  _setupDraftPersistence();
+}
+
+// ─── Draft Persistence ─────────────────────────────────────────────────────
+
+/**
+ * Auto-saves the registration form to sessionStorage on every input, so a
+ * reload or accidental navigation doesn't lose in-progress typing. Scoped
+ * to #donor-registration-form only — the contact-update form (for editing
+ * an already-selected existing donor) is a different use case and isn't
+ * covered here.
+ */
+function _setupDraftPersistence() {
+  const form = document.getElementById('donor-registration-form');
+  if (!form) return;
+  form.addEventListener('input', () => saveForm('donor-registration-form', DRAFT_KEY));
 }
 
 // ─── Search Dropdown (existing donor lookup) ──────────────────────────────────
@@ -495,6 +525,7 @@ async function _handleRegisterSubmit(e) {
     _registeredDonor = donor;
     showToast('Donor registered successfully.', 'success');
     _showProceedSection(donor);
+    clearForm(DRAFT_KEY);
 
     if (submitBtn) _hideEl(submitBtn);
     _hideEl(document.getElementById('reg-reset-btn'));
@@ -626,6 +657,7 @@ function _resetForm() {
   _hideEl(document.getElementById('reg-name-birthdate-duplicate'));
   _hideEl(document.getElementById('proceed-section'));
   _registeredDonor = null;
+  clearForm(DRAFT_KEY);
 }
 
 function _setupRegisterAnotherBtn() {

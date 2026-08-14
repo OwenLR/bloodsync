@@ -87,13 +87,13 @@
           <div class="form-row">
             <div class="form-group">
               <label for="reg-first-name">First Name <span class="required-mark">*</span></label>
-              <input id="reg-first-name" type="text" class="form-input" autocomplete="off" />
+              <input id="reg-first-name" name="reg-first-name" type="text" class="form-input" autocomplete="off" />
               <span id="reg-first-name-error" class="field-error field-error-hidden"></span>
               <p id="reg-first-name-duplicate" class="duplicate-checking" style="display:none"></p>
             </div>
             <div class="form-group">
               <label for="reg-last-name">Last Name <span class="required-mark">*</span></label>
-              <input id="reg-last-name" type="text" class="form-input" autocomplete="off" />
+              <input id="reg-last-name" name="reg-last-name" type="text" class="form-input" autocomplete="off" />
               <span id="reg-last-name-error" class="field-error field-error-hidden"></span>
             </div>
           </div>
@@ -101,7 +101,7 @@
           <div class="form-row">
             <div class="form-group">
               <label for="reg-birthdate">Birthdate <span class="required-mark">*</span></label>
-              <input id="reg-birthdate" type="date" class="form-input" />
+              <input id="reg-birthdate" name="reg-birthdate" type="date" class="form-input" />
               <span id="reg-birthdate-error" class="field-error field-error-hidden"></span>
               <div id="reg-name-birthdate-duplicate" style="display:none" class="duplicate-warning">
                 <span class="duplicate-warning-text"></span>
@@ -110,7 +110,7 @@
             </div>
             <div class="form-group">
               <label for="reg-sex">Sex <span class="required-mark">*</span></label>
-              <select id="reg-sex" class="form-input">
+              <select id="reg-sex" name="reg-sex" class="form-input">
                 <option value="">Select...</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
@@ -122,7 +122,7 @@
           <div class="form-row">
             <div class="form-group">
               <label for="reg-email">Email <span class="required-mark">*</span></label>
-              <input id="reg-email" type="email" class="form-input" autocomplete="off" />
+              <input id="reg-email" name="reg-email" type="email" class="form-input" autocomplete="off" />
               <span class="field-hint">Required for post-donation notifications.</span>
               <span id="reg-email-error" class="field-error field-error-hidden"></span>
               <div id="reg-email-duplicate" style="display:none" class="duplicate-warning">
@@ -132,7 +132,7 @@
             </div>
             <div class="form-group">
               <label for="reg-contact">Contact Number</label>
-              <input id="reg-contact" type="tel" class="form-input" placeholder=" " autocomplete="off" />
+              <input id="reg-contact" name="reg-contact" type="tel" class="form-input" placeholder=" " autocomplete="off" />
               <span id="reg-contact-error" class="field-error field-error-hidden"></span>
               <div id="reg-contact-duplicate" style="display:none" class="duplicate-warning">
                 <span class="duplicate-warning-text"></span>

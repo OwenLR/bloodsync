@@ -31,6 +31,20 @@
  *   Reads:  field_screening_id (resolves screening_id if not in screeningMap)
  *   Writes: nothing — this is the last step (collection absorbed here)
  *   Clears: field_screening_id, field_screening_donor_id after donation success
+ *
+ * Draft persistence (formPersist.js):
+ *   Extraction time (minutes/seconds) and, for Admin, the destination
+ *   branch select, are auto-saved to sessionStorage as the operator types,
+ *   so a reload/navigation mid-entry doesn't lose the in-progress values.
+ *   Keys are scoped PER DONOR (draft:donor-donation-form:{donor_id} /
+ *   draft:donor-collection-form:{donor_id}) because this page — unlike
+ *   Registration — lets the operator move between multiple donors in one
+ *   session; a flat key would leak one donor's typed values into the next
+ *   donor's form. The phlebotomist searchable-dropdown selection is
+ *   deliberately NOT persisted — it's a custom component (hidden input +
+ *   filter text), and restoring just the hidden id without re-syncing the
+ *   visible label would be confusing. Component/volume fields are fixed
+ *   and disabled, so persisting them has no value and is skipped.
  */
 
 import { requireAuth }         from '../../core/guards/authGuard.js';
@@ -45,6 +59,7 @@ import { ROLES }               from '../../constants/roles.js';
 import { EXTRACTION }           from '../../constants/medicalRules.js';
 import { WHOLE_BLOOD_VOLUME_ML } from '../../constants/bloodTypes.js';
 import { showToast }           from '../../components/toast.js';
+import { saveForm, restoreForm, clearForm } from '../../core/formPersist.js';
 import {
   getAllDonors,
   getDonorById,
@@ -83,6 +98,12 @@ let _phlebotomists    = [];
 let _dropdown         = null;
 let _phlebDropdown    = null;   // searchableDropdown instance for phlebotomist
 let _createdDonation  = null;
+
+// ─── Draft Persistence Helpers ─────────────────────────────────────────────────
+// Per-donor keys — see file header for why a flat key isn't safe here.
+
+function _donationDraftKey(donorId)  { return `draft:donor-donation-form:${donorId}`; }
+function _collectionDraftKey(donorId) { return `draft:donor-collection-form:${donorId}`; }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
@@ -371,6 +392,7 @@ async function _checkExistingDonation(donor) {
       _hideEl(document.getElementById('donation-already-done'));
       _showEl(document.getElementById('donation-form-fields'));
       _showEl(document.getElementById('donation-submit-section'));
+      restoreForm('donation-form', _donationDraftKey(donor.donor_id));
       return;
     }
 
@@ -396,6 +418,7 @@ async function _checkExistingDonation(donor) {
     _hideEl(document.getElementById('donation-already-done'));
     _showEl(document.getElementById('donation-form-fields'));
     _showEl(document.getElementById('donation-submit-section'));
+    restoreForm('donation-form', _donationDraftKey(donor.donor_id));
 
   } catch (err) {
     showToast('Failed to check donation record. Please try again.', 'error');
@@ -436,6 +459,7 @@ async function _checkExistingCollection(donor, donationRecord) {
     _showEl(document.getElementById('collection-form-fields'));
     _showEl(document.getElementById('collection-submit-section'));
     _prefillCollection(donor);
+    restoreForm('collection-form', _collectionDraftKey(donor.donor_id));
 
   } catch (_err) {
     // If we can't check, just show the form — backend will reject a duplicate
@@ -443,6 +467,7 @@ async function _checkExistingCollection(donor, donationRecord) {
     _showEl(document.getElementById('collection-form-fields'));
     _showEl(document.getElementById('collection-submit-section'));
     _prefillCollection(donor);
+    restoreForm('collection-form', _collectionDraftKey(donor.donor_id));
   }
 }
 
@@ -480,6 +505,13 @@ function _setupDonationForm() {
   const form = document.getElementById('donation-form');
   if (!form) return;
   form.addEventListener('submit', _handleDonationSubmit);
+
+  // Draft persistence — save on every input. Delegated at the form level so
+  // it works regardless of which donor's fields are currently in view; the
+  // key itself (per-donor) is what actually scopes the saved data.
+  form.addEventListener('input', () => {
+    if (_selectedDonor) saveForm('donation-form', _donationDraftKey(_selectedDonor.donor_id));
+  });
 
   const minutesInput = document.getElementById('input-extraction-minutes');
   const secondsInput = document.getElementById('input-extraction-seconds');
@@ -615,6 +647,9 @@ async function _handleDonationSubmit(e) {
       sessionStorage.removeItem('field_screening_donor_id');
     } catch (_e) { /* ignore */ }
 
+    // Extraction recorded successfully — this form's draft is done with.
+    clearForm(_donationDraftKey(_selectedDonor.donor_id));
+
     showToast('Extraction recorded. Now record the collection below.', 'success');
 
     // Hide donation form, show collection form
@@ -624,6 +659,7 @@ async function _handleDonationSubmit(e) {
 
     _showEl(document.getElementById('collection-form-section'));
     _prefillCollection(_selectedDonor);
+    restoreForm('collection-form', _collectionDraftKey(_selectedDonor.donor_id));
 
   } catch (err) {
     if (formError) {
@@ -643,6 +679,12 @@ function _setupCollectionForm() {
   const form = document.getElementById('collection-form');
   if (!form) return;
   form.addEventListener('submit', _handleCollectionSubmit);
+
+  // Draft persistence — only meaningful field here is the Admin-only
+  // destination branch select; component/volume are fixed and disabled.
+  form.addEventListener('input', () => {
+    if (_selectedDonor) saveForm('collection-form', _collectionDraftKey(_selectedDonor.donor_id));
+  });
 }
 
 async function _handleCollectionSubmit(e) {
@@ -711,6 +753,11 @@ async function _handleCollectionSubmit(e) {
       sessionStorage.removeItem('field_donation_id');
       sessionStorage.removeItem('field_donation_donor_id');
     } catch (_e) { /* ignore */ }
+
+    // Collection recorded successfully — both this form's and the
+    // donation form's drafts for this donor are done with.
+    clearForm(_collectionDraftKey(_selectedDonor.donor_id));
+    clearForm(_donationDraftKey(_selectedDonor.donor_id));
 
     showToast('Blood collection recorded. Workflow complete.', 'success');
     _hideEl(document.getElementById('collection-form-section'));

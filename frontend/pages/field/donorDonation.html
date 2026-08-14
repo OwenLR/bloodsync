@@ -105,6 +105,7 @@
                   <div class="extraction-time-field">
                     <input
                       id="input-extraction-minutes"
+                      name="input-extraction-minutes"
                       type="number" min="0" max="120" step="1"
                       class="form-input"
                       placeholder="0"
@@ -114,6 +115,7 @@
                   <div class="extraction-time-field">
                     <input
                       id="input-extraction-seconds"
+                      name="input-extraction-seconds"
                       type="number" min="0" max="59" step="1"
                       class="form-input"
                       placeholder="0"
@@ -183,7 +185,7 @@
             <div id="admin-branch-section" class="form-row" style="display:none">
               <div class="form-group">
                 <label for="input-branch">Destination Branch <span class="required-mark">*</span></label>
-                <select id="input-branch" class="form-input">
+                <select id="input-branch" name="input-branch" class="form-input">
                   <option value="">— Select branch —</option>
                 </select>
                 <span class="field-hint">Select the PRC branch where this blood unit will go for testing.</span>

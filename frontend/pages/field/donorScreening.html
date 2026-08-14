@@ -89,14 +89,14 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="input-hemoglobin">Hemoglobin (g/dL) <span class="required-mark">*</span></label>
-                <input id="input-hemoglobin" type="number" step="0.1" min="5" max="25" class="form-input" placeholder="e.g. 14.5" />
+                <input id="input-hemoglobin" name="input-hemoglobin" type="number" step="0.1" min="5" max="25" class="form-input" placeholder="e.g. 14.5" />
                 <span class="field-hint" id="hemoglobin-hint"></span>
                 <span id="error-hemoglobin" class="field-error field-error-hidden"></span>
               </div>
 
               <div class="form-group">
                 <label for="input-blood-type-confirmed">Blood Type <span class="required-mark">*</span></label>
-                <select id="input-blood-type-confirmed" class="form-input">
+                <select id="input-blood-type-confirmed" name="input-blood-type-confirmed" class="form-input">
                   <option value="">— Select —</option>
                   <option value="A+">A+</option>
                   <option value="A-">A-</option>
@@ -115,12 +115,12 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="input-weight">Weight (kg)</label>
-                <input id="input-weight" type="number" step="0.1" min="20" max="300" class="form-input" placeholder="e.g. 65" />
+                <input id="input-weight" name="input-weight" type="number" step="0.1" min="20" max="300" class="form-input" placeholder="e.g. 65" />
                 <span id="error-weight" class="field-error field-error-hidden"></span>
               </div>
               <div class="form-group">
                 <label for="input-pulse-rate">Pulse Rate (bpm)</label>
-                <input id="input-pulse-rate" type="number" min="30" max="200" class="form-input" placeholder="e.g. 72" />
+                <input id="input-pulse-rate" name="input-pulse-rate" type="number" min="30" max="200" class="form-input" placeholder="e.g. 72" />
                 <span id="error-pulse-rate" class="field-error field-error-hidden"></span>
               </div>
             </div>
@@ -128,7 +128,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="input-blood-pressure">Blood Pressure</label>
-                <input id="input-blood-pressure" type="text" class="form-input" placeholder="e.g. 120/80" />
+                <input id="input-blood-pressure" name="input-blood-pressure" type="text" class="form-input" placeholder="e.g. 120/80" />
                 <span id="error-blood-pressure" class="field-error field-error-hidden"></span>
               </div>
             </div>

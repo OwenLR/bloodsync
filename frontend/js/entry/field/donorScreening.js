@@ -26,6 +26,15 @@
  *   Reads:  field_interview_id (resolves interview_id if not in interviewMap)
  *   Writes: field_screening_id, field_screening_donor_id (for donation page)
  *   Clears: field_interview_id, field_interview_donor_id after success
+ *
+ * Draft persistence (formPersist.js):
+ *   Hemoglobin, blood type, weight, pulse rate, and blood pressure are
+ *   auto-saved to sessionStorage as the operator types, so a reload/
+ *   navigation mid-entry doesn't lose the in-progress values. The key is
+ *   scoped PER DONOR (draft:donor-screening-form:{donor_id}) — same
+ *   reasoning as donorDonation.js/donorInterview.js: this page lets the
+ *   operator move between multiple donors in one session, so a flat key
+ *   would leak one donor's typed values into the next donor's form.
  */
 
 import { requireAuth }         from '../../core/guards/authGuard.js';
@@ -39,6 +48,7 @@ import { getSidebarItems }     from '../../constants/sidebarItems.js';
 import { ROLES }               from '../../constants/roles.js';
 import { HEMOGLOBIN }          from '../../constants/medicalRules.js';
 import { showToast }           from '../../components/toast.js';
+import { saveForm, restoreForm, clearForm } from '../../core/formPersist.js';
 import {
   getAllDonors,
   getDonorById,
@@ -62,6 +72,10 @@ let _selectedDonor     = null;
 let _selectedInterview = null;   // interview record for the selected donor
 let _dropdown          = null;
 let _interviewMap      = null;   // donor_id → interview record (built at load time)
+
+// ─── Draft Persistence Helper ──────────────────────────────────────────────────
+
+function _screeningDraftKey(donorId) { return `draft:donor-screening-form:${donorId}`; }
 
 // ─── Hemoglobin thresholds ────────────────────────────────────────────────────
 // Mirrors backend/constants/medicalRules.js — see constants/medicalRules.js
@@ -296,6 +310,9 @@ async function _checkExistingScreening(donor) {
 
       const btSelect = document.getElementById('input-blood-type-confirmed');
       if (btSelect && donor.blood_type) btSelect.value = donor.blood_type;
+
+      restoreForm('screening-form', _screeningDraftKey(donor.donor_id));
+      _updateResultPreview();
       return;
     }
 
@@ -324,6 +341,9 @@ async function _checkExistingScreening(donor) {
 
     const btSelect = document.getElementById('input-blood-type-confirmed');
     if (btSelect && donor.blood_type) btSelect.value = donor.blood_type;
+
+    restoreForm('screening-form', _screeningDraftKey(donor.donor_id));
+    _updateResultPreview();
 
   } catch (err) {
     showToast('Failed to check existing screening. Please try again.', 'error');
@@ -396,6 +416,13 @@ function _setupForm() {
   if (hgbInput) {
     hgbInput.addEventListener('input', _updateResultPreview);
   }
+
+  // Draft persistence — save on every input. Delegated at the form level
+  // so it works regardless of which donor's fields are currently in view;
+  // the per-donor key is what actually scopes the saved data.
+  form.addEventListener('input', () => {
+    if (_selectedDonor) saveForm('screening-form', _screeningDraftKey(_selectedDonor.donor_id));
+  });
 }
 
 async function _handleSubmit(e) {
@@ -460,6 +487,10 @@ async function _handleSubmit(e) {
     }
 
     const screening = await createScreening(data);
+
+    // Screening saved successfully — this donor's in-progress draft is
+    // done with.
+    clearForm(_screeningDraftKey(_selectedDonor.donor_id));
 
     // Clear interview sessionStorage — consumed by this step
     try {
