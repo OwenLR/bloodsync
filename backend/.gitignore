@@ -1,2 +1,11 @@
 node_modules/
 .env
+
+
+# Generated test results — not source, regenerate by running the suite
+*-results.json
+report.json
+*-report.html
+
+sample.png
+sample-large.png

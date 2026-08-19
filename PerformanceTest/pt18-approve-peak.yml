@@ -1,0 +1,54 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 1
+      arrivalRate: 50
+      name: "PT18 - Blood request approval - Peak (50 concurrent)"
+
+scenarios:
+  - name: "Submit as Requestor, then approve as Staff"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "maria@email.com"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      - post:
+          url: "/api/blood-requests"
+          formData:
+            hospital_id: "5"
+            branch_id: "1"
+            patient_name: "Load Test Patient"
+            patient_age: "30"
+            diagnosis: "Performance test - synthetic request"
+            urgency_level: "Routine"
+            items: '[{"blood_type":"O+","component":"Whole Blood","units_requested":1}]'
+            request_form:
+              fromFile: "./sample.png"
+          expect:
+            - statusCode: 201
+          capture:
+            - json: "$.data.request.request_id"
+              as: "request_id"
+
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      - patch:
+          url: "/api/blood-requests/{{ request_id }}/status"
+          json:
+            status: "Approved"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# File must be in the same folder as this yml: sample.png
+# Then: artillery run pt21-approve-peak.yml -o pt21-results.json

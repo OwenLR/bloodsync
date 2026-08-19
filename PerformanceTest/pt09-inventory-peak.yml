@@ -1,0 +1,25 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 1
+      arrivalRate: 50
+      name: "PT09 - Inventory view - Peak (50 concurrent)"
+
+scenarios:
+  - name: "Staff login + view branch inventory"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      - get:
+          url: "/api/blood-units/branch/1"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# Then: artillery run pt12-inventory-peak.yml -o pt12-results.json

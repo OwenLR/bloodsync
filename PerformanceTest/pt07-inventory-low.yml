@@ -1,0 +1,28 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 1
+      arrivalRate: 10
+      name: "PT07 - Inventory view - Low (10 concurrent)"
+
+scenarios:
+  - name: "Staff login + view branch inventory"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      # branch_id=1 = Lipa, matches the logged-in Staff account's own branch.
+      # Returns ALL statuses incl. server-computed 'Expired' — this is the
+      # actual Main Inventory / expiry-highlight page's data source.
+      - get:
+          url: "/api/blood-units/branch/1"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# Then: artillery run pt10-inventory-low.yml -o pt10-results.json

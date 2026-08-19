@@ -1,0 +1,22 @@
+config:
+  target: "http://localhost:3000"   # use localhost to avoid the login rate limiter
+  phases:
+    # Burst all users at once, within a 1-second window, to simulate
+    # "N concurrent users" as close as Artillery's rate-based model allows.
+    - duration: 1
+      arrivalRate: 10
+      name: "10 concurrent users"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Login flow"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200

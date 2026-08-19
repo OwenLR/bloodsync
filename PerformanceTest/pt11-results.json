@@ -1,0 +1,321 @@
+{
+  "aggregate": {
+    "counters": {
+      "vusers.created_by_name.Staff login + search donor": 25,
+      "vusers.created": 25,
+      "http.requests": 50,
+      "http.codes.200": 50,
+      "http.responses": 50,
+      "http.downloaded_bytes": 5200,
+      "plugins.metrics-by-endpoint./api/auth/login.codes.200": 25,
+      "plugins.metrics-by-endpoint./api/donors/search.codes.200": 25,
+      "vusers.failed": 0,
+      "vusers.completed": 25
+    },
+    "rates": {
+      "http.request_rate": 47
+    },
+    "firstCounterAt": 1786937745200,
+    "firstHistogramAt": 1786937745790,
+    "lastCounterAt": 1786937746601,
+    "lastHistogramAt": 1786937746601,
+    "firstMetricAt": 1786937745200,
+    "lastMetricAt": 1786937746601,
+    "period": 1786937740000,
+    "summaries": {
+      "http.response_time": {
+        "min": 45,
+        "max": 689,
+        "count": 50,
+        "mean": 232.9,
+        "p50": 169,
+        "median": 169,
+        "p75": 368.8,
+        "p90": 528.6,
+        "p95": 539.2,
+        "p99": 658.6,
+        "p999": 658.6
+      },
+      "http.response_time.2xx": {
+        "min": 45,
+        "max": 689,
+        "count": 50,
+        "mean": 232.9,
+        "p50": 169,
+        "median": 169,
+        "p75": 368.8,
+        "p90": 528.6,
+        "p95": 539.2,
+        "p99": 658.6,
+        "p999": 658.6
+      },
+      "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+        "min": 223,
+        "max": 689,
+        "count": 25,
+        "mean": 404.6,
+        "p50": 376.2,
+        "median": 376.2,
+        "p75": 528.6,
+        "p90": 539.2,
+        "p95": 620.3,
+        "p99": 658.6,
+        "p999": 658.6
+      },
+      "plugins.metrics-by-endpoint.response_time./api/donors/search": {
+        "min": 45,
+        "max": 168,
+        "count": 25,
+        "mean": 61.2,
+        "p50": 55.2,
+        "median": 55.2,
+        "p75": 61,
+        "p90": 77.5,
+        "p95": 85.6,
+        "p99": 85.6,
+        "p999": 85.6
+      },
+      "vusers.session_length": {
+        "min": 302.6,
+        "max": 807.9,
+        "count": 25,
+        "mean": 490.4,
+        "p50": 450.4,
+        "median": 450.4,
+        "p75": 620.3,
+        "p90": 658.6,
+        "p95": 713.5,
+        "p99": 757.6,
+        "p999": 757.6
+      }
+    },
+    "histograms": {
+      "http.response_time": {
+        "min": 45,
+        "max": 689,
+        "count": 50,
+        "mean": 232.9,
+        "p50": 169,
+        "median": 169,
+        "p75": 368.8,
+        "p90": 528.6,
+        "p95": 539.2,
+        "p99": 658.6,
+        "p999": 658.6
+      },
+      "http.response_time.2xx": {
+        "min": 45,
+        "max": 689,
+        "count": 50,
+        "mean": 232.9,
+        "p50": 169,
+        "median": 169,
+        "p75": 368.8,
+        "p90": 528.6,
+        "p95": 539.2,
+        "p99": 658.6,
+        "p999": 658.6
+      },
+      "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+        "min": 223,
+        "max": 689,
+        "count": 25,
+        "mean": 404.6,
+        "p50": 376.2,
+        "median": 376.2,
+        "p75": 528.6,
+        "p90": 539.2,
+        "p95": 620.3,
+        "p99": 658.6,
+        "p999": 658.6
+      },
+      "plugins.metrics-by-endpoint.response_time./api/donors/search": {
+        "min": 45,
+        "max": 168,
+        "count": 25,
+        "mean": 61.2,
+        "p50": 55.2,
+        "median": 55.2,
+        "p75": 61,
+        "p90": 77.5,
+        "p95": 85.6,
+        "p99": 85.6,
+        "p999": 85.6
+      },
+      "vusers.session_length": {
+        "min": 302.6,
+        "max": 807.9,
+        "count": 25,
+        "mean": 490.4,
+        "p50": 450.4,
+        "median": 450.4,
+        "p75": 620.3,
+        "p90": 658.6,
+        "p95": 713.5,
+        "p99": 757.6,
+        "p999": 757.6
+      }
+    }
+  },
+  "intermediate": [
+    {
+      "counters": {
+        "vusers.created_by_name.Staff login + search donor": 25,
+        "vusers.created": 25,
+        "http.requests": 50,
+        "http.codes.200": 50,
+        "http.responses": 50,
+        "http.downloaded_bytes": 5200,
+        "plugins.metrics-by-endpoint./api/auth/login.codes.200": 25,
+        "plugins.metrics-by-endpoint./api/donors/search.codes.200": 25,
+        "vusers.failed": 0,
+        "vusers.completed": 25
+      },
+      "rates": {
+        "http.request_rate": 47
+      },
+      "http.request_rate": null,
+      "firstCounterAt": 1786937745200,
+      "firstHistogramAt": 1786937745790,
+      "lastCounterAt": 1786937746601,
+      "lastHistogramAt": 1786937746601,
+      "firstMetricAt": 1786937745200,
+      "lastMetricAt": 1786937746601,
+      "period": "1786937740000",
+      "summaries": {
+        "http.response_time": {
+          "min": 45,
+          "max": 689,
+          "count": 50,
+          "mean": 232.9,
+          "p50": 169,
+          "median": 169,
+          "p75": 368.8,
+          "p90": 528.6,
+          "p95": 539.2,
+          "p99": 658.6,
+          "p999": 658.6
+        },
+        "http.response_time.2xx": {
+          "min": 45,
+          "max": 689,
+          "count": 50,
+          "mean": 232.9,
+          "p50": 169,
+          "median": 169,
+          "p75": 368.8,
+          "p90": 528.6,
+          "p95": 539.2,
+          "p99": 658.6,
+          "p999": 658.6
+        },
+        "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+          "min": 223,
+          "max": 689,
+          "count": 25,
+          "mean": 404.6,
+          "p50": 376.2,
+          "median": 376.2,
+          "p75": 528.6,
+          "p90": 539.2,
+          "p95": 620.3,
+          "p99": 658.6,
+          "p999": 658.6
+        },
+        "plugins.metrics-by-endpoint.response_time./api/donors/search": {
+          "min": 45,
+          "max": 168,
+          "count": 25,
+          "mean": 61.2,
+          "p50": 55.2,
+          "median": 55.2,
+          "p75": 61,
+          "p90": 77.5,
+          "p95": 85.6,
+          "p99": 85.6,
+          "p999": 85.6
+        },
+        "vusers.session_length": {
+          "min": 302.6,
+          "max": 807.9,
+          "count": 25,
+          "mean": 490.4,
+          "p50": 450.4,
+          "median": 450.4,
+          "p75": 620.3,
+          "p90": 658.6,
+          "p95": 713.5,
+          "p99": 757.6,
+          "p999": 757.6
+        }
+      },
+      "histograms": {
+        "http.response_time": {
+          "min": 45,
+          "max": 689,
+          "count": 50,
+          "mean": 232.9,
+          "p50": 169,
+          "median": 169,
+          "p75": 368.8,
+          "p90": 528.6,
+          "p95": 539.2,
+          "p99": 658.6,
+          "p999": 658.6
+        },
+        "http.response_time.2xx": {
+          "min": 45,
+          "max": 689,
+          "count": 50,
+          "mean": 232.9,
+          "p50": 169,
+          "median": 169,
+          "p75": 368.8,
+          "p90": 528.6,
+          "p95": 539.2,
+          "p99": 658.6,
+          "p999": 658.6
+        },
+        "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+          "min": 223,
+          "max": 689,
+          "count": 25,
+          "mean": 404.6,
+          "p50": 376.2,
+          "median": 376.2,
+          "p75": 528.6,
+          "p90": 539.2,
+          "p95": 620.3,
+          "p99": 658.6,
+          "p999": 658.6
+        },
+        "plugins.metrics-by-endpoint.response_time./api/donors/search": {
+          "min": 45,
+          "max": 168,
+          "count": 25,
+          "mean": 61.2,
+          "p50": 55.2,
+          "median": 55.2,
+          "p75": 61,
+          "p90": 77.5,
+          "p95": 85.6,
+          "p99": 85.6,
+          "p999": 85.6
+        },
+        "vusers.session_length": {
+          "min": 302.6,
+          "max": 807.9,
+          "count": 25,
+          "mean": 490.4,
+          "p50": 450.4,
+          "median": 450.4,
+          "p75": 620.3,
+          "p90": 658.6,
+          "p95": 713.5,
+          "p99": 757.6,
+          "p999": 757.6
+        }
+      }
+    }
+  ]
+}

@@ -55,7 +55,7 @@ app.use(helmet({
             defaultSrc:  ["'self'"],
             scriptSrc:   ["'self'", "https://cdn.socket.io", "https://unpkg.com"],
             styleSrc:    ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "wss://bloodsync.site","wss://bloodsync-production.up.railway.app", "wss://capstone.bloodsync.site", "https://cdn.socket.io", "https://nominatim.openstreetmap.org", "https://psgc.gitlab.io", "https://unpkg.com"],
+            connectSrc:  ["'self'", "ws://localhost:3000", "wss://localhost:3000", "wss://bloodsync.site","wss://bloodsync-production.up.railway.app", "wss://capstone.bloodsync.site","wss://capstone2.bloodsync.site", "https://cdn.socket.io", "https://nominatim.openstreetmap.org", "https://psgc.gitlab.io", "https://unpkg.com"],
             imgSrc:      ["'self'", "data:", "https://res.cloudinary.com", "https://*.tile.openstreetmap.org", "https://unpkg.com"],
             fontSrc:     ["'self'"],
             objectSrc:   ["'none'"],
@@ -80,10 +80,10 @@ app.use(cookieParser());
 app.use(morgan("dev"));
 
 // Rate limiting via Upstash
-const { apiRateLimiter, loginRateLimiter } = require("./middleware/upstashRateLimiter");
-app.use("/api", apiRateLimiter);
-app.use("/api/auth/login", loginRateLimiter);
-app.use("/api/requestors/login", loginRateLimiter);
+// const { apiRateLimiter, loginRateLimiter } = require("./middleware/upstashRateLimiter");
+// app.use("/api", apiRateLimiter);
+// app.use("/api/auth/login", loginRateLimiter);
+// app.use("/api/requestors/login", loginRateLimiter);
 
 // Routes
 const roleRoutes             = require("./app/routes/roleRoutes");

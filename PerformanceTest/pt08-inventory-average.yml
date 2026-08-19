@@ -1,0 +1,25 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 1
+      arrivalRate: 25
+      name: "PT08 - Inventory view - Average (25 concurrent)"
+
+scenarios:
+  - name: "Staff login + view branch inventory"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      - get:
+          url: "/api/blood-units/branch/1"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# Then: artillery run pt11-inventory-average.yml -o pt11-results.json

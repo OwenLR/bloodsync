@@ -1,0 +1,28 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 1
+      arrivalRate: 10
+      name: "PT10 - Search donor by name - Low (10 concurrent)"
+
+scenarios:
+  - name: "Staff login + search donor"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      # $pick varies the query per virtual user across a mix of first name,
+      # last name, and full name — closer to real search behavior than a
+      # single repeated string every request.
+      - get:
+          url: "/api/donors/search?q={{ $pick(['Luis', 'Lawson', 'Prime', 'Lee', 'Luis Lawson', 'Prime Lee']) }}"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# Then: artillery run pt13-search-low.yml -o pt13-results.json

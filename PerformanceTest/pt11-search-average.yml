@@ -1,0 +1,25 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 1
+      arrivalRate: 25
+      name: "PT11 - Search donor by name - Average (25 concurrent)"
+
+scenarios:
+  - name: "Staff login + search donor"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      - get:
+          url: "/api/donors/search?q={{ $pick(['Luis', 'Lawson', 'Prime', 'Lee', 'Luis Lawson', 'Prime Lee']) }}"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# Then: artillery run pt14-search-average.yml -o pt14-results.json

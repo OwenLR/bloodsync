@@ -1,0 +1,65 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 1
+      arrivalRate: 10
+      name: "PT16 - Blood request approval - Low (10 concurrent)"
+
+scenarios:
+  - name: "Submit as Requestor, then approve as Staff"
+    flow:
+      # Step 1 — login as Requestor
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "maria@email.com"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      # Step 2 — submit a fresh Pending request, capture its request_id
+      # for the approval step below.
+      - post:
+          url: "/api/blood-requests"
+          formData:
+            hospital_id: "5"
+            branch_id: "1"
+            patient_name: "Load Test Patient"
+            patient_age: "30"
+            diagnosis: "Performance test - synthetic request"
+            urgency_level: "Routine"
+            items: '[{"blood_type":"O+","component":"Whole Blood","units_requested":1}]'
+            request_form:
+              fromFile: "./sample.png"
+          expect:
+            - statusCode: 201
+          capture:
+            - json: "$.data.request.request_id"
+              as: "request_id"
+
+      # Step 3 — login as Staff. This VU's cookie jar now holds the Staff
+      # session (Requestor's cookies are overwritten by the new Set-Cookie
+      # response) — same single-VU session-switch pattern used to test
+      # PT19-21's cross-role flow without needing pre-seeded DB rows.
+      # branch_id=1 (Lipa) matches the branch_id sent in Step 2, so the
+      # branch-ownership check in bloodRequestController.js passes.
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+      # Step 4 — approve the request just created in Step 2.
+      # This is what's actually being measured for PT19 (< 1s).
+      - patch:
+          url: "/api/blood-requests/{{ request_id }}/status"
+          json:
+            status: "Approved"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# File must be in the same folder as this yml: sample.png
+# Then: artillery run pt19-approve-low.yml -o pt19-results.json

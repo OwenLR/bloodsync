@@ -1,0 +1,38 @@
+{
+    "yaml.schemas": {
+        "https://www.artillery.io/schema.json": [
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/loginTest.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt22-upload-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt23-upload-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt24-upload-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt21-approve-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt01-login-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt07-submit-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt08-submit-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt09-submit-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt10-inventory-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt11-inventory-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt12-inventory-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt13-search-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt14-search-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt15-search-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt19-approve-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt20-approve-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt04-submit-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt05-submit-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt06-submit-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt07-inventory-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt08-inventory-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt09-inventory-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt10-search-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt11-search-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt12-search-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt16-approve-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt17-approve-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt18-approve-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt19-upload-low.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt20-upload-average.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt21-upload-peak.yml"
+        ]
+    }
+}

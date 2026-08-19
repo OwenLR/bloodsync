@@ -4,5 +4,12 @@
   "scripts": {
     "build": "npm install --prefix backend",
     "start": "npm start --prefix backend"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "pg": "^8.23.0"
   }
 }

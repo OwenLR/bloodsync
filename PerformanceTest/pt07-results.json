@@ -1,0 +1,321 @@
+{
+  "aggregate": {
+    "counters": {
+      "vusers.created_by_name.Staff login + view branch inventory": 10,
+      "vusers.created": 10,
+      "http.requests": 20,
+      "http.codes.200": 20,
+      "http.responses": 20,
+      "http.downloaded_bytes": 101950,
+      "plugins.metrics-by-endpoint./api/auth/login.codes.200": 10,
+      "plugins.metrics-by-endpoint./api/blood-units/branch/1.codes.200": 10,
+      "vusers.failed": 0,
+      "vusers.completed": 10
+    },
+    "rates": {
+      "http.request_rate": 20
+    },
+    "firstCounterAt": 1786937423300,
+    "firstHistogramAt": 1786937424177,
+    "lastCounterAt": 1786937424820,
+    "lastHistogramAt": 1786937424820,
+    "firstMetricAt": 1786937423300,
+    "lastMetricAt": 1786937424820,
+    "period": 1786937420000,
+    "summaries": {
+      "http.response_time": {
+        "min": 47,
+        "max": 865,
+        "count": 20,
+        "mean": 321.4,
+        "p50": 210.6,
+        "median": 210.6,
+        "p75": 528.6,
+        "p90": 837.3,
+        "p95": 837.3,
+        "p99": 837.3,
+        "p999": 837.3
+      },
+      "http.response_time.2xx": {
+        "min": 47,
+        "max": 865,
+        "count": 20,
+        "mean": 321.4,
+        "p50": 210.6,
+        "median": 210.6,
+        "p75": 528.6,
+        "p90": 837.3,
+        "p95": 837.3,
+        "p99": 837.3,
+        "p999": 837.3
+      },
+      "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+        "min": 212,
+        "max": 865,
+        "count": 10,
+        "mean": 548.2,
+        "p50": 528.6,
+        "median": 528.6,
+        "p75": 671.9,
+        "p90": 837.3,
+        "p95": 837.3,
+        "p99": 837.3,
+        "p999": 837.3
+      },
+      "plugins.metrics-by-endpoint.response_time./api/blood-units/branch/1": {
+        "min": 47,
+        "max": 326,
+        "count": 10,
+        "mean": 94.6,
+        "p50": 55.2,
+        "median": 55.2,
+        "p75": 61,
+        "p90": 169,
+        "p95": 169,
+        "p99": 169,
+        "p999": 169
+      },
+      "vusers.session_length": {
+        "min": 319.8,
+        "max": 1246.2,
+        "count": 10,
+        "mean": 686.6,
+        "p50": 620.3,
+        "median": 620.3,
+        "p75": 788.5,
+        "p90": 1064.4,
+        "p95": 1064.4,
+        "p99": 1064.4,
+        "p999": 1064.4
+      }
+    },
+    "histograms": {
+      "http.response_time": {
+        "min": 47,
+        "max": 865,
+        "count": 20,
+        "mean": 321.4,
+        "p50": 210.6,
+        "median": 210.6,
+        "p75": 528.6,
+        "p90": 837.3,
+        "p95": 837.3,
+        "p99": 837.3,
+        "p999": 837.3
+      },
+      "http.response_time.2xx": {
+        "min": 47,
+        "max": 865,
+        "count": 20,
+        "mean": 321.4,
+        "p50": 210.6,
+        "median": 210.6,
+        "p75": 528.6,
+        "p90": 837.3,
+        "p95": 837.3,
+        "p99": 837.3,
+        "p999": 837.3
+      },
+      "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+        "min": 212,
+        "max": 865,
+        "count": 10,
+        "mean": 548.2,
+        "p50": 528.6,
+        "median": 528.6,
+        "p75": 671.9,
+        "p90": 837.3,
+        "p95": 837.3,
+        "p99": 837.3,
+        "p999": 837.3
+      },
+      "plugins.metrics-by-endpoint.response_time./api/blood-units/branch/1": {
+        "min": 47,
+        "max": 326,
+        "count": 10,
+        "mean": 94.6,
+        "p50": 55.2,
+        "median": 55.2,
+        "p75": 61,
+        "p90": 169,
+        "p95": 169,
+        "p99": 169,
+        "p999": 169
+      },
+      "vusers.session_length": {
+        "min": 319.8,
+        "max": 1246.2,
+        "count": 10,
+        "mean": 686.6,
+        "p50": 620.3,
+        "median": 620.3,
+        "p75": 788.5,
+        "p90": 1064.4,
+        "p95": 1064.4,
+        "p99": 1064.4,
+        "p999": 1064.4
+      }
+    }
+  },
+  "intermediate": [
+    {
+      "counters": {
+        "vusers.created_by_name.Staff login + view branch inventory": 10,
+        "vusers.created": 10,
+        "http.requests": 20,
+        "http.codes.200": 20,
+        "http.responses": 20,
+        "http.downloaded_bytes": 101950,
+        "plugins.metrics-by-endpoint./api/auth/login.codes.200": 10,
+        "plugins.metrics-by-endpoint./api/blood-units/branch/1.codes.200": 10,
+        "vusers.failed": 0,
+        "vusers.completed": 10
+      },
+      "rates": {
+        "http.request_rate": 20
+      },
+      "http.request_rate": null,
+      "firstCounterAt": 1786937423300,
+      "firstHistogramAt": 1786937424177,
+      "lastCounterAt": 1786937424820,
+      "lastHistogramAt": 1786937424820,
+      "firstMetricAt": 1786937423300,
+      "lastMetricAt": 1786937424820,
+      "period": "1786937420000",
+      "summaries": {
+        "http.response_time": {
+          "min": 47,
+          "max": 865,
+          "count": 20,
+          "mean": 321.4,
+          "p50": 210.6,
+          "median": 210.6,
+          "p75": 528.6,
+          "p90": 837.3,
+          "p95": 837.3,
+          "p99": 837.3,
+          "p999": 837.3
+        },
+        "http.response_time.2xx": {
+          "min": 47,
+          "max": 865,
+          "count": 20,
+          "mean": 321.4,
+          "p50": 210.6,
+          "median": 210.6,
+          "p75": 528.6,
+          "p90": 837.3,
+          "p95": 837.3,
+          "p99": 837.3,
+          "p999": 837.3
+        },
+        "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+          "min": 212,
+          "max": 865,
+          "count": 10,
+          "mean": 548.2,
+          "p50": 528.6,
+          "median": 528.6,
+          "p75": 671.9,
+          "p90": 837.3,
+          "p95": 837.3,
+          "p99": 837.3,
+          "p999": 837.3
+        },
+        "plugins.metrics-by-endpoint.response_time./api/blood-units/branch/1": {
+          "min": 47,
+          "max": 326,
+          "count": 10,
+          "mean": 94.6,
+          "p50": 55.2,
+          "median": 55.2,
+          "p75": 61,
+          "p90": 169,
+          "p95": 169,
+          "p99": 169,
+          "p999": 169
+        },
+        "vusers.session_length": {
+          "min": 319.8,
+          "max": 1246.2,
+          "count": 10,
+          "mean": 686.6,
+          "p50": 620.3,
+          "median": 620.3,
+          "p75": 788.5,
+          "p90": 1064.4,
+          "p95": 1064.4,
+          "p99": 1064.4,
+          "p999": 1064.4
+        }
+      },
+      "histograms": {
+        "http.response_time": {
+          "min": 47,
+          "max": 865,
+          "count": 20,
+          "mean": 321.4,
+          "p50": 210.6,
+          "median": 210.6,
+          "p75": 528.6,
+          "p90": 837.3,
+          "p95": 837.3,
+          "p99": 837.3,
+          "p999": 837.3
+        },
+        "http.response_time.2xx": {
+          "min": 47,
+          "max": 865,
+          "count": 20,
+          "mean": 321.4,
+          "p50": 210.6,
+          "median": 210.6,
+          "p75": 528.6,
+          "p90": 837.3,
+          "p95": 837.3,
+          "p99": 837.3,
+          "p999": 837.3
+        },
+        "plugins.metrics-by-endpoint.response_time./api/auth/login": {
+          "min": 212,
+          "max": 865,
+          "count": 10,
+          "mean": 548.2,
+          "p50": 528.6,
+          "median": 528.6,
+          "p75": 671.9,
+          "p90": 837.3,
+          "p95": 837.3,
+          "p99": 837.3,
+          "p999": 837.3
+        },
+        "plugins.metrics-by-endpoint.response_time./api/blood-units/branch/1": {
+          "min": 47,
+          "max": 326,
+          "count": 10,
+          "mean": 94.6,
+          "p50": 55.2,
+          "median": 55.2,
+          "p75": 61,
+          "p90": 169,
+          "p95": 169,
+          "p99": 169,
+          "p999": 169
+        },
+        "vusers.session_length": {
+          "min": 319.8,
+          "max": 1246.2,
+          "count": 10,
+          "mean": 686.6,
+          "p50": 620.3,
+          "median": 620.3,
+          "p75": 788.5,
+          "p90": 1064.4,
+          "p95": 1064.4,
+          "p99": 1064.4,
+          "p999": 1064.4
+        }
+      }
+    }
+  ]
+}

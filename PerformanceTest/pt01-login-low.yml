@@ -1,0 +1,26 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    # Burst: duration:1 + arrivalRate:N simulates N concurrent users
+    # hitting the endpoint at roughly the same moment, rather than a
+    # sustained rate spread over time.
+    - duration: 1
+      arrivalRate: 10
+      name: "PT01 - Login - Low (10 concurrent)"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Login flow"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "lipa@bloodsync.site"
+            password: "password123"
+          expect:
+            - statusCode: 200
+
+# Run with server started as: DISABLE_RATE_LIMIT=true node server.js
+# Then: artillery run pt01-login-low.yml -o pt01-results.json

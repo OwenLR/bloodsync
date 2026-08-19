@@ -1,0 +1,267 @@
+{
+  "test_case": "PT15",
+  "scenario": "Blood request received (Socket.IO end-to-end)",
+  "load_level": "peak",
+  "concurrent_users": 50,
+  "total": 50,
+  "errors": 0,
+  "error_rate_pct": "0.0",
+  "latency_ms": {
+    "min": 2214,
+    "max": 4296,
+    "mean": 3498.5,
+    "p95": 4228
+  },
+  "raw": [
+    {
+      "request_id": 141,
+      "latency_ms": 2214,
+      "error": false
+    },
+    {
+      "request_id": 142,
+      "latency_ms": 2666,
+      "error": false
+    },
+    {
+      "request_id": 143,
+      "latency_ms": 2790,
+      "error": false
+    },
+    {
+      "request_id": 144,
+      "latency_ms": 2847,
+      "error": false
+    },
+    {
+      "request_id": 146,
+      "latency_ms": 2872,
+      "error": false
+    },
+    {
+      "request_id": 145,
+      "latency_ms": 2886,
+      "error": false
+    },
+    {
+      "request_id": 147,
+      "latency_ms": 2981,
+      "error": false
+    },
+    {
+      "request_id": 148,
+      "latency_ms": 3001,
+      "error": false
+    },
+    {
+      "request_id": 149,
+      "latency_ms": 3035,
+      "error": false
+    },
+    {
+      "request_id": 150,
+      "latency_ms": 3044,
+      "error": false
+    },
+    {
+      "request_id": 151,
+      "latency_ms": 3064,
+      "error": false
+    },
+    {
+      "request_id": 152,
+      "latency_ms": 3090,
+      "error": false
+    },
+    {
+      "request_id": 153,
+      "latency_ms": 3166,
+      "error": false
+    },
+    {
+      "request_id": 158,
+      "latency_ms": 3162,
+      "error": false
+    },
+    {
+      "request_id": 156,
+      "latency_ms": 3196,
+      "error": false
+    },
+    {
+      "request_id": 159,
+      "latency_ms": 3195,
+      "error": false
+    },
+    {
+      "request_id": 157,
+      "latency_ms": 3231,
+      "error": false
+    },
+    {
+      "request_id": 155,
+      "latency_ms": 3247,
+      "error": false
+    },
+    {
+      "request_id": 154,
+      "latency_ms": 3250,
+      "error": false
+    },
+    {
+      "request_id": 160,
+      "latency_ms": 3295,
+      "error": false
+    },
+    {
+      "request_id": 161,
+      "latency_ms": 3331,
+      "error": false
+    },
+    {
+      "request_id": 162,
+      "latency_ms": 3336,
+      "error": false
+    },
+    {
+      "request_id": 163,
+      "latency_ms": 3417,
+      "error": false
+    },
+    {
+      "request_id": 165,
+      "latency_ms": 3426,
+      "error": false
+    },
+    {
+      "request_id": 164,
+      "latency_ms": 3490,
+      "error": false
+    },
+    {
+      "request_id": 166,
+      "latency_ms": 3493,
+      "error": false
+    },
+    {
+      "request_id": 167,
+      "latency_ms": 3539,
+      "error": false
+    },
+    {
+      "request_id": 168,
+      "latency_ms": 3544,
+      "error": false
+    },
+    {
+      "request_id": 169,
+      "latency_ms": 3585,
+      "error": false
+    },
+    {
+      "request_id": 170,
+      "latency_ms": 3624,
+      "error": false
+    },
+    {
+      "request_id": 172,
+      "latency_ms": 3639,
+      "error": false
+    },
+    {
+      "request_id": 171,
+      "latency_ms": 3675,
+      "error": false
+    },
+    {
+      "request_id": 173,
+      "latency_ms": 3672,
+      "error": false
+    },
+    {
+      "request_id": 174,
+      "latency_ms": 3734,
+      "error": false
+    },
+    {
+      "request_id": 175,
+      "latency_ms": 3792,
+      "error": false
+    },
+    {
+      "request_id": 176,
+      "latency_ms": 3899,
+      "error": false
+    },
+    {
+      "request_id": 178,
+      "latency_ms": 3922,
+      "error": false
+    },
+    {
+      "request_id": 177,
+      "latency_ms": 3926,
+      "error": false
+    },
+    {
+      "request_id": 179,
+      "latency_ms": 3997,
+      "error": false
+    },
+    {
+      "request_id": 180,
+      "latency_ms": 3992,
+      "error": false
+    },
+    {
+      "request_id": 181,
+      "latency_ms": 3993,
+      "error": false
+    },
+    {
+      "request_id": 182,
+      "latency_ms": 4025,
+      "error": false
+    },
+    {
+      "request_id": 183,
+      "latency_ms": 4151,
+      "error": false
+    },
+    {
+      "request_id": 184,
+      "latency_ms": 4171,
+      "error": false
+    },
+    {
+      "request_id": 185,
+      "latency_ms": 4169,
+      "error": false
+    },
+    {
+      "request_id": 186,
+      "latency_ms": 4170,
+      "error": false
+    },
+    {
+      "request_id": 187,
+      "latency_ms": 4220,
+      "error": false
+    },
+    {
+      "request_id": 188,
+      "latency_ms": 4228,
+      "error": false
+    },
+    {
+      "request_id": 189,
+      "latency_ms": 4237,
+      "error": false
+    },
+    {
+      "request_id": 190,
+      "latency_ms": 4296,
+      "error": false
+    }
+  ]
+}

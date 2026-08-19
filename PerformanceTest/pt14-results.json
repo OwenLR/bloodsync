@@ -1,0 +1,142 @@
+{
+  "test_case": "PT14",
+  "scenario": "Blood request received (Socket.IO end-to-end)",
+  "load_level": "average",
+  "concurrent_users": 25,
+  "total": 25,
+  "errors": 0,
+  "error_rate_pct": "0.0",
+  "latency_ms": {
+    "min": 2390,
+    "max": 3589,
+    "mean": 3192.2,
+    "p95": 3553
+  },
+  "raw": [
+    {
+      "request_id": 116,
+      "latency_ms": 2390,
+      "error": false
+    },
+    {
+      "request_id": 117,
+      "latency_ms": 2431,
+      "error": false
+    },
+    {
+      "request_id": 118,
+      "latency_ms": 2862,
+      "error": false
+    },
+    {
+      "request_id": 120,
+      "latency_ms": 2931,
+      "error": false
+    },
+    {
+      "request_id": 119,
+      "latency_ms": 2924,
+      "error": false
+    },
+    {
+      "request_id": 121,
+      "latency_ms": 2979,
+      "error": false
+    },
+    {
+      "request_id": 122,
+      "latency_ms": 3035,
+      "error": false
+    },
+    {
+      "request_id": 123,
+      "latency_ms": 3074,
+      "error": false
+    },
+    {
+      "request_id": 124,
+      "latency_ms": 3116,
+      "error": false
+    },
+    {
+      "request_id": 125,
+      "latency_ms": 3139,
+      "error": false
+    },
+    {
+      "request_id": 126,
+      "latency_ms": 3169,
+      "error": false
+    },
+    {
+      "request_id": 128,
+      "latency_ms": 3235,
+      "error": false
+    },
+    {
+      "request_id": 129,
+      "latency_ms": 3278,
+      "error": false
+    },
+    {
+      "request_id": 130,
+      "latency_ms": 3292,
+      "error": false
+    },
+    {
+      "request_id": 127,
+      "latency_ms": 3330,
+      "error": false
+    },
+    {
+      "request_id": 131,
+      "latency_ms": 3339,
+      "error": false
+    },
+    {
+      "request_id": 132,
+      "latency_ms": 3390,
+      "error": false
+    },
+    {
+      "request_id": 133,
+      "latency_ms": 3392,
+      "error": false
+    },
+    {
+      "request_id": 134,
+      "latency_ms": 3428,
+      "error": false
+    },
+    {
+      "request_id": 135,
+      "latency_ms": 3441,
+      "error": false
+    },
+    {
+      "request_id": 136,
+      "latency_ms": 3454,
+      "error": false
+    },
+    {
+      "request_id": 137,
+      "latency_ms": 3491,
+      "error": false
+    },
+    {
+      "request_id": 138,
+      "latency_ms": 3543,
+      "error": false
+    },
+    {
+      "request_id": 139,
+      "latency_ms": 3553,
+      "error": false
+    },
+    {
+      "request_id": 140,
+      "latency_ms": 3589,
+      "error": false
+    }
+  ]
+}

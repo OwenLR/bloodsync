@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BloodSync Performance Test Report</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f7f8fa; color: #1a1a1a; padding: 40px; }
+  .container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: #666; margin-bottom: 28px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+  th { color: #666; font-weight: 600; background: #fafafa; }
+  .metric-value { font-weight: 600; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .badge-success { background: #dafbe1; color: #1a7f37; }
+  .badge-error { background: #ffebe9; color: #cf222e; }
+  .section-title { font-size: 15px; font-weight: 600; margin: 24px 0 10px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>BloodSync Performance Test Report</h1>
+    <div class="subtitle">Generated from pt16-results.json on 8/17/2026, 4:41:15 PM</div>
+
+    <div class="section-title">Summary</div>
+    <table>
+      <tr><th>Total Requests</th><td>40</td></tr>
+      <tr><th>Successful (2xx)</th><td><span class="badge badge-success">40</span></td></tr>
+      <tr><th>Virtual Users Created</th><td>10</td></tr>
+      <tr><th>Virtual Users Completed</th><td>10</td></tr>
+      <tr><th>Virtual Users Failed</th><td><span class="badge badge-success">0</span></td></tr>
+    </table>
+
+    <div class="section-title">Response Time (ms)</div>
+    <table>
+      <tr><th>Min</th><td class="metric-value">212.0</td></tr>
+      <tr><th>Max</th><td class="metric-value">2103.0</td></tr>
+      <tr><th>Mean</th><td class="metric-value">889.1</td></tr>
+      <tr><th>Median</th><td class="metric-value">727.9</td></tr>
+      <tr><th>p95</th><td class="metric-value">1720.2</td></tr>
+      <tr><th>p99</th><td class="metric-value">1755.0</td></tr>
+    </table>
+
+    
+  </div>
+</body>
+</html>
