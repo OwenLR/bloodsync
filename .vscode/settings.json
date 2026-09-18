@@ -32,7 +32,9 @@
             "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt18-approve-peak.yml",
             "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt19-upload-low.yml",
             "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt20-upload-average.yml",
-            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt21-upload-peak.yml"
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt21-upload-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt03-login-peak.yml",
+            "file:///d%3A/CAPSTONE_2/bloodsync/PerformanceTest/pt02-login-average.yml"
         ]
     }
 }

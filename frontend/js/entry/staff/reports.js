@@ -25,15 +25,12 @@ import {
   renderRequestsReport,
 } from '../../features/reports/reportsUI.js';
 
+import { initReportPrint } from '../../features/reports/reportPrintUI.js';   
+
 async function init() {
   const user = await requireAuth();
   if (!user) return;
 
-  // Reports is Admin + Staff, but the SECTIONS differ — Inventory/Testing/
-  // Requests are Staff-only at the route level (contract confirmed via
-  // reportRoutes.js), not just a frontend choice. This page is Staff's
-  // 5-section view; Admin gets its own entry file with only Users/Donors/
-  // Drives (see js/entry/admin/reports.js).
   if (!requireRole(user, [ROLES.PRC_STAFF])) return;
 
   renderNavbar(user, 0);
@@ -43,7 +40,8 @@ async function init() {
   renderSidebar(getSidebarItems(user.role_id, 'management'), 'Management');
 
   revealAppShell();
-  refreshBadge(); // non-blocking
+  refreshBadge();      // non-blocking
+  initReportPrint(); 
 
   initReportTabs({
     inventory: { label: 'Inventory',      load: getInventoryReport, render: renderInventoryReport },

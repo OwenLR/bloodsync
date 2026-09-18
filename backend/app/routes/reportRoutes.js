@@ -11,6 +11,10 @@ router.get('/drives',     verifyToken, checkRole([ROLES.ADMIN, ROLES.PRC_STAFF])
 router.get('/testing',    verifyToken, checkRole([ROLES.PRC_STAFF]), reportController.getTestingReport);
 router.get('/requests',   verifyToken, checkRole([ROLES.PRC_STAFF]), reportController.getRequestsReport);
 router.get('/users',      verifyToken, checkRole([ROLES.ADMIN]), reportController.getUsersReport);
+router.get('/print/requests/detail', verifyToken, checkRole([ROLES.PRC_STAFF]), reportController.getRequestsDetailReport);
+router.get('/print/requests/dates',  verifyToken, checkRole([ROLES.PRC_STAFF]), reportController.getRequestsAvailableDates);
+router.get('/print/inventory/detail', verifyToken, checkRole([ROLES.PRC_STAFF]), reportController.getInventoryDetailReport);
+router.get('/print/inventory/dates',  verifyToken, checkRole([ROLES.PRC_STAFF]), reportController.getInventoryAvailableDates);
 
 // ASSUMPTION: ROLES.VOLUNTEER / ROLES.PHLEBOTOMIST match the frontend's
 // roles.js naming (role_id 5 and 6 per contract.md). Backend constants/

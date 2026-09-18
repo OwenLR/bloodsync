@@ -401,6 +401,107 @@ const getActiveStaffByBranch = async () => {
     return result.rows;
 };
 
+// ============================================================
+// Print Reports — Detail Lists
+// ============================================================
+// Two-mode date scoping shared by both detail-list queries:
+//   - date IS NULL     -> whole month (month must be the first-of-month date)
+//   - date IS NOT NULL -> that single day only, month is ignored
+// Kept as two explicit branches rather than one generated range so the
+// query plan stays readable and doesn't depend on JS-side month-end math.
+
+const getRequestsDetailList = async (branchId, month, date) => {
+    const result = await pool.query(
+        `SELECT br.request_id, br.patient_name, br.urgency_level,
+                br.status, br.created_at, br.reviewed_at,
+                h.hospital_name,
+                b.branch_name,
+                u.first_name AS requestor_first_name,
+                u.last_name  AS requestor_last_name
+         FROM blood_requests br
+         LEFT JOIN hospitals h ON br.hospital_id = h.hospital_id
+         LEFT JOIN branches b  ON br.branch_id   = b.branch_id
+         LEFT JOIN users u     ON br.user_id     = u.user_id
+         WHERE ($1::int IS NULL OR br.branch_id = $1)
+           AND (
+                ($3::date IS NOT NULL AND br.created_at::date = $3::date)
+             OR ($3::date IS NULL
+                 AND br.created_at >= $2::date
+                 AND br.created_at <  ($2::date + INTERVAL '1 month'))
+           )
+         ORDER BY br.created_at ASC`,
+        [branchId, month, date]
+    );
+    return result.rows;
+};
+
+// Batched — avoids an N+1 (one items query per request) when the detail
+// list can have dozens of rows for a full-month report.
+const getItemsByRequestIds = async (requestIds) => {
+    if (!requestIds.length) return [];
+    const result = await pool.query(
+        `SELECT * FROM request_items WHERE request_id = ANY($1::int[])`,
+        [requestIds]
+    );
+    return result.rows;
+};
+
+const getRequestDatesWithData = async (branchId, month) => {
+    const result = await pool.query(
+        `SELECT DISTINCT br.created_at::date AS date
+         FROM blood_requests br
+         WHERE ($1::int IS NULL OR br.branch_id = $1)
+           AND br.created_at >= $2::date
+           AND br.created_at <  ($2::date + INTERVAL '1 month')
+         ORDER BY date ASC`,
+        [branchId, month]
+    );
+    return result.rows.map(r => r.date);
+};
+
+const getInventoryDetailList = async (branchId, month, date) => {
+    const result = await pool.query(
+        `SELECT
+            bu.unit_id, bu.blood_type, bu.component, bu.volume_ml, bu.barcode,
+            bu.collection_date, bu.expiration_date,
+            CASE
+                WHEN bu.status = 'Available' AND bu.expiration_date <= NOW()
+                THEN 'Expired' ELSE bu.status
+            END AS status,
+            b.branch_name,
+            d.donor_id, d.first_name AS donor_first_name, d.last_name AS donor_last_name,
+            pu.first_name AS phlebotomist_first_name, pu.last_name AS phlebotomist_last_name
+         FROM blood_units bu
+         JOIN donors d          ON bu.donor_id    = d.donor_id
+         LEFT JOIN branches b   ON bu.branch_id   = b.branch_id
+         LEFT JOIN donations dn ON bu.donation_id = dn.donation_id
+         LEFT JOIN users pu     ON dn.phlebotomist_id = pu.user_id
+         WHERE ($1::int IS NULL OR bu.branch_id = $1)
+           AND (
+                ($3::date IS NOT NULL AND bu.collection_date::date = $3::date)
+             OR ($3::date IS NULL
+                 AND bu.collection_date >= $2::date
+                 AND bu.collection_date <  ($2::date + INTERVAL '1 month'))
+           )
+         ORDER BY bu.collection_date ASC`,
+        [branchId, month, date]
+    );
+    return result.rows;
+};
+
+const getInventoryDatesWithData = async (branchId, month) => {
+    const result = await pool.query(
+        `SELECT DISTINCT bu.collection_date::date AS date
+         FROM blood_units bu
+         WHERE ($1::int IS NULL OR bu.branch_id = $1)
+           AND bu.collection_date >= $2::date
+           AND bu.collection_date <  ($2::date + INTERVAL '1 month')
+         ORDER BY date ASC`,
+        [branchId, month]
+    );
+    return result.rows.map(r => r.date);
+};
+
 module.exports = {
     // Inventory
     getInventoryStatusBreakdown,
@@ -435,4 +536,10 @@ module.exports = {
     getUserRoleBreakdown,
     getUserRegisteredTotals,
     getActiveStaffByBranch,
+    // Print
+    getRequestsDetailList,
+    getItemsByRequestIds,
+    getRequestDatesWithData,
+    getInventoryDetailList,
+    getInventoryDatesWithData,
 };

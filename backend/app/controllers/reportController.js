@@ -64,6 +64,46 @@ const getMyImpactReport = async (req, res) => {
     }
 };
 
+const getRequestsDetailReport = async (req, res) => {
+    try {
+        const { month, date } = req.query;
+        const report = await reportService.getRequestsDetailReport(req.user, month, date);
+        return response.success(res, report);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+const getRequestsAvailableDates = async (req, res) => {
+    try {
+        const { month } = req.query;
+        const dates = await reportService.getRequestsAvailableDates(req.user, month);
+        return response.success(res, dates);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+const getInventoryDetailReport = async (req, res) => {
+    try {
+        const { month, date } = req.query;
+        const report = await reportService.getInventoryDetailReport(req.user, month, date);
+        return response.success(res, report);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
+const getInventoryAvailableDates = async (req, res) => {
+    try {
+        const { month } = req.query;
+        const dates = await reportService.getInventoryAvailableDates(req.user, month);
+        return response.success(res, dates);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 module.exports = {
     getInventoryReport,
     getDonorsReport,
@@ -72,4 +112,8 @@ module.exports = {
     getRequestsReport,
     getUsersReport,
     getMyImpactReport,
+    getRequestsDetailReport,
+    getRequestsAvailableDates,
+    getInventoryDetailReport,
+    getInventoryAvailableDates,
 };

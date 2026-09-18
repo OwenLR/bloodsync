@@ -157,6 +157,27 @@ const getMyImpactReport = async (user) => {
     };
 };
 
+const getInventoryDetailReport = async (user, month, date) => {
+    const branchId   = branchIdFor(user);
+    const monthStart = normalizeMonth(month);
+    const units       = await reportModel.getInventoryDetailList(branchId, monthStart, date || null);
+    return {
+        branch_scoped: branchId !== null,
+        scope: { month: monthStart.slice(0, 7), date: date || null },
+        units: units.map(numify),
+    };
+};
+
+const getInventoryAvailableDates = async (user, month) => {
+    const branchId   = branchIdFor(user);
+    const monthStart = normalizeMonth(month);
+    const dates       = await reportModel.getInventoryDatesWithData(branchId, monthStart);
+    return {
+        month: monthStart.slice(0, 7),
+        dates: dates.map(d => (d instanceof Date ? d.toISOString().slice(0, 10) : d)),
+    };
+};
+
 module.exports = {
     getInventoryReport,
     getDonorsReport,
@@ -165,4 +186,6 @@ module.exports = {
     getRequestsReport,
     getUsersReport,
     getMyImpactReport,
+    getInventoryDetailReport,
+    getInventoryAvailableDates,
 };
