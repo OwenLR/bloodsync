@@ -12,6 +12,17 @@ const numify = (row) => Object.fromEntries(
 
 const branchIdFor = (user) => (user.role_id === ROLES.PRC_STAFF ? user.branch_id : null);
 
+// 'YYYY-MM' or 'YYYY-MM-DD' in -> always anchored to day 01 out.
+// No month given -> current month. Shared by all four Print Report
+// detail/dates functions below.
+const normalizeMonth = (month) => {
+    if (!month) {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    }
+    return `${month.slice(0, 7)}-01`;
+};
+
 /**
  * getInventoryReport(user)
  * PRC Staff, scoped to own branch. Admin, all branches (branchId = null).
@@ -157,6 +168,10 @@ const getMyImpactReport = async (user) => {
     };
 };
 
+// ============================================================
+// Print Reports — Detail Lists ('in' = Blood Units, 'out' = Blood Requests)
+// ============================================================
+
 const getInventoryDetailReport = async (user, month, date) => {
     const branchId   = branchIdFor(user);
     const monthStart = normalizeMonth(month);
@@ -178,6 +193,38 @@ const getInventoryAvailableDates = async (user, month) => {
     };
 };
 
+const getRequestsDetailReport = async (user, month, date) => {
+    const branchId   = branchIdFor(user);
+    const monthStart = normalizeMonth(month);
+
+    const requests   = await reportModel.getRequestsDetailList(branchId, monthStart, date || null);
+    const requestIds = requests.map(r => r.request_id);
+    const items       = await reportModel.getItemsByRequestIds(requestIds);
+
+    const itemsByRequest = {};
+    items.forEach(item => {
+        const key = item.request_id;
+        if (!itemsByRequest[key]) itemsByRequest[key] = [];
+        itemsByRequest[key].push(numify(item));
+    });
+
+    return {
+        branch_scoped: branchId !== null,
+        scope: { month: monthStart.slice(0, 7), date: date || null },
+        requests: requests.map(r => ({ ...numify(r), items: itemsByRequest[r.request_id] || [] })),
+    };
+};
+
+const getRequestsAvailableDates = async (user, month) => {
+    const branchId   = branchIdFor(user);
+    const monthStart = normalizeMonth(month);
+    const dates       = await reportModel.getRequestDatesWithData(branchId, monthStart);
+    return {
+        month: monthStart.slice(0, 7),
+        dates: dates.map(d => (d instanceof Date ? d.toISOString().slice(0, 10) : d)),
+    };
+};
+
 module.exports = {
     getInventoryReport,
     getDonorsReport,
@@ -188,4 +235,6 @@ module.exports = {
     getMyImpactReport,
     getInventoryDetailReport,
     getInventoryAvailableDates,
+    getRequestsDetailReport,
+    getRequestsAvailableDates,
 };
