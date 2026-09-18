@@ -59,6 +59,7 @@ app.use(helmet({
             imgSrc:      ["'self'", "data:", "https://res.cloudinary.com", "https://*.tile.openstreetmap.org", "https://unpkg.com"],
             fontSrc:     ["'self'"],
             objectSrc:   ["'none'"],
+            frameSrc:    ["'self'", "blob:"],
         },
     },
 }));

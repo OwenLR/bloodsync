@@ -186,16 +186,17 @@ function showResult(blob, filename) {
   const wrap = document.createElement('div');
   wrap.className = 'print-result';
 
-  const iframe = document.createElement('iframe');
-  iframe.className = 'print-preview-frame';
-  iframe.src   = _objectUrl;
-  iframe.title = 'Report preview';
-  wrap.appendChild(iframe);
-
   const note = document.createElement('p');
-  note.className = 'print-fallback-note';
-  note.textContent = 'If the preview doesn\u2019t display, use Download below.';
+  note.textContent = 'Your report is ready.';
   wrap.appendChild(note);
+
+  const openLink = document.createElement('a');
+  openLink.href   = _objectUrl;
+  openLink.target = '_blank';
+  openLink.rel    = 'noopener noreferrer';
+  openLink.className = 'btn-secondary';
+  openLink.textContent = 'Open in New Tab';
+  wrap.appendChild(openLink);
 
   openModal('Report Ready', wrap, [
     { label: 'Close', className: 'btn-secondary', onClick: handleCloseResult },
