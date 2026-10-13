@@ -11,6 +11,8 @@
  *   - Click outside → list closes, input cleared if nothing was selected
  *   - Escape key   → list closes
  *   - Arrow keys   → navigate list items
+ *   - (optional) suggestFn → after the user pauses typing, an async
+ *     "Did you mean…?" section is appended below the local matches
  *
  * Usage:
  *   import { initSearchableDropdown } from '../components/searchableDropdown.js';
@@ -25,12 +27,21 @@
  *     onSelect:     (donor) => handleDonorSelected(donor),
  *     placeholder:  'Search donor by name…',
  *     emptyMessage: 'No donors found.',
+ *
+ *     // Optional fuzzy suggestions (all four are ignored if suggestFn is omitted):
+ *     suggestFn:       (q) => searchSimilarDonors(q),  // async, returns items
+ *     suggestLabel:    'Did you mean…?',
+ *     suggestMinChars: 3,
+ *     suggestDelay:    300,
+ *     suggestKeyFn:    (d) => d.donor_id,  // used to hide suggestions already shown locally
  *   });
  *
  *   dd.setItems(newItems);             // replace items after async load
  *   dd.selectByPredicate(d => d.donor_id === id); // restore prior selection
  *   dd.clear();                        // reset input and selection
  *   dd.destroy();                      // remove listeners on page unload
+ *
+ * Existing callers that do not pass suggestFn behave exactly as before.
  */
 
 export function initSearchableDropdown(options) {
@@ -43,11 +54,20 @@ export function initSearchableDropdown(options) {
     onSelect,
     placeholder   = 'Search\u2026',
     emptyMessage  = 'No results found.',
+
+    // ── Optional fuzzy suggestions ──────────────────────────────────────────
+    suggestFn       = null,
+    suggestLabel    = 'Did you mean\u2026?',
+    suggestMinChars = 3,
+    suggestDelay    = 300,
+    suggestKeyFn    = (item) => item.donor_id,
   } = options;
 
   let _items        = options.items || [];
   let _selectedItem = null;
   let _isOpen       = false;
+  let _suggestTimer = null;
+  let _suggestSeq   = 0;   // guards against stale async responses
 
   const inputEl = document.getElementById(inputId);
   const listEl  = document.getElementById(listId);
@@ -94,14 +114,14 @@ export function initSearchableDropdown(options) {
     if (e.key === 'Escape') { _closeList(); inputEl.focus(); return; }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const next = document.activeElement.nextElementSibling;
-      if (next && next.classList.contains('sd-item')) next.focus();
+      const next = _nextSelectable(document.activeElement, 'nextElementSibling');
+      if (next) next.focus();
       return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const prev = document.activeElement.previousElementSibling;
-      if (prev && prev.classList.contains('sd-item')) prev.focus();
+      const prev = _nextSelectable(document.activeElement, 'previousElementSibling');
+      if (prev) prev.focus();
       else inputEl.focus();
       return;
     }
@@ -111,6 +131,47 @@ export function initSearchableDropdown(options) {
   document.addEventListener('click', _handleOutsideClick);
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Walk siblings in the given direction and return the first real,
+   * selectable item — skipping the "Did you mean?" header and the
+   * "no results" row, neither of which should receive keyboard focus.
+   */
+  function _nextSelectable(fromEl, direction) {
+    let el = fromEl ? fromEl[direction] : null;
+    while (el) {
+      if (el.classList.contains('sd-item') && !el.classList.contains('sd-item--empty')) {
+        return el;
+      }
+      el = el[direction];
+    }
+    return null;
+  }
+
+  function _buildItem(item) {
+    const li = document.createElement('li');
+    li.className = 'sd-item';
+    li.tabIndex  = -1;
+    li.setAttribute('role', 'option');
+
+    const primary = document.createElement('span');
+    primary.className   = 'sd-item-primary';
+    primary.textContent = displayFn(item);
+    li.appendChild(primary);
+
+    if (subDisplayFn) {
+      const sub = document.createElement('span');
+      sub.className   = 'sd-item-sub';
+      sub.textContent = subDisplayFn(item) || '';
+      li.appendChild(sub);
+    }
+
+    // mousedown prevents input blur before click fires
+    li.addEventListener('mousedown', (e) => e.preventDefault());
+    li.addEventListener('click', () => _selectItem(item));
+
+    return li;
+  }
 
   function _renderList(query) {
     listEl.innerHTML = '';
@@ -122,33 +183,52 @@ export function initSearchableDropdown(options) {
       li.className   = 'sd-item sd-item--empty';
       li.textContent = emptyMessage;
       listEl.appendChild(li);
-      return;
+    } else {
+      filtered.forEach(item => listEl.appendChild(_buildItem(item)));
     }
 
-    filtered.forEach(item => {
-      const li = document.createElement('li');
-      li.className = 'sd-item';
-      li.tabIndex  = -1;
-      li.setAttribute('role', 'option');
+    _scheduleSuggestions(query, filtered);
+  }
 
-      const primary = document.createElement('span');
-      primary.className   = 'sd-item-primary';
-      primary.textContent = displayFn(item);
-      li.appendChild(primary);
+  /**
+   * Debounced server-side fuzzy lookup. Appends a "Did you mean…?" section
+   * below the local matches. Best-effort: any failure is silently ignored,
+   * and stale responses (user kept typing, or list closed) are discarded.
+   */
+  function _scheduleSuggestions(query, localMatches) {
+    clearTimeout(_suggestTimer);
+    const seq = ++_suggestSeq;
 
-      if (subDisplayFn) {
-        const sub = document.createElement('span');
-        sub.className   = 'sd-item-sub';
-        sub.textContent = subDisplayFn(item) || '';
-        li.appendChild(sub);
+    if (!suggestFn || !query || query.length < suggestMinChars) return;
+
+    _suggestTimer = setTimeout(async () => {
+      let results = [];
+      try {
+        results = await suggestFn(query);
+      } catch (_err) {
+        return;
+      }
+      if (seq !== _suggestSeq || !_isOpen) return;
+
+      // Hide anything the local filter already showed
+      const localKeys = new Set(localMatches.map(suggestKeyFn));
+      const extra     = (results || []).filter(r => !localKeys.has(suggestKeyFn(r)));
+      if (extra.length === 0) return;
+
+      // Local search found nothing — suggestions replace the "no match" row
+      if (localMatches.length === 0) {
+        const emptyRow = listEl.querySelector('.sd-item--empty');
+        if (emptyRow) emptyRow.remove();
       }
 
-      // mousedown prevents input blur before click fires
-      li.addEventListener('mousedown', (e) => e.preventDefault());
-      li.addEventListener('click', () => _selectItem(item));
+      const header = document.createElement('li');
+      header.className   = 'sd-header';
+      header.textContent = suggestLabel;
+      header.setAttribute('role', 'presentation');
+      listEl.appendChild(header);
 
-      listEl.appendChild(li);
-    });
+      extra.forEach(item => listEl.appendChild(_buildItem(item)));
+    }, suggestDelay);
   }
 
   function _openList() {
@@ -159,6 +239,8 @@ export function initSearchableDropdown(options) {
   }
 
   function _closeList() {
+    clearTimeout(_suggestTimer);
+    _suggestSeq++;   // invalidate any in-flight suggestion request
     _isOpen = false;
     listEl.style.display = 'none';
     inputEl.setAttribute('aria-expanded', 'false');
@@ -200,6 +282,8 @@ export function initSearchableDropdown(options) {
   }
 
   function destroy() {
+    clearTimeout(_suggestTimer);
+    _suggestSeq++;
     document.removeEventListener('click', _handleOutsideClick);
   }
 

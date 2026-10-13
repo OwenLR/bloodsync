@@ -19,6 +19,15 @@ router.get('/search',
     donorController.searchDonors
 );
 
+// Fuzzy "did you mean" donor name search (pg_trgm). Suggestion only.
+// Two segments, so no shadowing by GET /:id; still kept next to /search
+// and above /:id for consistency with the project's route-order precedent.
+router.get('/search/similar',
+    verifyToken,
+    checkRole(ALL_ROLES),
+    donorController.searchSimilarDonors
+);
+
 router.get('/',
     verifyToken,
     checkRole(ALL_ROLES),

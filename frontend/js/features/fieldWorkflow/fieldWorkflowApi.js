@@ -58,6 +58,18 @@ export async function searchDonors(query) {
 }
 
 /**
+ * Fuzzy (typo-tolerant) donor name search — "Did you mean?" suggestions.
+ * @param {string} query
+ * @returns {Promise<Array>} donors ranked by similarity, each with a `score`
+ */
+export async function searchSimilarDonors(query) {
+  const res  = await apiFetch(`/api/donors/search/similar?q=${encodeURIComponent(query)}`);
+  const body = await res.json();
+  if (!res.ok || !body.success) throw new Error(body.message || 'Similar donor search failed.');
+  return body.data || [];
+}
+
+/**
  * Get a single donor by ID.
  * Used to auto-fill the registration form when an existing donor is selected.
  * @param {number} donorId

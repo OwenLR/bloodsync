@@ -15,6 +15,7 @@ import {
   getDonorById,
   createDonor,
   searchDonors,
+  searchSimilarDonors,   // NEW: fuzzy "Did you mean?" lookup
   updateDonorContact,
   updateDonorFull,
   getAllInterviews,
@@ -123,6 +124,8 @@ function _setupDraftPersistence() {
 // ─── Search Dropdown (existing donor lookup) ──────────────────────────────────
 // Loads all donors on page load and filters client-side.
 // On select: auto-fills form fields (read-only) and shows contact update section.
+// NEW: also asks the server for fuzzy matches (typo-tolerant, pg_trgm) and
+// shows them under a "Did you mean…?" header when the local filter misses.
 
 let _searchDropdown = null;
 
@@ -177,6 +180,14 @@ async function _initSearchDropdown() {
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(q) ||
         (d.id_number || '').toLowerCase().includes(q),
       onSelect:     _selectExistingDonor,
+
+      // NEW: fuzzy suggestions. Server returns donors ranked by similarity;
+      // the dropdown hides any already shown by the local filter, then lists
+      // the rest under the "Did you mean…?" header. Selecting one goes
+      // through the same _selectExistingDonor() as a normal pick.
+      suggestFn:    (q) => searchSimilarDonors(q),
+      suggestLabel: 'Did you mean\u2026?',
+
       placeholder:  'Click to search existing donors…',
       emptyMessage: 'No matching donor found. Register them as new below.',
     });

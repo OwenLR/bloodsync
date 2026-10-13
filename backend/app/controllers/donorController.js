@@ -37,6 +37,17 @@ const searchDonors = async (req, res) => {
     }
 };
 
+const searchSimilarDonors = async (req, res) => {
+    try {
+        const keyword = req.query.q;
+        if (!keyword || !keyword.trim()) return response.badRequest(res, 'q is required');
+        const donors = await donorService.findSimilarDonors(keyword);
+        return response.success(res, donors);
+    } catch (error) {
+        return response.handleError(res, error);
+    }
+};
+
 const createDonor = async (req, res) => {
     try {
         const errors = validateCreateDonor(req.body);
@@ -105,6 +116,7 @@ module.exports = {
     getAllDonors,
     getDonorById,
     searchDonors,
+    searchSimilarDonors,
     createDonor,
     updateDonor,
     updateDonorContact,

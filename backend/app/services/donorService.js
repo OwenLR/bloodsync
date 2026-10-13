@@ -47,4 +47,26 @@ const createDonor = async (data, registeredBy) => {
     return { donor, isExisting: false };
 };
 
-module.exports = { createDonor };
+
+const MIN_SIMILAR_QUERY_LENGTH = 3;
+
+// lowercase, strip accents from the query, collapse whitespace
+const normalizeName = (value) =>
+    value.toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+
+/**
+ * Fuzzy "did you mean" lookup. Suggestion only — never blocks registration.
+ * Queries shorter than 3 characters return [] (too noisy for trigram matching).
+ */
+const findSimilarDonors = async (rawKeyword) => {
+    const keyword = normalizeName(rawKeyword);
+    if (keyword.length < MIN_SIMILAR_QUERY_LENGTH) return [];
+    return donorModel.searchSimilarDonors(keyword);
+};
+
+module.exports = { createDonor, findSimilarDonors };

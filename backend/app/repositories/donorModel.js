@@ -110,6 +110,47 @@ const searchDonors = async (keyword) => {
     return result.rows;
 };
 
+/**
+ * Fuzzy name search (pg_trgm). Typo-tolerant, ranked by similarity.
+ * Matches against "first last" and "last first" so word order doesn't matter.
+ * Suggestion only — never used to block registration.
+ *
+ * @param {string} keyword   normalized (lowercase, trimmed, single-spaced) by the caller
+ * @param {number} threshold similarity floor 0–1 (default 0.3, pg_trgm's own default)
+ * @param {number} limit
+ */
+const searchSimilarDonors = async (keyword, threshold = 0.3, limit = 8) => {
+    const result = await pool.query(
+        `SELECT * FROM (
+            SELECT
+                donor_id,
+                first_name,
+                middle_name,
+                last_name,
+                suffix,
+                birthdate,
+                sex,
+                blood_type,
+                contact,
+                email,
+                national_id_number AS id_number,
+                status,
+                GREATEST(
+                    similarity(LOWER(first_name || ' ' || last_name), $1),
+                    similarity(LOWER(last_name || ' ' || first_name), $1)
+                ) AS score
+            FROM donors
+            WHERE LOWER(first_name || ' ' || last_name) % $1
+               OR LOWER(last_name || ' ' || first_name) % $1
+         ) ranked
+         WHERE score >= $2
+         ORDER BY score DESC, last_name ASC
+         LIMIT $3`,
+        [keyword, threshold, limit]
+    );
+    return result.rows;
+};
+
 const createDonor = async (data) => {
     const {
         first_name, middle_name, last_name, suffix,
@@ -267,6 +308,7 @@ module.exports = {
     getDonorByNationalId,
     getDonorByEmail,
     getDonorByContact,
+    searchSimilarDonors,
     searchDonors,
     createDonor,
     updateDonor,

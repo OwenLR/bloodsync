@@ -524,3 +524,17 @@
   font-size: 11px;
   color: #777;
 }
+
+/* "Did you mean?" header in searchable dropdowns (fuzzy suggestions) */
+.sd-header {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+  cursor: default;
+  user-select: none;
+}
