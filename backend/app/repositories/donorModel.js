@@ -111,42 +111,56 @@ const searchDonors = async (keyword) => {
 };
 
 /**
- * Fuzzy name search (pg_trgm). Typo-tolerant, ranked by similarity.
- * Matches against "first last" and "last first" so word order doesn't matter.
- * Suggestion only — never used to block registration.
+ * Fuzzy name search: pg_trgm similarity + Levenshtein edit distance.
+ * Compares the query against first name, last name, "first last" and
+ * "last first", so single-word queries (e.g. "cyrus" for "Xyrus") and
+ * reversed order both work. Suggestion only — never used to block.
  *
- * @param {string} keyword   normalized (lowercase, trimmed, single-spaced) by the caller
- * @param {number} threshold similarity floor 0–1 (default 0.3, pg_trgm's own default)
- * @param {number} limit
+ * Matches when EITHER:
+ *   tri_score  >= triThreshold   (default 0.3, good for longer names)
+ *   edit_score >= editThreshold  (default 0.6, good for short names / first-letter typos)
+ * edit_score = 1 - (edits / longer length), so 1 edit in a 5-letter word = 0.8.
+ *
+ * @param {string} keyword  normalized + length-capped by the service
  */
-const searchSimilarDonors = async (keyword, threshold = 0.3, limit = 8) => {
+const searchSimilarDonors = async (
+    keyword,
+    triThreshold  = 0.3,
+    limit         = 8,
+    editThreshold = 0.6
+) => {
     const result = await pool.query(
-        `SELECT * FROM (
+        `SELECT scored.*, GREATEST(tri_score, edit_score) AS score FROM (
             SELECT
-                donor_id,
-                first_name,
-                middle_name,
-                last_name,
-                suffix,
-                birthdate,
-                sex,
-                blood_type,
-                contact,
-                email,
-                national_id_number AS id_number,
-                status,
+                n.donor_id, n.first_name, n.middle_name, n.last_name, n.suffix,
+                n.birthdate, n.sex, n.blood_type, n.contact, n.email,
+                n.id_number, n.status,
                 GREATEST(
-                    similarity(LOWER(first_name || ' ' || last_name), $1),
-                    similarity(LOWER(last_name || ' ' || first_name), $1)
-                ) AS score
-            FROM donors
-            WHERE LOWER(first_name || ' ' || last_name) % $1
-               OR LOWER(last_name || ' ' || first_name) % $1
-         ) ranked
-         WHERE score >= $2
-         ORDER BY score DESC, last_name ASC
+                    similarity(n.fn, $1::text), similarity(n.ln, $1::text),
+                    similarity(n.fl, $1::text), similarity(n.lf, $1::text)
+                ) AS tri_score,
+                GREATEST(
+                    1.0 - levenshtein(n.fn, $1::text)::float / GREATEST(LENGTH(n.fn), LENGTH($1::text)),
+                    1.0 - levenshtein(n.ln, $1::text)::float / GREATEST(LENGTH(n.ln), LENGTH($1::text)),
+                    1.0 - levenshtein(n.fl, $1::text)::float / GREATEST(LENGTH(n.fl), LENGTH($1::text)),
+                    1.0 - levenshtein(n.lf, $1::text)::float / GREATEST(LENGTH(n.lf), LENGTH($1::text))
+                ) AS edit_score
+            FROM (
+                SELECT
+                    donor_id, first_name, middle_name, last_name, suffix,
+                    birthdate, sex, blood_type, contact, email,
+                    national_id_number AS id_number, status,
+                    LEFT(LOWER(first_name), 100)                    AS fn,
+                    LEFT(LOWER(last_name), 100)                     AS ln,
+                    LEFT(LOWER(first_name || ' ' || last_name), 200) AS fl,
+                    LEFT(LOWER(last_name || ' ' || first_name), 200) AS lf
+                FROM donors
+            ) n
+         ) scored
+         WHERE tri_score >= $2 OR edit_score >= $4
+         ORDER BY GREATEST(tri_score, edit_score) DESC, last_name ASC
          LIMIT $3`,
-        [keyword, threshold, limit]
+        [keyword, triThreshold, limit, editThreshold]
     );
     return result.rows;
 };

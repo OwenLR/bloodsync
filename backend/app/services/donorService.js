@@ -64,7 +64,7 @@ const normalizeName = (value) =>
  * Queries shorter than 3 characters return [] (too noisy for trigram matching).
  */
 const findSimilarDonors = async (rawKeyword) => {
-    const keyword = normalizeName(rawKeyword);
+    const keyword = normalizeName(rawKeyword).slice(0, 100);
     if (keyword.length < MIN_SIMILAR_QUERY_LENGTH) return [];
     return donorModel.searchSimilarDonors(keyword);
 };
