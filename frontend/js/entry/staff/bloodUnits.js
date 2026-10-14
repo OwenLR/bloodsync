@@ -6,7 +6,7 @@ import { renderSidebar,
 import { revealAppShell }  from '../../layouts/appShell.js';
 import { getSidebarItems } from '../../constants/sidebarItems.js';
 import { ROLES }           from '../../constants/roles.js';
-import { renderUnitsTable, initComponentTabs } from '../../features/bloodUnits/bloodUnitsUI.js';
+import { renderUnitsTable, initComponentTabs, initUnitFilters } from '../../features/bloodUnits/bloodUnitsUI.js';
 import { refreshBadge } from '../../features/notifications/notificationsUI.js';
 
 async function init() {
@@ -31,6 +31,7 @@ async function init() {
   refreshBadge(); // non-blocking, sets navbar badge to the real unread count
 
   initComponentTabs();
+  initUnitFilters();
   await renderUnitsTable(user.branch_id);
 }
 

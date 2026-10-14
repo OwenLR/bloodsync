@@ -22,12 +22,52 @@
       </div>
 
       <div class="request-tabs" id="units-tabs">
-        <button type="button" class="tab-button" data-component="all">All</button>
-        <button type="button" class="tab-button" data-component="Whole Blood">Whole Blood</button>
-        <button type="button" class="tab-button" data-component="Packed Red Blood Cells">RBC</button>
-        <button type="button" class="tab-button" data-component="Platelets">Platelet</button>
-        <button type="button" class="tab-button" data-component="Fresh Frozen Plasma">Plasma</button>
+        <button type="button" class="tab-button" data-component="all">
+          <span class="tab-label">All</span><span class="tab-count"></span>
+        </button>
+        <button type="button" class="tab-button" data-component="Whole Blood">
+          <span class="tab-label">Whole Blood</span><span class="tab-count"></span>
+        </button>
+        <button type="button" class="tab-button" data-component="Packed Red Blood Cells">
+          <span class="tab-label">RBC</span><span class="tab-count"></span>
+        </button>
+        <button type="button" class="tab-button" data-component="Platelets">
+          <span class="tab-label">Platelet</span><span class="tab-count"></span>
+        </button>
+        <button type="button" class="tab-button" data-component="Fresh Frozen Plasma">
+          <span class="tab-label">Plasma</span><span class="tab-count"></span>
+        </button>
       </div>
+
+      <div class="filter-bar" id="units-filters">
+        <div class="filter-field">
+          <label class="form-label" for="filter-blood-type">Blood type</label>
+          <select id="filter-blood-type" class="form-input">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label class="form-label" for="filter-status">Status</label>
+          <select id="filter-status" class="form-input">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="filter-field filter-field--donor">
+          <label class="form-label" for="filter-donor">Donor</label>
+          <input type="search" id="filter-donor" class="form-input" placeholder="Search by donor name" autocomplete="off" />
+        </div>
+
+        <label class="filter-check" for="filter-near-expiry">
+          <input type="checkbox" id="filter-near-expiry" />
+          <span>Near expiry only</span>
+        </label>
+
+        <button type="button" id="filter-clear" class="btn-secondary filter-clear" disabled>Clear filters</button>
+      </div>
+
+      <p class="result-count" id="units-result-count" aria-live="polite"></p>
 
       <div id="units-skeleton"></div>
       <div id="units-error"></div>

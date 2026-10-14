@@ -38,3 +38,74 @@
   color: #c0392b;
   border-bottom-color: #c0392b;
 }
+
+/* ── Tab count pill (inside each tab button) ─────────────────────────
+   Empty until the first fetch resolves, so it's hidden via :empty rather
+   than showing a blank pill. Scoped to this file because only the Blood
+   Units tabs render a .tab-count. ── */
+.tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #eee;
+  color: #555;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tab-count:empty {
+  display: none;
+}
+
+.tab-button--active .tab-count {
+  background: #fbeae7;
+  color: #c0392b;
+}
+
+/* ── Filter bar ────────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.filter-field {
+  flex: 0 0 170px;
+}
+
+.filter-field--donor {
+  flex-basis: 240px;
+}
+
+/* .form-group's 16px bottom margin isn't used here — the bar's own gap
+   handles spacing, so alignment with the checkbox/button stays even. */
+.filter-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-clear:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Result count line ───────────────────────────────────────────────
+   The number staff read out to a requestor, with active filters
+   spelled out beside it. ── */
+.result-count {
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.result-count strong {
+  color: #111;
+}
