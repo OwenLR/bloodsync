@@ -90,6 +90,8 @@ const searchDonors = async (keyword) => {
             middle_name,
             last_name,
             suffix,
+            birthdate,
+            sex,
             blood_type,
             contact,
             email,
@@ -108,6 +110,27 @@ const searchDonors = async (keyword) => {
         [queryText]
     );
     return result.rows;
+};
+
+/**
+ * Exact duplicate check: same first name + last name + birthdate
+ * (case-insensitive, whitespace-normalized). Mirrors bloodsync.md #14.
+ * Inputs must already be normalized by the caller (lowercase, trimmed,
+ * single-spaced, birthdate as YYYY-MM-DD).
+ */
+const getDonorByNameAndBirthdate = async (first_name, last_name, birthdate) => {
+    const result = await pool.query(
+        `SELECT donor_id, first_name, middle_name, last_name,
+                birthdate, sex, blood_type, contact,
+                email, national_id_type, national_id_number, status
+         FROM donors
+         WHERE regexp_replace(LOWER(TRIM(first_name)), '\\s+', ' ', 'g') = $1
+           AND regexp_replace(LOWER(TRIM(last_name)),  '\\s+', ' ', 'g') = $2
+           AND birthdate::date = $3::date
+         LIMIT 1`,
+        [first_name, last_name, birthdate]
+    );
+    return result.rows[0];
 };
 
 /**
@@ -316,6 +339,14 @@ const getDonorByContact = async (contact) => {
     return result.rows[0];
 };
 
+const setDuplicateOverrideReason = async (donorId, reason) => {
+    const result = await pool.query(
+        'UPDATE donors SET duplicate_override_reason = $1 WHERE donor_id = $2 RETURNING donor_id',
+        [reason, donorId]
+    );
+    return result.rows[0];
+};
+
 module.exports = {
     getAllDonors,
     getDonorById,
@@ -324,7 +355,9 @@ module.exports = {
     getDonorByContact,
     searchSimilarDonors,
     searchDonors,
+    getDonorByNameAndBirthdate,
     createDonor,
     updateDonor,
-    deleteDonor
+    deleteDonor,
+    setDuplicateOverrideReason
 };

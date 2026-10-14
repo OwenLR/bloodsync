@@ -55,7 +55,8 @@ const createDonor = async (req, res) => {
 
         const { donor, isExisting } = await donorService.createDonor(
             req.body,
-            req.user.user_id
+            req.user.user_id,
+            req.user.role_id
         );
 
         if (isExisting) {

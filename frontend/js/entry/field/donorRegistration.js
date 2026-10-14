@@ -15,7 +15,7 @@ import {
   getDonorById,
   createDonor,
   searchDonors,
-  searchSimilarDonors,   // NEW: fuzzy "Did you mean?" lookup
+  searchSimilarDonors,
   updateDonorContact,
   updateDonorFull,
   getAllInterviews,
@@ -42,13 +42,19 @@ let _duplicateTimers  = {};    // per-field blur timers
  */
 let _deferredDonorMap = new Map();
 
-// ─── Draft Persistence ──────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 // Single flat key — unlike Interview/Screening/Donation, this page only
 // ever has ONE donor "in progress" at a time (a brand-new registration).
 // Selecting an EXISTING donor locks the form fields and swaps to the
 // contact-update form instead, so there's no multi-donor draft collision
 // risk to guard against here.
 const DRAFT_KEY = 'draft:donor-registration-form';
+
+// Mirrors the backend minimum in donorService.js (MIN_OVERRIDE_REASON_LENGTH).
+const MIN_OVERRIDE_REASON_LENGTH = 5;
+
+const OVERRIDE_PANEL_ID = 'reg-override-panel';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +65,11 @@ const DRAFT_KEY = 'draft:donor-registration-form';
 function _formatBirthdate(value) {
   if (!value) return '';
   return String(value).slice(0, 10);
+}
+
+/** Only PRC Staff may register a donor whose name + birthdate already exists. */
+function _canOverrideDuplicate() {
+  return _user.role_id === ROLES.PRC_STAFF;
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -98,6 +109,7 @@ async function init() {
 
   await _initSearchDropdown();
   _setupDuplicateDetection();
+  _setupOverrideReset();
   _setupRegistrationForm();
   _setupContactUpdateForm();
   _setupClearSelection();
@@ -124,8 +136,8 @@ function _setupDraftPersistence() {
 // ─── Search Dropdown (existing donor lookup) ──────────────────────────────────
 // Loads all donors on page load and filters client-side.
 // On select: auto-fills form fields (read-only) and shows contact update section.
-// NEW: also asks the server for fuzzy matches (typo-tolerant, pg_trgm) and
-// shows them under a "Did you mean…?" header when the local filter misses.
+// Also asks the server for fuzzy matches (typo-tolerant) and shows them
+// under a "Did you mean…?" header when the local filter misses.
 
 let _searchDropdown = null;
 
@@ -181,10 +193,10 @@ async function _initSearchDropdown() {
         (d.id_number || '').toLowerCase().includes(q),
       onSelect:     _selectExistingDonor,
 
-      // NEW: fuzzy suggestions. Server returns donors ranked by similarity;
-      // the dropdown hides any already shown by the local filter, then lists
-      // the rest under the "Did you mean…?" header. Selecting one goes
-      // through the same _selectExistingDonor() as a normal pick.
+      // Fuzzy suggestions. Server returns donors ranked by similarity; the
+      // dropdown hides any already shown by the local filter, then lists the
+      // rest under the "Did you mean…?" header. Selecting one goes through
+      // the same _selectExistingDonor() as a normal pick.
       suggestFn:    (q) => searchSimilarDonors(q),
       suggestLabel: 'Did you mean\u2026?',
 
@@ -231,6 +243,10 @@ async function _loadAllDonors() {
 async function _selectExistingDonor(donor) {
   _selectedDonor   = donor;
   _registeredDonor = null;
+
+  // Any pending "register anyway" prompt is moot once an existing donor is chosen
+  _removeOverridePanel();
+  _hideEl(document.getElementById('reg-name-birthdate-duplicate'));
 
   if (_searchDropdown) _searchDropdown.clear();
 
@@ -347,7 +363,10 @@ function _clearSelection() {
   _lockFormFields(false);
 }
 
-// ─── Duplicate Detection (blur) ───────────────────────────────────────────────
+// ─── Duplicate Detection (blur — early heads-up only) ─────────────────────────
+// These warnings are advisory while the user is still typing. The actual
+// block for name + birthdate happens at submit time (see _runRegistration)
+// and again on the backend.
 
 function _setupDuplicateDetection() {
   const idInput = document.getElementById('reg-id-number');
@@ -404,6 +423,22 @@ function _setupDuplicateDetection() {
   });
 }
 
+/**
+ * Editing the name or birthdate invalidates any visible name+birthdate
+ * warning and any open "register anyway" prompt — they were about the
+ * values the user has just changed.
+ */
+function _setupOverrideReset() {
+  ['reg-first-name', 'reg-last-name', 'reg-birthdate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      _removeOverridePanel();
+      _hideEl(document.getElementById('reg-name-birthdate-duplicate'));
+    });
+  });
+}
+
 async function _checkDuplicate(type, searchData, warningElId) {
   const warningEl = document.getElementById(warningElId);
   if (!warningEl) return;
@@ -443,13 +478,8 @@ async function _checkDuplicate(type, searchData, warningElId) {
         const normalized = searchData.contact.replace(/\D/g, '');
         match = donors.find(d => d.contact && d.contact.replace(/\D/g, '') === normalized);
       } else {
-        // FIX Issue 1: normalize both sides to YYYY-MM-DD before comparing
-        // API returns ISO strings like "1990-05-15T00:00:00.000Z"; form input gives "1990-05-15"
-        const inputDate = searchData.birthdate.slice(0, 10);
-        match = donors.find(d =>
-          d.first_name.toLowerCase() === searchData.first_name.toLowerCase() &&
-          d.last_name.toLowerCase()  === searchData.last_name.toLowerCase()  &&
-          _formatBirthdate(d.birthdate) === inputDate
+        match = _pickNameBirthdateMatch(
+          donors, searchData.first_name, searchData.last_name, searchData.birthdate
         );
       }
 
@@ -478,6 +508,137 @@ async function _checkDuplicate(type, searchData, warningElId) {
   }, 400);
 }
 
+// ─── Name + Birthdate Duplicate (submit-time block) ───────────────────────────
+
+function _normalizeNamePart(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
+ * From a list of donors, return the one whose first name + last name +
+ * birthdate all match (case/whitespace-insensitive), or null.
+ * API returns ISO strings like "1990-05-15T00:00:00.000Z" while the form
+ * gives "1990-05-15" — both sides are normalized to YYYY-MM-DD.
+ */
+function _pickNameBirthdateMatch(donors, firstName, lastName, birthdate) {
+  const inputDate = String(birthdate).slice(0, 10);
+  return (donors || []).find(d =>
+    _normalizeNamePart(d.first_name) === _normalizeNamePart(firstName) &&
+    _normalizeNamePart(d.last_name)  === _normalizeNamePart(lastName)  &&
+    _formatBirthdate(d.birthdate)    === inputDate
+  ) || null;
+}
+
+async function _findNameBirthdateMatch(firstName, lastName, birthdate) {
+  const query  = `${firstName.trim()} ${lastName.trim()}`.replace(/\s+/g, ' ');
+  const donors = await searchDonors(query);
+  return _pickNameBirthdateMatch(donors, firstName, lastName, birthdate);
+}
+
+function _removeOverridePanel() {
+  const panel = document.getElementById(OVERRIDE_PANEL_ID);
+  if (panel) panel.remove();
+}
+
+/**
+ * Show the "already registered" block under the birthdate field.
+ * - Volunteer/Phlebotomist: hard stop, can only pick the existing record.
+ * - PRC Staff: also gets a "register anyway" prompt that requires a reason.
+ */
+function _showNameBirthdateWarning(match) {
+  const warningEl = document.getElementById('reg-name-birthdate-duplicate');
+  if (!warningEl) return;
+
+  const canOverride = _canOverrideDuplicate();
+
+  const textEl = warningEl.querySelector('.duplicate-warning-text');
+  if (textEl) {
+    textEl.textContent = canOverride
+      ? 'A donor with the same name and birthdate is already registered. ' +
+        'Select the existing record, or register anyway if this is a different person.'
+      : 'A donor with the same name and birthdate is already registered. ' +
+        'Registration was stopped — select the existing record instead.';
+  }
+
+  const viewBtn = warningEl.querySelector('.duplicate-warning-btn');
+  if (viewBtn) viewBtn.onclick = () => _selectExistingDonor(match);
+
+  _removeOverridePanel();
+  if (canOverride) _renderOverridePanel(warningEl);
+
+  _showEl(warningEl);
+  warningEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/**
+ * Staff-only prompt: a required reason, then "Register anyway".
+ * Built with createElement (no innerHTML) and inserted right after the
+ * warning box. Styled by .duplicate-override-panel in fieldWorkflow.css.
+ */
+function _renderOverridePanel(warningEl) {
+  const panel = document.createElement('div');
+  panel.id        = OVERRIDE_PANEL_ID;
+  panel.className = 'duplicate-override-panel';
+
+  const label = document.createElement('label');
+  label.className   = 'form-label';
+  label.htmlFor     = 'reg-override-reason';
+  label.textContent = 'Reason for registering anyway';
+
+  const textarea = document.createElement('textarea');
+  textarea.id          = 'reg-override-reason';
+  textarea.className   = 'form-input';
+  textarea.rows        = 2;
+  textarea.placeholder = 'e.g. Different person — verified with ID, same name and birthdate by coincidence.';
+
+  const errorEl = document.createElement('span');
+  errorEl.className = 'field-error field-error-hidden';
+
+  const actions = document.createElement('div');
+  actions.className = 'duplicate-override-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type        = 'button';
+  cancelBtn.className   = 'btn-secondary btn-sm';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', _removeOverridePanel);
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type        = 'button';
+  confirmBtn.className   = 'btn-primary btn-sm';
+  confirmBtn.textContent = 'Register anyway';
+  confirmBtn.addEventListener('click', async () => {
+    const reason = textarea.value.trim();
+    if (reason.length < MIN_OVERRIDE_REASON_LENGTH) {
+      errorEl.textContent =
+        `A reason is required (at least ${MIN_OVERRIDE_REASON_LENGTH} characters) so the record shows why ` +
+        'this duplicate was allowed. Explain how you confirmed this is a different person.';
+      errorEl.classList.remove('field-error-hidden');
+      return;
+    }
+    errorEl.classList.add('field-error-hidden');
+
+    confirmBtn.disabled    = true;
+    confirmBtn.textContent = 'Registering...';
+    await _runRegistration({ reason });
+    if (confirmBtn.isConnected) {
+      confirmBtn.disabled    = false;
+      confirmBtn.textContent = 'Register anyway';
+    }
+  });
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(confirmBtn);
+
+  panel.appendChild(label);
+  panel.appendChild(textarea);
+  panel.appendChild(errorEl);
+  panel.appendChild(actions);
+
+  warningEl.insertAdjacentElement('afterend', panel);
+  textarea.focus();
+}
+
 // ─── Registration Form ────────────────────────────────────────────────────────
 
 function _setupRegistrationForm() {
@@ -486,18 +647,7 @@ function _setupRegistrationForm() {
   form.addEventListener('submit', _handleRegisterSubmit);
 }
 
-async function _handleRegisterSubmit(e) {
-  e.preventDefault();
-  if (_selectedDonor) return;
-
-  // Cancel any pending blur-triggered duplicate checks (e.g. the email
-  // field's blur fired a moment ago when focus moved to this submit
-  // button) so a stale check can't resolve after creation and falsely
-  // flag the donor we're about to register as a duplicate of itself.
-  Object.values(_duplicateTimers).forEach(clearTimeout);
-
-  _clearAllFieldErrors('donor-registration-form');
-
+function _collectFormData() {
   const data = {
     first_name:  _getField('reg-first-name'),
     last_name:   _getField('reg-last-name'),
@@ -511,6 +661,41 @@ async function _handleRegisterSubmit(e) {
 
   const idVal = _getField('reg-id-number');
   if (idVal) data.id_number = idVal;
+
+  return data;
+}
+
+async function _handleRegisterSubmit(e) {
+  e.preventDefault();
+  if (_selectedDonor) return;
+  await _runRegistration(null);
+}
+
+/**
+ * Validate → duplicate check → create.
+ *
+ * @param {{ reason: string } | null} override
+ *   null for a normal submit. For a PRC Staff "register anyway", the
+ *   confirmed reason — the duplicate check is skipped and the backend is
+ *   told to allow the duplicate (it re-verifies role and reason itself).
+ *   Form data is re-read from the fields each time, so edits made after
+ *   the warning appeared are never lost or stale.
+ */
+async function _runRegistration(override) {
+  // Cancel any pending blur-triggered duplicate checks (e.g. the email
+  // field's blur fired a moment ago when focus moved to this submit
+  // button) so a stale check can't resolve after creation and falsely
+  // flag the donor we're about to register as a duplicate of itself.
+  Object.values(_duplicateTimers).forEach(clearTimeout);
+
+  _clearAllFieldErrors('donor-registration-form');
+
+  if (!override) {
+    _removeOverridePanel();
+    _hideEl(document.getElementById('reg-name-birthdate-duplicate'));
+  }
+
+  const data = _collectFormData();
 
   const { valid, errors } = validateDonorRegistration(data);
   if (!valid) {
@@ -532,9 +717,27 @@ async function _handleRegisterSubmit(e) {
   }
 
   try {
-    const donor = await createDonor(data);
+    // Submit-time duplicate check (bloodsync.md #16). The backend enforces
+    // the same rule with a 409, so a failed lookup here just falls through.
+    if (!override) {
+      try {
+        const match = await _findNameBirthdateMatch(data.first_name, data.last_name, data.birthdate);
+        if (match) {
+          _showNameBirthdateWarning(match);
+          return; // the finally block re-enables the button
+        }
+      } catch (_checkErr) { /* backend will still reject a true duplicate */ }
+    }
+
+    const payload = override
+      ? { ...data, duplicate_override: true, override_reason: override.reason }
+      : data;
+
+    const donor = await createDonor(payload);
     _registeredDonor = donor;
     showToast('Donor registered successfully.', 'success');
+    _removeOverridePanel();
+    _hideEl(document.getElementById('reg-name-birthdate-duplicate'));
     _showProceedSection(donor);
     clearForm(DRAFT_KEY);
 
@@ -666,6 +869,7 @@ function _resetForm() {
   _hideEl(document.getElementById('reg-email-duplicate'));
   _hideEl(document.getElementById('reg-contact-duplicate'));
   _hideEl(document.getElementById('reg-name-birthdate-duplicate'));
+  _removeOverridePanel();
   _hideEl(document.getElementById('proceed-section'));
   _registeredDonor = null;
   clearForm(DRAFT_KEY);
