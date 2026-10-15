@@ -34,3 +34,17 @@ export const SEPARATION_VOLUME_ML = Object.freeze({
   'Fresh Frozen Plasma':    150,
   'Platelets':               50,
 });
+// Days-left threshold at which an Available unit is flagged near expiry —
+// mirrors backend's NEAR_EXPIRY_DAYS in constants/inventoryRulesConstant.js.
+// DISPLAY ONLY: the near_expiry boolean on each blood unit is computed
+// server-side (bloodUnitModel.js SQL CASE) and is the only thing the
+// frontend uses to classify a unit. These numbers just explain that flag
+// to staff (threshold hint, badge tooltip). If PRC changes a threshold,
+// update inventoryRulesConstant.js, the three near_expiry SQL CASE blocks
+// in bloodUnitModel.js, and this object together.
+export const NEAR_EXPIRY_DAYS = Object.freeze({
+  'Whole Blood':            7,
+  'Packed Red Blood Cells': 7,
+  'Platelets':              2,
+  'Fresh Frozen Plasma':    30,
+});

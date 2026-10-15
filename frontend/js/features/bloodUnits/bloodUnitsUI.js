@@ -1,7 +1,7 @@
 import { openModal, closeModal, confirmModal } from '../../components/modal.js';
 import { showToast }                            from '../../components/toast.js';
 import { BLOOD_UNIT_STATUS }                    from '../../constants/statusConstants.js';
-import { BLOOD_TYPES }                          from '../../constants/bloodTypes.js';
+import { BLOOD_TYPES, NEAR_EXPIRY_DAYS }        from '../../constants/bloodTypes.js';
 import { initSearchableDropdown }               from '../../components/searchableDropdown.js';
 import {
   getUnitsByBranch,
@@ -16,6 +16,7 @@ const ERROR_ID        = 'units-error';
 const TABLE_WRAP_ID   = 'units-table-container';
 const TABS_WRAP_ID    = 'units-tabs';
 const RESULT_COUNT_ID = 'units-result-count';
+const NEAR_HINT_ID    = 'units-near-expiry-hint';
 
 const FILTER_IDS = {
   bloodType:  'filter-blood-type',
@@ -308,6 +309,7 @@ function applyFilterAndRender() {
     : filtered.filter(r => r.component === _activeComponent);
 
   updateTabCounts(filtered);
+  updateNearExpiryHint();
   updateResultLine(rows.length);
   updateClearButton();
   renderRows(rows);
@@ -407,7 +409,7 @@ function buildRow(unit) {
   tr.appendChild(cell(unit.component));
   tr.appendChild(cell(formatVolume(unit)));
   tr.appendChild(cell(`${unit.first_name} ${unit.last_name}`));
-  tr.appendChild(cell(formatDate(unit.expiration_date)));
+  tr.appendChild(expirationCell(unit));
   tr.appendChild(statusCell(unit));
   tr.appendChild(actionsCell(unit));
 
@@ -418,6 +420,92 @@ function cell(text) {
   const td = document.createElement('td');
   td.textContent = text ?? '-';
   return td;
+}
+
+// ---------------------------------------------------------------------------
+// Expiration context — countdown + near-expiry badge + threshold hint
+// ---------------------------------------------------------------------------
+
+// Only live units get a countdown. Disposed/Withdrawn/Released/Separated/
+// Expired are terminal, so "N days left" would be meaningless for them.
+const COUNTDOWN_STATUSES = [
+  BLOOD_UNIT_STATUS.AVAILABLE,
+  BLOOD_UNIT_STATUS.RESERVED,
+];
+
+// Display-only countdown from expiration_date. Rounds UP so it agrees with
+// the server's near_expiry flag (expiration_date <= NOW() + N days): a unit
+// 6.5 days out reads "7 days left" and is flagged against a 7-day
+// threshold; one 7.5 days out reads "8 days left" and is not. Under 24h it
+// switches to hours. This is NOT classification — near_expiry (server
+// boolean) alone decides the badge.
+function formatCountdown(unit) {
+  if (!COUNTDOWN_STATUSES.includes(unit.status)) return '';
+
+  const expiresAt = new Date(unit.expiration_date).getTime();
+  if (isNaN(expiresAt)) return '';
+
+  const msLeft = expiresAt - Date.now();
+  if (msLeft <= 0) return 'Past expiry date';
+
+  const hoursLeft = msLeft / 3600000;
+  if (hoursLeft < 24) return `${Math.ceil(hoursLeft)}h left`;
+
+  const daysLeft = Math.ceil(msLeft / 86400000);
+  return `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`;
+}
+
+function expirationCell(unit) {
+  const td = document.createElement('td');
+
+  const dateLine = document.createElement('div');
+  dateLine.textContent = formatDate(unit.expiration_date);
+  td.appendChild(dateLine);
+
+  const countdown = formatCountdown(unit);
+  if (!countdown) return td;
+
+  const line = document.createElement('div');
+  line.className   = 'expiry-countdown';
+  line.textContent = countdown;
+
+  if (unit.near_expiry) {
+    line.classList.add('expiry-countdown--near');
+
+    const badge = document.createElement('span');
+    badge.className   = 'near-expiry-badge';
+    badge.textContent = 'Near expiry';
+
+    const threshold = NEAR_EXPIRY_DAYS[unit.component];
+    if (threshold != null) {
+      const label = COMPONENT_LABELS[unit.component] || unit.component;
+      badge.title = `${label} is near expiry at ${threshold} ${threshold === 1 ? 'day' : 'days'} left or fewer`;
+    }
+    line.appendChild(badge);
+  }
+
+  td.appendChild(line);
+  return td;
+}
+
+// "Near expiry applies to Available units with this many days left or
+// fewer: Whole Blood 7 · RBC 7 · Platelet 2 · Plasma 30" — narrows to one
+// component when a component tab is active.
+function updateNearExpiryHint() {
+  const el = document.getElementById(NEAR_HINT_ID);
+  if (!el) return;
+
+  const components = _activeComponent === 'all'
+    ? Object.keys(NEAR_EXPIRY_DAYS)
+    : [_activeComponent];
+
+  const parts = components
+    .filter(c => NEAR_EXPIRY_DAYS[c] != null)
+    .map(c => `${COMPONENT_LABELS[c] || c} ${NEAR_EXPIRY_DAYS[c]}`);
+
+  el.textContent = parts.length
+    ? `Near expiry applies to Available units with this many days left or fewer: ${parts.join(' \u00B7 ')}`
+    : '';
 }
 
 function statusCell(unit) {
