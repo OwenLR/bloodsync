@@ -1,5 +1,11 @@
 import { apiFetch } from '../../core/api.js';
 
+// Re-exported for the Donor filter's typo-tolerant matching
+// (GET /api/donors/search/similar). Per the feature-to-feature API reuse
+// rule, bloodUnitsUI.js imports it from here rather than reaching into
+// fieldWorkflowApi.js itself. Staff are allowed on this endpoint.
+export { searchSimilarDonors } from '../fieldWorkflow/fieldWorkflowApi.js';
+
 const BASE = '/api/blood-units';
 
 // GET /api/blood-units/branch/:branch_id

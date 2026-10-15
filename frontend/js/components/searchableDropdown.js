@@ -34,6 +34,13 @@
  *     suggestMinChars: 3,
  *     suggestDelay:    300,
  *     suggestKeyFn:    (d) => d.donor_id,  // used to hide suggestions already shown locally
+ *
+ *     // Optional: fires when the user edits the input after a selection was
+ *     // made (typing, backspacing to empty), which un-selects the item.
+ *     // NOT fired by dd.clear() or dd.selectByPredicate() — those are
+ *     // programmatic, so the caller already knows. Lets a page that uses the
+ *     // selection as a filter (e.g. Blood Units donor filter) reset it.
+ *     onClear:         () => resetFilter(),
  *   });
  *
  *   dd.setItems(newItems);             // replace items after async load
@@ -61,6 +68,9 @@ export function initSearchableDropdown(options) {
     suggestMinChars = 3,
     suggestDelay    = 300,
     suggestKeyFn    = (item) => item.donor_id,
+
+    // ── Optional: notified when an existing selection is un-selected by editing
+    onClear         = null,
   } = options;
 
   let _items        = options.items || [];
@@ -97,6 +107,7 @@ export function initSearchableDropdown(options) {
     if (_selectedItem) {
       _selectedItem = null;
       inputEl.setAttribute('aria-selected', 'false');
+      if (onClear) onClear();
     }
     _renderList(inputEl.value.trim());
   });

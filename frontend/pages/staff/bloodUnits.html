@@ -56,7 +56,10 @@
 
         <div class="filter-field filter-field--donor">
           <label class="form-label" for="filter-donor">Donor</label>
-          <input type="search" id="filter-donor" class="form-input" placeholder="Search by donor name" autocomplete="off" />
+          <div class="sd-wrapper">
+            <input type="text" id="filter-donor" class="form-input sd-input" autocomplete="off" />
+            <ul id="filter-donor-list" class="sd-list"></ul>
+          </div>
         </div>
 
         <label class="filter-check" for="filter-near-expiry">

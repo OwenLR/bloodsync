@@ -2,10 +2,12 @@ import { openModal, closeModal, confirmModal } from '../../components/modal.js';
 import { showToast }                            from '../../components/toast.js';
 import { BLOOD_UNIT_STATUS }                    from '../../constants/statusConstants.js';
 import { BLOOD_TYPES }                          from '../../constants/bloodTypes.js';
+import { initSearchableDropdown }               from '../../components/searchableDropdown.js';
 import {
   getUnitsByBranch,
   getUnitById,
   updateUnitStatus,
+  searchSimilarDonors,
 } from './bloodUnitsApi.js';
 
 const TBODY_ID        = 'units-tbody';
@@ -19,6 +21,7 @@ const FILTER_IDS = {
   bloodType:  'filter-blood-type',
   status:     'filter-status',
   donor:      'filter-donor',
+  donorList:  'filter-donor-list',
   nearExpiry: 'filter-near-expiry',
   clear:      'filter-clear',
 };
@@ -65,6 +68,17 @@ const COMPONENT_LABELS = {
   'Fresh Frozen Plasma':       'Plasma',
 };
 
+// Every blood unit row is exactly one bag (one unit = one bag), so this is
+// a fixed display label, not data from the API. Kept as a constant so the
+// wording lives in one place if PRC ever wants it changed.
+const BAG_LABEL = '1 bag';
+
+// "450 mL \u00B7 1 bag" — volume and bag count merged into the Volume column.
+function formatVolume(unit) {
+  const volume = unit.volume_ml != null ? `${unit.volume_ml} mL` : '-';
+  return `${volume} \u00B7 ${BAG_LABEL}`;
+}
+
 let _branchId        = null;
 let _allRows         = [];      // unfiltered cache from last fetch
 let _activeComponent = 'all';   // 'all' | one of the component enum strings
@@ -75,9 +89,12 @@ let _activeComponent = 'all';   // 'all' | one of the component enum strings
 const _filters = {
   bloodType:  '',     // '' = any
   status:     '',     // '' = any
-  donor:      '',     // free text, matched against "first last"
+  donorId:    null,   // null = any; otherwise the picked donor's donor_id
+  donorName:  '',     // display name of the picked donor (result line only)
   nearExpiry: false,
 };
+
+let _donorDropdown = null;   // searchableDropdown handle, set by initUnitFilters()
 
 // ---------------------------------------------------------------------------
 // Public entry — called from the entry file
@@ -91,6 +108,7 @@ export async function renderUnitsTable(branchId) {
   try {
     _allRows = await getUnitsByBranch(_branchId);
     hideSkeleton();
+    refreshDonorItems();
     applyFilterAndRender();
   } catch (err) {
     hideSkeleton();
@@ -123,10 +141,9 @@ export function initComponentTabs() {
 export function initUnitFilters() {
   const typeSel   = document.getElementById(FILTER_IDS.bloodType);
   const statusSel = document.getElementById(FILTER_IDS.status);
-  const donorIn   = document.getElementById(FILTER_IDS.donor);
   const nearChk   = document.getElementById(FILTER_IDS.nearExpiry);
   const clearBtn  = document.getElementById(FILTER_IDS.clear);
-  if (!typeSel || !statusSel || !donorIn || !nearChk || !clearBtn) return;
+  if (!typeSel || !statusSel || !nearChk || !clearBtn) return;
 
   populateSelect(typeSel, BLOOD_TYPES);
   populateSelect(statusSel, STATUS_DISPLAY_ORDER);
@@ -141,9 +158,36 @@ export function initUnitFilters() {
     applyFilterAndRender();
   });
 
-  donorIn.addEventListener('input', () => {
-    _filters.donor = donorIn.value.trim();
-    applyFilterAndRender();
+  // Donor filter: searchable dropdown of donors who have units in this
+  // branch. Picking one filters the table to that donor's units (exact
+  // donor_id). Typo-tolerant suggestions come from the same server-side
+  // pg_trgm search the Registration page uses, narrowed to donors who
+  // actually have units here.
+  _donorDropdown = initSearchableDropdown({
+    inputId:      FILTER_IDS.donor,
+    listId:       FILTER_IDS.donorList,
+    items:        [],   // filled by refreshDonorItems() after each fetch
+    displayFn:    donor => `${donor.first_name} ${donor.last_name}`,
+    subDisplayFn: donor => `${donor.unit_count} ${donor.unit_count === 1 ? 'unit' : 'units'} on record`,
+    filterFn:     donorMatchesQuery,
+    placeholder:  'Search donor by name\u2026',
+    emptyMessage: 'No donors with units found.',
+    onSelect:     donor => {
+      _filters.donorId   = donor.donor_id;
+      _filters.donorName = `${donor.first_name} ${donor.last_name}`;
+      applyFilterAndRender();
+    },
+    onClear:      () => {
+      _filters.donorId   = null;
+      _filters.donorName = '';
+      applyFilterAndRender();
+    },
+
+    suggestFn:       suggestDonorsWithUnits,
+    suggestLabel:    'Similar names',
+    suggestMinChars: 3,
+    suggestDelay:    300,
+    suggestKeyFn:    donor => donor.donor_id,
   });
 
   nearChk.addEventListener('change', () => {
@@ -154,13 +198,14 @@ export function initUnitFilters() {
   clearBtn.addEventListener('click', () => {
     _filters.bloodType  = '';
     _filters.status     = '';
-    _filters.donor      = '';
+    _filters.donorId    = null;
+    _filters.donorName  = '';
     _filters.nearExpiry = false;
 
     typeSel.value   = '';
     statusSel.value = '';
-    donorIn.value   = '';
     nearChk.checked = false;
+    if (_donorDropdown) _donorDropdown.clear();   // programmatic: does not fire onClear
 
     applyFilterAndRender();
   });
@@ -187,7 +232,7 @@ function updateTabState(tabsWrap) {
 
 function hasActiveFilters() {
   return Boolean(
-    _filters.bloodType || _filters.status || _filters.donor || _filters.nearExpiry
+    _filters.bloodType || _filters.status || _filters.donorId !== null || _filters.nearExpiry
   );
 }
 
@@ -199,13 +244,60 @@ function matchesFilters(row) {
   if (_filters.status     && row.status     !== _filters.status)    return false;
   if (_filters.nearExpiry && !row.near_expiry)                      return false;
 
-  if (_filters.donor) {
-    const name   = `${row.first_name ?? ''} ${row.last_name ?? ''}`.toLowerCase();
-    const tokens = _filters.donor.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!tokens.every(token => name.includes(token))) return false;
-  }
+  if (_filters.donorId !== null && row.donor_id !== _filters.donorId) return false;
 
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Donor dropdown helpers
+// ---------------------------------------------------------------------------
+
+// One entry per distinct donor in the loaded units, with how many units
+// they have on record in this branch (all statuses — same set the table
+// shows by default). Sorted by last name so the unfiltered list is browsable.
+function buildDonorItems(rows) {
+  const byId = new Map();
+
+  rows.forEach(row => {
+    const entry = byId.get(row.donor_id) || {
+      donor_id:   row.donor_id,
+      first_name: row.first_name,
+      last_name:  row.last_name,
+      unit_count: 0,
+    };
+    entry.unit_count += 1;
+    byId.set(row.donor_id, entry);
+  });
+
+  return [...byId.values()].sort((a, b) =>
+    `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`)
+  );
+}
+
+function refreshDonorItems() {
+  if (_donorDropdown) _donorDropdown.setItems(buildDonorItems(_allRows));
+}
+
+// Local, instant match: every typed word must appear in "first last".
+// (q arrives already lowercased + trimmed from searchableDropdown.js.)
+function donorMatchesQuery(donor, q) {
+  const name   = `${donor.first_name} ${donor.last_name}`.toLowerCase();
+  const tokens = q.split(/\s+/).filter(Boolean);
+  return tokens.every(token => name.includes(token));
+}
+
+// Typo-tolerant matches from GET /api/donors/search/similar, narrowed to
+// donors who actually have units in this branch (joined on donor_id) and
+// returned as the same item shape as the local list, so picking one works
+// identically. Donors with no units here are dropped — nothing to filter to.
+async function suggestDonorsWithUnits(query) {
+  const similar = await searchSimilarDonors(query);
+  const byId    = new Map(buildDonorItems(_allRows).map(d => [d.donor_id, d]));
+
+  return similar
+    .map(match => byId.get(match.donor_id))
+    .filter(Boolean);
 }
 
 function applyFilterAndRender() {
@@ -253,7 +345,7 @@ function updateResultLine(count) {
   if (_filters.bloodType)  parts.push(_filters.bloodType);
   if (_filters.status)     parts.push(_filters.status);
   if (_filters.nearExpiry) parts.push('Near expiry');
-  if (_filters.donor)      parts.push(`Donor: \u201C${_filters.donor}\u201D`);
+  if (_filters.donorId !== null) parts.push(`Donor: ${_filters.donorName}`);
 
   el.textContent = '';
 
@@ -313,7 +405,7 @@ function buildRow(unit) {
 
   tr.appendChild(cell(unit.blood_type));
   tr.appendChild(cell(unit.component));
-  tr.appendChild(cell(`${unit.volume_ml} mL`));
+  tr.appendChild(cell(formatVolume(unit)));
   tr.appendChild(cell(`${unit.first_name} ${unit.last_name}`));
   tr.appendChild(cell(formatDate(unit.expiration_date)));
   tr.appendChild(statusCell(unit));
@@ -475,7 +567,7 @@ function buildDetailBody(detail) {
   addDetailRow(dl, 'Donor',           `${detail.first_name} ${detail.last_name}`);
   addDetailRow(dl, 'Blood Type',      detail.blood_type);
   addDetailRow(dl, 'Component',       detail.component);
-  addDetailRow(dl, 'Volume',          `${detail.volume_ml} mL`);
+  addDetailRow(dl, 'Volume',          formatVolume(detail));
   addDetailRow(dl, 'Barcode',         detail.barcode);
   addDetailRow(dl, 'Branch',          detail.branch_name);
   addDetailRow(dl, 'Collection Date', formatDate(detail.collection_date));

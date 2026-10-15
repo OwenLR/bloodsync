@@ -1095,3 +1095,101 @@ body.app-ready .page-content {
     display: none;
   }
 }
+
+/* ── Searchable Dropdown (searchableDropdown.js) ──────────────────────────── */
+/*
+ * MOVE of the block that currently lives at the bottom of
+ * features/fieldWorkflow.css. Shared component styles belong in main.css so
+ * any page can use the component without linking fieldWorkflow.css (which
+ * also redefines .page-header and would leak into those pages).
+ *
+ * HTML structure required:
+ *   <div class="sd-wrapper">
+ *     <input id="X-input" type="text" class="form-input sd-input" />
+ *     <ul   id="X-list"               class="sd-list"></ul>
+ *   </div>
+ */
+
+.sd-wrapper {
+  position: relative;
+}
+
+.sd-input {
+  width: 100%;
+  cursor: pointer;
+}
+
+.sd-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 300;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.sd-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 14px;
+  cursor: pointer;
+  outline: none;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.1s;
+}
+
+.sd-item:last-child {
+  border-bottom: none;
+}
+
+.sd-item:hover,
+.sd-item:focus {
+  background: #fdf0f0;
+}
+
+.sd-item--empty {
+  cursor: default;
+  color: #888;
+  font-size: 13px;
+  font-style: italic;
+  padding: 12px 14px;
+}
+
+.sd-item--empty:hover,
+.sd-item--empty:focus {
+  background: none;
+}
+
+.sd-item-primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+}
+
+.sd-item-sub {
+  font-size: 11px;
+  color: #777;
+}
+
+/* Section header inside the list (e.g. "Similar names" fuzzy suggestions) */
+.sd-header {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+  cursor: default;
+  user-select: none;
+}
