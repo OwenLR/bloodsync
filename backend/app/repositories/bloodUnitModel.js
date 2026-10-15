@@ -117,12 +117,15 @@ const getUnitsByBranch = async (branch_id) => {
 };
 
 /**
- * Get ALL units for a branch, regardless of status or expiration.
- * Used by the Staff Main Inventory page — needs to show terminal-state
- * units (Disposed/Withdrawn/Released/Separated/Expired) as read-only
- * history, not just Available ones.
- * Unlike getUnitsByBranch (FEFO/fulfillment use — Available + non-expired only),
- * this is the full branch-scoped list.
+ * Replace the existing getUnitsByBranchAll in bloodUnitModel.js with this
+ * version. This is the function GET /api/blood-units/branch/:branch_id
+ * (the Staff Blood Units page) actually uses.
+ *
+ * Only two things differ from the current version:
+ *   1. `dn.extraction_date,`  added to the SELECT
+ *   2. `LEFT JOIN donations dn ...` added under the donors join
+ *
+ * Apply the same two lines to getAllUnits and getUnitById.
  */
 const getUnitsByBranchAll = async (branch_id) => {
     const result = await pool.query(
@@ -154,11 +157,13 @@ const getUnitsByBranchAll = async (branch_id) => {
             bu.disposal_reason,
             bu.withdrawal_reason,
             bu.created_at,
+            dn.extraction_date,
             d.donor_id,
             d.first_name,
             d.last_name
          FROM blood_units bu
          JOIN donors d ON bu.donor_id = d.donor_id
+         LEFT JOIN donations dn ON bu.donation_id = dn.donation_id
          WHERE bu.branch_id = $1
          ORDER BY bu.expiration_date ASC`,
         [branch_id]

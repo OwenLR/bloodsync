@@ -409,6 +409,7 @@ function buildRow(unit) {
   tr.appendChild(cell(unit.component));
   tr.appendChild(cell(formatVolume(unit)));
   tr.appendChild(cell(`${unit.first_name} ${unit.last_name}`));
+  tr.appendChild(createdCell(unit));
   tr.appendChild(expirationCell(unit));
   tr.appendChild(statusCell(unit));
   tr.appendChild(actionsCell(unit));
@@ -419,6 +420,43 @@ function buildRow(unit) {
 function cell(text) {
   const td = document.createElement('td');
   td.textContent = text ?? '-';
+  return td;
+}
+
+// ---------------------------------------------------------------------------
+// Created — "Extracted" (Whole Blood) vs "Separated" (RBC / Platelets / Plasma)
+// ---------------------------------------------------------------------------
+
+const WHOLE_BLOOD_COMPONENT = 'Whole Blood';
+const CREATED_LABEL_EXTRACTED = 'Extracted';
+const CREATED_LABEL_SEPARATED = 'Separated';
+
+// Which event created this unit, and when:
+//  - Whole Blood  -> the donor's extraction. Uses `extraction_date`, joined
+//    from the donations table (NOT collection_date: the collection row is
+//    inserted with the DB default for collection_date at the time staff
+//    submit the collection step, which can lag the real extraction).
+//  - Every other component is a product of separation. Its collection row
+//    is inserted with collection_date = NOW() at the moment of separation
+//    (bloodCollectionModel.createDerivedCollections), and the unit
+//    inherits it — so collection_date IS the separation time there.
+function getCreatedInfo(unit) {
+  return unit.component === WHOLE_BLOOD_COMPONENT
+    ? { label: CREATED_LABEL_EXTRACTED, date: unit.extraction_date }
+    : { label: CREATED_LABEL_SEPARATED, date: unit.collection_date };
+}
+
+function createdCell(unit) {
+  const td = document.createElement('td');
+  const { label, date } = getCreatedInfo(unit);
+
+  if (!date || isNaN(new Date(date).getTime())) {
+    td.textContent = '-';
+    return td;
+  }
+
+  td.textContent = `${label} \u00B7 ${formatDate(date)}`;
+  td.title       = `${label} at ${formatDateTime(date)}`;
   return td;
 }
 
@@ -658,7 +696,8 @@ function buildDetailBody(detail) {
   addDetailRow(dl, 'Volume',          formatVolume(detail));
   addDetailRow(dl, 'Barcode',         detail.barcode);
   addDetailRow(dl, 'Branch',          detail.branch_name);
-  addDetailRow(dl, 'Collection Date', formatDate(detail.collection_date));
+  const created = getCreatedInfo(detail);
+  addDetailRow(dl, `${created.label} At`, formatDateTime(created.date));
   addDetailRow(dl, 'Expiration Date', formatDate(detail.expiration_date));
   addDetailRow(dl, 'Status',          detail.status);
 
@@ -744,6 +783,16 @@ function showEmptyState() {
 function hideEmptyState() {
   const empty = document.getElementById('units-empty-state');
   if (empty) empty.style.display = 'none';
+}
+
+function formatDateTime(isoString) {
+  if (!isoString) return '-';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleString('en-PH', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
 }
 
 function formatDate(isoString) {
